@@ -1725,6 +1725,10 @@ func (c *Conn) querySystemPeers(ctx context.Context, version cassVersion) *Iter 
 	}
 }
 
+func (c *Conn) querySystemTablets(ctx context.Context) *Iter {
+	return c.query(ctx, "SELECT * FROM system.tablets")
+}
+
 func (c *Conn) querySystemLocal(ctx context.Context) *Iter {
 	return c.query(ctx, "SELECT * FROM system.local WHERE key='local'")
 }

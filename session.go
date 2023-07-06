@@ -45,6 +45,7 @@ type Session struct {
 	hostSource          *ringDescriber
 	ringRefresher       *refreshDebouncer
 	stmtsLRU            *preparedLRU
+	tabletTicker        *tabletRefresher
 
 	connCfg *ConnConfig
 
@@ -160,6 +161,7 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 	if cfg.PoolConfig.HostSelectionPolicy == nil {
 		cfg.PoolConfig.HostSelectionPolicy = RoundRobinHostPolicy()
 	}
+
 	s.pool = cfg.PoolConfig.buildPool(s)
 
 	s.policy = cfg.PoolConfig.HostSelectionPolicy
@@ -193,6 +195,10 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 			// TODO(zariel): dont wrap this error in fmt.Errorf, return a typed error
 			return nil, fmt.Errorf("gocql: unable to create session: %v", err)
 		}
+	}
+
+	if s.hostSource.UsesTablets() {
+		s.tabletTicker = newTabletRefresher(tabletRefreshTime, func() error { return refreshTablets(s.hostSource) })
 	}
 
 	return s, nil
@@ -243,6 +249,16 @@ func (s *Session) init() error {
 			}
 
 			hosts = filteredHosts
+
+			if s.hostSource.UsesTablets() {
+				tablets, err := s.hostSource.GetTablets()
+				if err != nil {
+					return err
+				}
+
+				s.ring.setTablets(tablets)
+				s.policy.SetTablets(tablets)
+			}
 		}
 	}
 
@@ -576,12 +592,19 @@ func (s *Session) getConn() *Conn {
 		pool, ok := s.pool.getPool(host)
 		if !ok {
 			continue
-		} else if conn := pool.Pick(nil); conn != nil {
+		} else if conn := pool.Pick(nil, "", ""); conn != nil {
 			return conn
 		}
 	}
 
 	return nil
+}
+
+func (s *Session) getTablets() []*TabletInfo {
+	s.ring.mu.Lock()
+	defer s.ring.mu.Unlock()
+
+	return s.ring.tabletList
 }
 
 // returns routing key indexes and type info
@@ -665,8 +688,8 @@ func (s *Session) routingKeyInfo(ctx context.Context, stmt string) (*routingKeyI
 			types:       types,
 			lwt:         info.request.lwt,
 			partitioner: partitioner,
-			keyspace:    info.request.keyspace,
-			table:       info.request.table,
+			keyspace:    keyspace,
+			table:       table,
 		}
 
 		inflight.value = routingKeyInfo

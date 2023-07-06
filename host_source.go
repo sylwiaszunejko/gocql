@@ -430,10 +430,10 @@ func (h *HostInfo) Hostname() string {
 }
 
 func (h *HostInfo) ConnectAddressAndPort() string {
-        h.mu.Lock()
-        defer h.mu.Unlock()
-        addr, _ := h.connectAddressLocked()
-        return net.JoinHostPort(addr.String(), strconv.Itoa(h.port))
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	addr, _ := h.connectAddressLocked()
+	return net.JoinHostPort(addr.String(), strconv.Itoa(h.port))
 }
 
 func (h *HostInfo) String() string {
@@ -472,12 +472,106 @@ func (h *HostInfo) ScyllaShardAwarePortTLS() uint16 {
 	return h.scyllaShardAwarePortTLS
 }
 
-// Polls system.peers at a specific interval to find new hosts
+type ReplicaInfo struct {
+	hostId  UUID
+	shardId int
+}
+
+type TabletInfo struct {
+	mu           sync.RWMutex
+	keyspaceName string
+	tableId      UUID
+	lastToken    int64
+	tableName    string
+	tabletCount  int
+	newReplicas  []ReplicaInfo
+	replicas     []ReplicaInfo
+	stage        string
+}
+
+func (t *TabletInfo) KeyspaceName() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.keyspaceName
+}
+
+func (t *TabletInfo) TableId() UUID {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.tableId
+}
+
+func (t *TabletInfo) LastToken() int64 {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.lastToken
+}
+
+func (t *TabletInfo) TableName() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.tableName
+}
+
+func (t *TabletInfo) TabletCount() int {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.tabletCount
+}
+
+func (t *TabletInfo) NewReplicas() []ReplicaInfo {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.newReplicas
+}
+
+func (t *TabletInfo) Replicas() []ReplicaInfo {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.replicas
+}
+
+func (t *TabletInfo) Stage() string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.stage
+}
+
+// Search for place in tablets table with specific Keyspce and Table name
+func findTablets(tablets []*TabletInfo, k string, t string) int {
+	l := -1
+	for i, tablet := range tablets {
+		if tablet.KeyspaceName() == k && tablet.TableName() == t {
+			l = i
+			break
+		}
+	}
+
+	return l
+}
+
+// Search for place in tablets table for token starting from index l
+func findTabletForToken(tablets []*TabletInfo, token token, l int) *TabletInfo {
+	r := l + tablets[l].TabletCount() - 1
+	for l < r {
+		m := (l + r) / 2
+		if int64Token(tablets[m].LastToken()).Less(token) {
+			l = m + 1
+		} else {
+			r = m
+		}
+	}
+
+	return tablets[l]
+}
+
+// Polls system.peers and system.tablets at a specific interval to find new hosts and tablets
 type ringDescriber struct {
 	session         *Session
 	mu              sync.Mutex
 	prevHosts       []*HostInfo
 	prevPartitioner string
+	prevTablets     []*TabletInfo
 }
 
 // Returns true if we are using system_schema.keyspaces instead of system.schema_keyspaces
@@ -618,6 +712,94 @@ func (s *Session) hostInfoFromMap(row map[string]interface{}, host *HostInfo) (*
 	return host, nil
 }
 
+// Given a map that represents a row from system.tablets
+// return as much information as we can in *TabletInfo
+func (s *Session) tabletInfoFromMap(row map[string]interface{}, tablet *TabletInfo) (*TabletInfo, error) {
+	const assertErrorMsg = "Assertion failed for %s"
+	var ok bool
+
+	for key, value := range row {
+		switch key {
+		case "keyspace_name":
+			tablet.keyspaceName, ok = value.(string)
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "keyspace_name")
+			}
+		case "table_id":
+			tablet.tableId, ok = value.(UUID)
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "table_id")
+			}
+		case "last_token":
+			tablet.lastToken, ok = value.(int64)
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "last_token")
+			}
+		case "table_name":
+			tablet.tableName, ok = value.(string)
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "table_name")
+			}
+		case "tablet_count":
+			tablet.tabletCount, ok = value.(int)
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "tablet_count")
+			}
+		case "new_replicas":
+			newReplicasSource, ok := value.([][]interface{})
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "new_replicas")
+			}
+			newReplicas := make([]ReplicaInfo, 0, len(newReplicasSource))
+			for _, replica := range newReplicasSource {
+				if len(replica) != 2 {
+					return nil, fmt.Errorf(assertErrorMsg, "new_replicas")
+				}
+				if hostId, ok := replica[0].(UUID); ok {
+					if shardId, ok := replica[1].(int); ok {
+						repInfo := ReplicaInfo{hostId, shardId}
+						newReplicas = append(newReplicas, repInfo)
+					} else {
+						return nil, fmt.Errorf(assertErrorMsg, "new_replicas")
+					}
+				} else {
+					return nil, fmt.Errorf(assertErrorMsg, "new_replicas")
+				}
+			}
+			tablet.newReplicas = newReplicas
+		case "replicas":
+			replicasSource, ok := value.([][]interface{})
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "replicas")
+			}
+			replicas := make([]ReplicaInfo, 0, len(replicasSource))
+			for _, replica := range replicasSource {
+				if len(replica) != 2 {
+					return nil, fmt.Errorf(assertErrorMsg, "replicas")
+				}
+				if hostId, ok := replica[0].(UUID); ok {
+					if shardId, ok := replica[1].(int); ok {
+						repInfo := ReplicaInfo{hostId, shardId}
+						replicas = append(replicas, repInfo)
+					} else {
+						return nil, fmt.Errorf(assertErrorMsg, "replicas")
+					}
+				} else {
+					return nil, fmt.Errorf(assertErrorMsg, "replicas")
+				}
+			}
+			tablet.replicas = replicas
+		case "stage":
+			tablet.stage, ok = value.(string)
+			if !ok {
+				return nil, fmt.Errorf(assertErrorMsg, "stage")
+			}
+		}
+	}
+
+	return tablet, nil
+}
+
 func (s *Session) hostInfoFromIter(iter *Iter, connectAddress net.IP, defaultPort int) (*HostInfo, error) {
 	rows, err := iter.SliceMap()
 	if err != nil {
@@ -696,6 +878,48 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 	return peers, nil
 }
 
+// Ask the control node for info about tablets
+func (r *ringDescriber) getSystemTabletsInfo() ([]*TabletInfo, error) {
+	if r.session.control == nil {
+		return nil, errNoControl
+	}
+
+	iter := r.session.control.withConnHost(func(ch *connHost) *Iter {
+		return ch.conn.querySystemTablets(context.TODO())
+	})
+	if iter == nil {
+		return nil, errNoControl
+	}
+
+	rows, err := iter.SliceMap()
+	if err != nil {
+		return nil, fmt.Errorf("unable to fetch tablet info: %s", err)
+	}
+
+	var tablets []*TabletInfo
+
+	for _, row := range rows {
+		// extract all available info about the tablet
+		tablet, err := r.session.tabletInfoFromMap(row, &TabletInfo{})
+		if err != nil {
+			return nil, err
+		} else if !isValidTablet(tablet) {
+			// If it's not a valid tablet
+			r.session.logger.Printf("Found invalid tablet '%s' ", tablet)
+			continue
+		}
+
+		tablets = append(tablets, tablet)
+	}
+
+	return tablets, nil
+}
+
+// Return true if the tablet is valid
+func isValidTablet(tablet *TabletInfo) bool {
+	return tablet.replicas != nil && len(tablet.replicas) != 0 && tablet.tableName != ""
+}
+
 // Return true if the host is a valid peer
 func isValidPeer(host *HostInfo) bool {
 	return !(len(host.RPCAddress()) == 0 ||
@@ -727,6 +951,29 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 	}
 
 	return hosts, partitioner, nil
+}
+
+// GetTablets returns a list of tablets found via queries to system.tablets
+func (r *ringDescriber) GetTablets() ([]*TabletInfo, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	tabletsInfo, err := r.getSystemTabletsInfo()
+	if err != nil {
+		return r.prevTablets, err
+	}
+
+	tablets := append([]*TabletInfo{}, tabletsInfo...)
+	return tablets, nil
+}
+
+// True if experimental feature "tablets" is enabled and it is possible to query system.tablets
+func (r *ringDescriber) UsesTablets() bool {
+	_, err := r.GetTablets()
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 // Given an ip/port return HostInfo for the specified ip/port
@@ -835,11 +1082,25 @@ func refreshRing(r *ringDescriber) error {
 
 	r.session.metadata.setPartitioner(partitioner)
 	r.session.policy.SetPartitioner(partitioner)
+
+	return nil
+}
+
+func refreshTablets(r *ringDescriber) error {
+	tablets, err := r.GetTablets()
+	if err != nil {
+		return err
+	}
+
+	r.session.ring.setTablets(tablets)
+	r.session.policy.SetTablets(tablets)
+
 	return nil
 }
 
 const (
 	ringRefreshDebounceTime = 1 * time.Second
+	tabletRefreshTime       = 1 * time.Second
 )
 
 // debounces requests to call a refresh function (currently used for ring refresh). It also supports triggering a refresh immediately.
@@ -945,6 +1206,48 @@ func (d *refreshDebouncer) stop() {
 	d.mu.Unlock()
 	d.quit <- struct{}{} // sync with flusher
 	close(d.quit)
+}
+
+// used to refresh tablets every x seconds
+type tabletRefresher struct {
+	mu          sync.Mutex
+	ticker      *time.Ticker
+	broadcaster *errorBroadcaster
+	quit        chan struct{}
+	refreshFn   func() error
+}
+
+func newTabletRefresher(interval time.Duration, refreshFn func() error) *tabletRefresher {
+	r := &tabletRefresher{
+		quit:        make(chan struct{}),
+		ticker:      time.NewTicker(interval),
+		broadcaster: nil,
+		refreshFn:   refreshFn,
+	}
+	go r.flush()
+	return r
+}
+
+func (r *tabletRefresher) flush() {
+	for {
+		select {
+		case <-r.ticker.C:
+			r.mu.Lock()
+			curBroadcaster := r.broadcaster
+			r.broadcaster = nil
+			r.mu.Unlock()
+
+			err := r.refreshFn()
+			if err != nil {
+				if curBroadcaster != nil {
+					curBroadcaster.broadcast(err)
+				}
+			}
+		case <-r.quit:
+			r.ticker.Stop()
+			return
+		}
+	}
 }
 
 // broadcasts an error to multiple channels (listeners)
