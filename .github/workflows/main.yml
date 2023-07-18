@@ -37,3 +37,4 @@ jobs:
       - run: ./integration.sh cassandra scylla
       - run: ./integration.sh integration scylla
       - run: ./integration.sh ccm
+      - run: ./integration.sh tablet
