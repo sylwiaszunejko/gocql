@@ -1,3 +1,4 @@
+//go:build !cassandra || scylla
 // +build !cassandra scylla
 
 // Copyright (c) 2015 The gocql Authors. All rights reserved.
@@ -132,6 +133,29 @@ type IndexMetadata struct {
 	Options      map[string]string
 }
 
+// TabletsMetadata holds metadata for tablet list
+type TabletsMetadata struct {
+	Tablets []*TabletMetadata
+}
+
+// TabletMetadata holds metadata for single tablet
+type TabletMetadata struct {
+	KeyspaceName string
+	TableId      UUID
+	LastToken    int64
+	TableName    string
+	TabletCount  int
+	NewReplicas  []ReplicaMetadata
+	Replicas     []ReplicaMetadata
+	Stage        string
+}
+
+// TabletMetadata holds metadata for single replica
+type ReplicaMetadata struct {
+	HostId  UUID
+	ShardId int
+}
+
 const (
 	IndexKindCustom = "CUSTOM"
 )
@@ -215,20 +239,22 @@ func columnKindFromSchema(kind string) (ColumnKind, error) {
 	}
 }
 
-// queries the cluster for schema information for a specific keyspace
+// queries the cluster for schema information for a specific keyspace and for tablets
 type schemaDescriber struct {
 	session *Session
 	mu      sync.Mutex
 
-	cache map[string]*KeyspaceMetadata
+	cache        map[string]*KeyspaceMetadata
+	tabletsCache *TabletsMetadata
 }
 
 // creates a session bound schema describer which will query and cache
-// keyspace metadata
+// keyspace metadata and tablets metadata
 func newSchemaDescriber(session *Session) *schemaDescriber {
 	return &schemaDescriber{
-		session: session,
-		cache:   map[string]*KeyspaceMetadata{},
+		session:      session,
+		cache:        map[string]*KeyspaceMetadata{},
+		tabletsCache: &TabletsMetadata{},
 	}
 }
 
@@ -250,6 +276,40 @@ func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, err
 	}
 
 	return metadata, nil
+}
+
+func (s *schemaDescriber) getTabletsSchema() *TabletsMetadata {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	metadata := s.tabletsCache
+
+	return metadata
+}
+
+func (s *schemaDescriber) refreshTabletsSchema() {
+	tablets := s.session.getTablets()
+	s.tabletsCache.Tablets = []*TabletMetadata{}
+
+	for _, tablet := range tablets {
+		t := &TabletMetadata{}
+		t.KeyspaceName = tablet.KeyspaceName()
+		t.TableId = tablet.TableId()
+		t.TableName = tablet.TableName()
+		t.Stage = tablet.Stage()
+		t.LastToken = tablet.LastToken()
+		t.TabletCount = tablet.TabletCount()
+		t.Replicas = []ReplicaMetadata{}
+		for _, replica := range tablet.Replicas() {
+			t.Replicas = append(t.Replicas, ReplicaMetadata{replica.hostId, replica.shardId})
+		}
+		t.NewReplicas = []ReplicaMetadata{}
+		for _, replica := range tablet.NewReplicas() {
+			t.NewReplicas = append(t.NewReplicas, ReplicaMetadata{replica.hostId, replica.shardId})
+		}
+
+		s.tabletsCache.Tablets = append(s.tabletsCache.Tablets, t)
+	}
 }
 
 // clears the already cached keyspace metadata

@@ -582,6 +582,18 @@ func (s *Session) KeyspaceMetadata(keyspace string) (*KeyspaceMetadata, error) {
 	return s.schemaDescriber.getSchema(keyspace)
 }
 
+// TabletsMetadata returns the metadata about tablets
+func (s *Session) TabletsMetadata() (*TabletsMetadata, error) {
+	// fail fast
+	if s.Closed() {
+		return nil, ErrSessionClosed
+	} else if !s.hostSource.UsesTablets() {
+		return nil, ErrTabletsNotUsed
+	}
+
+	return s.schemaDescriber.getTabletsSchema(), nil
+}
+
 func (s *Session) getConn() *Conn {
 	hosts := s.ring.allHosts()
 	for _, host := range hosts {
@@ -2369,6 +2381,7 @@ var (
 	ErrNoKeyspace           = errors.New("no keyspace provided")
 	ErrKeyspaceDoesNotExist = errors.New("keyspace does not exist")
 	ErrNoMetadata           = errors.New("no metadata available")
+	ErrTabletsNotUsed       = errors.New("tablets not used")
 )
 
 type ErrProtocol struct{ error }
