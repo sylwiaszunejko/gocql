@@ -1100,6 +1100,8 @@ func refreshTablets(r *ringDescriber) error {
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)
 
+	r.session.schemaDescriber.refreshTabletsSchema()
+
 	return nil
 }
 
