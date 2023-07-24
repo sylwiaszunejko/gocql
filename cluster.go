@@ -244,6 +244,9 @@ type ClusterConfig struct {
 	// internal config for testing
 	disableControlConn bool
 	disableInit        bool
+
+	// If true tablet feature is enabled
+	experimentalTabletsEnabled bool
 }
 
 type Dialer interface {
@@ -277,6 +280,7 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		ConvictionPolicy:       &SimpleConvictionPolicy{},
 		ReconnectionPolicy:     &ConstantReconnectionPolicy{MaxRetries: 3, Interval: 1 * time.Second},
 		WriteCoalesceWaitTime:  200 * time.Microsecond,
+		experimentalTabletsEnabled: false,
 	}
 
 	return cfg
@@ -312,6 +316,10 @@ func (cfg *ClusterConfig) translateAddressPort(addr net.IP, port int) (net.IP, i
 
 func (cfg *ClusterConfig) filterHost(host *HostInfo) bool {
 	return !(cfg.HostFilter == nil || cfg.HostFilter.Accept(host))
+}
+
+func (cfg *ClusterConfig) EnableExperimentalTablets() {
+	cfg.experimentalTabletsEnabled = true
 }
 
 var (

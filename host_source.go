@@ -472,11 +472,13 @@ func (h *HostInfo) ScyllaShardAwarePortTLS() uint16 {
 	return h.scyllaShardAwarePortTLS
 }
 
+// Experimental, this interface and use may change
 type ReplicaInfo struct {
 	hostId  UUID
 	shardId int
 }
 
+// Experimental, this interface and use may change
 type TabletInfo struct {
 	mu           sync.RWMutex
 	keyspaceName string
@@ -576,7 +578,8 @@ type ringDescriber struct {
 	mu              sync.Mutex
 	prevHosts       []*HostInfo
 	prevPartitioner string
-	prevTablets     []*TabletInfo
+	// Experimental, this interface and use may change
+	prevTablets []*TabletInfo
 }
 
 // Returns true if we are using system_schema.keyspaces instead of system.schema_keyspaces
@@ -719,6 +722,7 @@ func (s *Session) hostInfoFromMap(row map[string]interface{}, host *HostInfo) (*
 
 // Given a map that represents a row from system.tablets
 // return as much information as we can in *TabletInfo
+// Experimental, this interface and use may change
 func (s *Session) tabletInfoFromMap(row map[string]interface{}, tablet *TabletInfo) (*TabletInfo, error) {
 	const assertErrorMsg = "Missing column %s in tablet description"
 	var ok bool
@@ -884,6 +888,7 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 }
 
 // Ask the control node for info about tablets
+// Experimental, this interface and use may change
 func (r *ringDescriber) getSystemTabletsInfo() ([]*TabletInfo, error) {
 	if r.session.control == nil {
 		return nil, errNoControl
@@ -921,6 +926,7 @@ func (r *ringDescriber) getSystemTabletsInfo() ([]*TabletInfo, error) {
 }
 
 // Return true if the tablet is valid
+// Experimental, this interface and use may change
 func isValidTablet(tablet *TabletInfo) bool {
 	return tablet.replicas != nil && len(tablet.replicas) != 0 && tablet.tableName != ""
 }
@@ -959,6 +965,7 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 }
 
 // GetTablets returns a list of tablets found via queries to system.tablets
+// Experimental, this interface and use may change
 func (r *ringDescriber) GetTablets() ([]*TabletInfo, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -973,6 +980,7 @@ func (r *ringDescriber) GetTablets() ([]*TabletInfo, error) {
 }
 
 // True if experimental feature "tablets" is enabled and it is possible to query system.tablets
+// Experimental, this interface and use may change
 func (r *ringDescriber) UsesTablets() bool {
 	_, err := r.GetTablets()
 	if err != nil {
@@ -1091,6 +1099,7 @@ func refreshRing(r *ringDescriber) error {
 	return nil
 }
 
+// Experimental, this interface and use may change
 func refreshTablets(r *ringDescriber) error {
 	tablets, err := r.GetTablets()
 	if err != nil {
@@ -1216,6 +1225,7 @@ func (d *refreshDebouncer) stop() {
 }
 
 // used to refresh tablets every x seconds
+// Experimental, this interface and use may change
 type tabletRefresher struct {
 	mu          sync.Mutex
 	ticker      *time.Ticker

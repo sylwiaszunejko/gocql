@@ -16,6 +16,7 @@ import (
 // Check if TokenAwareHostPolicy works correctly when using tablets
 func TestTablets(t *testing.T) {
 	cluster := createMultiNodeCluster()
+	cluster.EnableExperimentalTablets()
 
 	fallback := RoundRobinHostPolicy()
 	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(fallback)
@@ -75,6 +76,7 @@ func TestTablets(t *testing.T) {
 // Check if shard awareness works correctly when using tablets
 func TestTabletsShardAwareness(t *testing.T) {
 	cluster := createMultiNodeCluster()
+	cluster.EnableExperimentalTablets()
 
 	fallback := RoundRobinHostPolicy()
 	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(fallback)
@@ -133,6 +135,7 @@ func TestTabletsShardAwareness(t *testing.T) {
 // Check if adding new table changes tablets table
 func TestTabletsRefresh(t *testing.T) {
 	cluster := createMultiNodeCluster()
+	cluster.EnableExperimentalTablets()
 
 	fallback := RoundRobinHostPolicy()
 	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(fallback)
