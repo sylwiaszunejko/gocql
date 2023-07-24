@@ -330,17 +330,21 @@ func (p *scyllaConnPicker) Pick(t token, keyspace string, table string) *Conn {
 		return nil
 	}
 
-	tablets := p.conns[0].session.getTablets()
-
 	var idx int
 
-	// Search for tablets with Keyspace and Table from the Query
-	l := findTablets(tablets, keyspace, table)
+	if p.conns[0].session.cfg.experimentalTabletsEnabled {
+		tablets := p.conns[0].session.getTablets()
 
-	if l != -1 {
-		tablet := findTabletForToken(tablets, mmt, l)
+		// Search for tablets with Keyspace and Table from the Query
+		l := findTablets(tablets, keyspace, table)
 
-		idx = tablet.replicas[0].shardId
+		if l != -1 {
+			tablet := findTabletForToken(tablets, mmt, l)
+
+			idx = tablet.replicas[0].shardId
+		} else {
+			idx = p.shardOf(mmt)
+		}
 	} else {
 		idx = p.shardOf(mmt)
 	}

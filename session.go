@@ -197,7 +197,7 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 		}
 	}
 
-	if s.hostSource.UsesTablets() {
+	if s.cfg.experimentalTabletsEnabled && s.hostSource.UsesTablets() {
 		s.tabletTicker = newTabletRefresher(tabletRefreshTime, func() error { return refreshTablets(s.hostSource) })
 	}
 
@@ -250,7 +250,7 @@ func (s *Session) init() error {
 
 			hosts = filteredHosts
 
-			if s.hostSource.UsesTablets() {
+			if s.cfg.experimentalTabletsEnabled && s.hostSource.UsesTablets() {
 				tablets, err := s.hostSource.GetTablets()
 				if err != nil {
 					return err
@@ -583,6 +583,7 @@ func (s *Session) KeyspaceMetadata(keyspace string) (*KeyspaceMetadata, error) {
 }
 
 // TabletsMetadata returns the metadata about tablets
+// Experimental, this interface and use may change
 func (s *Session) TabletsMetadata() (*TabletsMetadata, error) {
 	// fail fast
 	if s.Closed() {
@@ -612,6 +613,7 @@ func (s *Session) getConn() *Conn {
 	return nil
 }
 
+// Experimental, this interface and use may change
 func (s *Session) getTablets() []*TabletInfo {
 	s.ring.mu.Lock()
 	defer s.ring.mu.Unlock()
@@ -1216,6 +1218,10 @@ func (q *Query) Keyspace() string {
 // Table returns name of the table the query will be executed against.
 func (q *Query) Table() string {
 	return q.routingInfo.table
+}
+
+func (q *Query) GetSession() *Session {
+	return q.session
 }
 
 // GetRoutingKey gets the routing key to use for routing this query. If
@@ -1875,6 +1881,10 @@ func (b *Batch) Keyspace() string {
 // Batch has no reasonable eqivalent of Query.Release().
 func (b *Batch) Table() string {
 	return b.routingInfo.table
+}
+
+func (b *Batch) GetSession() *Session {
+	return b.session
 }
 
 // Attempts returns the number of attempts made to execute the batch.

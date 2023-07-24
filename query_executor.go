@@ -23,6 +23,8 @@ type ExecutableQuery interface {
 	withContext(context.Context) ExecutableQuery
 
 	RetryableQuery
+
+	GetSession() *Session
 }
 
 type queryExecutor struct {

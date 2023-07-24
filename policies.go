@@ -96,6 +96,7 @@ func (c *cowHostList) remove(ip net.IP) bool {
 }
 
 // cowTabletList implements a copy on write tablet list, its equivalent type is []*TabletInfo
+// Experimental, this interface and use may change
 type cowTabletList struct {
 	list atomic.Value
 	mu   sync.Mutex
@@ -306,6 +307,7 @@ type HostTierer interface {
 type HostSelectionPolicy interface {
 	HostStateNotifier
 	SetPartitioner
+	// Experimental, this interface and use may change
 	SetTablets
 	KeyspaceChanged(KeyspaceUpdateEvent)
 	Init(*Session)
@@ -357,8 +359,10 @@ type roundRobinHostPolicy struct {
 func (r *roundRobinHostPolicy) IsLocal(*HostInfo) bool              { return true }
 func (r *roundRobinHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *roundRobinHostPolicy) SetPartitioner(partitioner string)   {}
-func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo)    {}
 func (r *roundRobinHostPolicy) Init(*Session)                       {}
+
+// Experimental, this interface and use may change
+func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo) {}
 
 func (r *roundRobinHostPolicy) Pick(qry ExecutableQuery) NextHost {
 	nextStartOffset := atomic.AddUint64(&r.lastUsedHostIdx, 1)
@@ -437,6 +441,7 @@ type tokenAwareHostPolicy struct {
 
 	logger StdLogger
 
+	// Experimental, this interface and use may change
 	tablets cowTabletList
 }
 
@@ -504,6 +509,7 @@ func (t *tokenAwareHostPolicy) SetPartitioner(partitioner string) {
 	}
 }
 
+// Experimental, this interface and use may change
 func (t *tokenAwareHostPolicy) SetTablets(tablets []*TabletInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -630,27 +636,44 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 
 	var replicas []*HostInfo
 
-	t.tablets.mu.Lock()
-	tablets := t.tablets.get()
+	if qry.GetSession() != nil && qry.GetSession().cfg.experimentalTabletsEnabled {
+		t.tablets.mu.Lock()
+		tablets := t.tablets.get()
 
-	// Search for tablets with Keyspce and Table from the Query
-	l := findTablets(tablets, qry.Keyspace(), qry.Table())
+		// Search for tablets with Keyspce and Table from the Query
+		l := findTablets(tablets, qry.Keyspace(), qry.Table())
 
-	if l != -1 {
-		tablet := findTabletForToken(tablets, token, l)
+		if l != -1 {
+			tablet := findTabletForToken(tablets, token, l)
 
-		replicas = []*HostInfo{}
-		for _, replica := range tablet.Replicas() {
-			t.hosts.mu.Lock()
-			hosts := t.hosts.get()
-			for _, host := range hosts {
-				if host.hostId == replica.hostId.String() {
-					replicas = append(replicas, host)
-					break
+			replicas = []*HostInfo{}
+			for _, replica := range tablet.Replicas() {
+				t.hosts.mu.Lock()
+				hosts := t.hosts.get()
+				for _, host := range hosts {
+					if host.hostId == replica.hostId.String() {
+						replicas = append(replicas, host)
+						break
+					}
 				}
+				t.hosts.mu.Unlock()
 			}
-			t.hosts.mu.Unlock()
+		} else {
+			ht := meta.replicas[qry.Keyspace()].replicasFor(token)
+
+			if ht == nil {
+				host, _ := meta.tokenRing.GetHostForToken(token)
+				replicas = []*HostInfo{host}
+			} else {
+				replicas = ht.hosts
+			}
 		}
+
+		if t.shuffleReplicas && !qry.IsLWT() {
+			replicas = shuffleHosts(replicas)
+		}
+
+		t.tablets.mu.Unlock()
 	} else {
 		ht := meta.replicas[qry.Keyspace()].replicasFor(token)
 
@@ -659,14 +682,11 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 			replicas = []*HostInfo{host}
 		} else {
 			replicas = ht.hosts
+			if t.shuffleReplicas && !qry.IsLWT() {
+				replicas = shuffleHosts(replicas)
+			}
 		}
 	}
-
-	if t.shuffleReplicas && !qry.IsLWT() {
-		replicas = shuffleHosts(replicas)
-	}
-
-	t.tablets.mu.Unlock()
 
 	var (
 		fallbackIter NextHost
@@ -775,8 +795,10 @@ type hostPoolHostPolicy struct {
 func (r *hostPoolHostPolicy) Init(*Session)                       {}
 func (r *hostPoolHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *hostPoolHostPolicy) SetPartitioner(string)               {}
-func (r *hostPoolHostPolicy) SetTablets(tablets []*TabletInfo)    {}
 func (r *hostPoolHostPolicy) IsLocal(*HostInfo) bool              { return true }
+
+// Experimental, this interface and use may change
+func (r *hostPoolHostPolicy) SetTablets(tablets []*TabletInfo) {}
 
 func (r *hostPoolHostPolicy) SetHosts(hosts []*HostInfo) {
 	peers := make([]string, len(hosts))
@@ -912,11 +934,12 @@ func DCAwareRoundRobinPolicy(localDC string) HostSelectionPolicy {
 func (d *dcAwareRR) Init(*Session)                       {}
 func (d *dcAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (d *dcAwareRR) SetPartitioner(p string)             {}
-func (d *dcAwareRR) SetTablets(tablets []*TabletInfo)    {}
-
 func (d *dcAwareRR) IsLocal(host *HostInfo) bool {
 	return host.DataCenter() == d.local
 }
+
+// Experimental, this interface and use may change
+func (d *dcAwareRR) SetTablets(tablets []*TabletInfo) {}
 
 func (d *dcAwareRR) AddHost(host *HostInfo) {
 	if d.IsLocal(host) {
@@ -1006,11 +1029,12 @@ func RackAwareRoundRobinPolicy(localDC string, localRack string) HostSelectionPo
 func (d *rackAwareRR) Init(*Session)                       {}
 func (d *rackAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (d *rackAwareRR) SetPartitioner(p string)             {}
-func (d *rackAwareRR) SetTablets(tablets []*TabletInfo)    {}
-
 func (d *rackAwareRR) MaxHostTier() uint {
 	return 2
 }
+
+// Experimental, this interface and use may change
+func (d *rackAwareRR) SetTablets(tablets []*TabletInfo) {}
 
 func (d *rackAwareRR) HostTier(host *HostInfo) uint {
 	if host.DataCenter() == d.localDC {
