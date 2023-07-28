@@ -265,6 +265,7 @@ func isScyllaConn(conn *Conn) bool {
 // in a round-robin fashion.
 type scyllaConnPicker struct {
 	address                string
+	hostId                 string
 	shardAwareAddress      string
 	conns                  []*Conn
 	excessConns            []*Conn
@@ -281,6 +282,7 @@ type scyllaConnPicker struct {
 
 func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	addr := conn.Address()
+	hostId := conn.host.hostId
 
 	if conn.scyllaSupported.nrShards == 0 {
 		panic(fmt.Sprintf("scylla: %s not a sharded connection", addr))
@@ -305,6 +307,7 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 
 	return &scyllaConnPicker{
 		address:                addr,
+		hostId:                 hostId,
 		shardAwareAddress:      shardAwareAddress,
 		nrShards:               conn.scyllaSupported.nrShards,
 		msbIgnore:              conn.scyllaSupported.msbIgnore,
@@ -315,7 +318,7 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	}
 }
 
-func (p *scyllaConnPicker) Pick(t token) *Conn {
+func (p *scyllaConnPicker) Pick(t token, keyspace string, table string) *Conn {
 	if len(p.conns) == 0 {
 		return nil
 	}
@@ -330,7 +333,26 @@ func (p *scyllaConnPicker) Pick(t token) *Conn {
 		return nil
 	}
 
-	idx := p.shardOf(mmt)
+	tablets := p.conns[0].session.getTablets()
+
+	idx := -1
+
+	// Search for tablets with Keyspace and Table from the Query
+	l := findTablets(tablets, keyspace, table)
+
+	if l != -1 {
+		tablet := findTabletForToken(tablets, mmt, l)
+
+		for _, replica := range tablet.replicas {
+			if replica.hostId.String() == p.hostId {
+				idx = replica.shardId
+			}
+		}
+	} 
+	if idx == -1 {
+		idx = p.shardOf(mmt)
+	}
+
 	if c := p.conns[idx]; c != nil {
 		// We have this shard's connection
 		// so let's give it to the caller.
