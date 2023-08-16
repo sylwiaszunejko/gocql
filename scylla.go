@@ -264,8 +264,8 @@ func isScyllaConn(conn *Conn) bool {
 // it tries to make, the shard that it aims to connect to is chosen
 // in a round-robin fashion.
 type scyllaConnPicker struct {
-	address                string
-	hostId                 string
+	address string
+	// hostId                 string
 	shardAwareAddress      string
 	conns                  []*Conn
 	excessConns            []*Conn
@@ -282,7 +282,7 @@ type scyllaConnPicker struct {
 
 func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	addr := conn.Address()
-	hostId := conn.host.hostId
+	// hostId := conn.host.hostId
 
 	if conn.scyllaSupported.nrShards == 0 {
 		panic(fmt.Sprintf("scylla: %s not a sharded connection", addr))
@@ -306,8 +306,8 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	}
 
 	return &scyllaConnPicker{
-		address:                addr,
-		hostId:                 hostId,
+		address: addr,
+		// hostId:                 hostId,
 		shardAwareAddress:      shardAwareAddress,
 		nrShards:               conn.scyllaSupported.nrShards,
 		msbIgnore:              conn.scyllaSupported.msbIgnore,
@@ -344,14 +344,18 @@ func (p *scyllaConnPicker) Pick(t token, keyspace string, table string) *Conn {
 		if l != -1 {
 			tablet := findTabletForToken(tablets, mmt, l)
 
-			for _, replica := range tablet.replicas {
-				if replica.hostId.String() == p.hostId {
-					idx = replica.shardId
-				}
-			}
+			idx = tablet.replicas[0].shardId
+
+			// for _, replica := range tablet.replicas {
+			// 	if replica.hostId.String() == p.hostId {
+			// 		idx = replica.shardId
+			// 	}
+			// }
+		} else {
+			idx = p.shardOf(mmt)
 		}
-	}
-	if idx == -1 {
+	} else {
+		// if idx == -1 {
 		idx = p.shardOf(mmt)
 	}
 
@@ -369,7 +373,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 		return c
 	}
 	alternative := p.leastBusyConn()
-	if alternative == nil || alternative.AvailableStreams() * 120 > c.AvailableStreams() * 100 {
+	if alternative == nil || alternative.AvailableStreams()*120 > c.AvailableStreams()*100 {
 		return c
 	} else {
 		return alternative
@@ -377,7 +381,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 }
 
 func isHeavyLoaded(c *Conn) bool {
-    return c.streams.NumStreams / 2 > c.AvailableStreams();
+	return c.streams.NumStreams/2 > c.AvailableStreams()
 }
 
 func (p *scyllaConnPicker) leastBusyConn() *Conn {
