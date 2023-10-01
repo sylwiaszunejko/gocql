@@ -502,6 +502,7 @@ func (pool *hostConnPool) connectMany(count int) error {
 func (pool *hostConnPool) connect() (err error) {
 	pool.mu.Lock()
 	shardID, nrShards := pool.connPicker.NextShard()
+	pool.logger.Printf("nrShards: %d", nrShards)
 	pool.mu.Unlock()
 
 	// TODO: provide a more robust connection retry mechanism, we should also
@@ -512,6 +513,7 @@ func (pool *hostConnPool) connect() (err error) {
 	for i := 0; i < reconnectionPolicy.GetMaxRetries(); i++ {
 		conn, err = pool.session.connectShard(pool.session.ctx, pool.host, pool, shardID, nrShards)
 		if err == nil {
+			pool.logger.Printf("connectShard: %d", conn.scyllaSupported.nrShards)
 			break
 		}
 		if opErr, isOpErr := err.(*net.OpError); isOpErr {
@@ -540,6 +542,8 @@ func (pool *hostConnPool) connect() (err error) {
 		}
 	}
 
+	pool.logger.Printf("conn shards nr: %d", conn.scyllaSupported.nrShards)
+
 	// add the Conn to the pool
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -551,6 +555,9 @@ func (pool *hostConnPool) connect() (err error) {
 
 	// lazily initialize the connPicker when we know the required type
 	pool.initConnPicker(conn)
+	if scyllaPicker, ok := pool.connPicker.(*scyllaConnPicker); ok {
+		pool.logger.Printf("check shards1: %d, %d", conn.scyllaSupported.nrShards, scyllaPicker.nrShards)
+	}
 	pool.connPicker.Put(conn)
 
 	return nil

@@ -345,7 +345,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 		return c
 	}
 	alternative := p.leastBusyConn()
-	if alternative == nil || alternative.AvailableStreams() * 120 > c.AvailableStreams() * 100 {
+	if alternative == nil || alternative.AvailableStreams()*120 > c.AvailableStreams()*100 {
 		return c
 	} else {
 		return alternative
@@ -353,7 +353,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 }
 
 func isHeavyLoaded(c *Conn) bool {
-    return c.streams.NumStreams / 2 > c.AvailableStreams();
+	return c.streams.NumStreams/2 > c.AvailableStreams()
 }
 
 func (p *scyllaConnPicker) leastBusyConn() *Conn {
@@ -397,7 +397,7 @@ func (p *scyllaConnPicker) Put(conn *Conn) {
 
 	if nrShards != len(p.conns) {
 		if nrShards != p.nrShards {
-			panic(fmt.Sprintf("scylla: %s invalid number of shards", p.address))
+			panic(fmt.Sprintf("scylla: %s invalid number of shards %d != %d", p.address, nrShards, p.nrShards))
 		}
 		conns := p.conns
 		p.conns = make([]*Conn, nrShards, nrShards)

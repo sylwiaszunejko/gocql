@@ -305,6 +305,8 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		writeTimeout:   writeTimeout,
 	}
 
+	c.logger.Printf("conn: c: %d", c.scyllaSupported.nrShards)
+
 	if err := c.init(ctx, dialedHost); err != nil {
 		cancel()
 		c.Close()
