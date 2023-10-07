@@ -332,7 +332,7 @@ func (pool *hostConnPool) Pick(token token) *Conn {
 	return pool.connPicker.Pick(token)
 }
 
-//Size returns the number of connections currently active in the pool
+// Size returns the number of connections currently active in the pool
 func (pool *hostConnPool) Size() int {
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
@@ -341,7 +341,7 @@ func (pool *hostConnPool) Size() int {
 	return size
 }
 
-//Close the connection pool
+// Close the connection pool
 func (pool *hostConnPool) Close() {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
