@@ -58,6 +58,9 @@ type ClusterConfig struct {
 	// ConnectTimeout is used to set up the default dialer and is ignored if Dialer or HostDialer is provided.
 	ConnectTimeout time.Duration
 
+	// Timeout for writing a query. Defaults to Timeout if not specified.
+	WriteTimeout time.Duration
+
 	// Port used when dialing.
 	// Default: 9042
 	Port int
