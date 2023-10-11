@@ -167,28 +167,6 @@ func shuffleHosts(hosts []*HostInfo) []*HostInfo {
 	return shuffled
 }
 
-func (c *controlConn) shuffleDial(endpoints []*HostInfo) (*Conn, error) {
-	// shuffle endpoints so not all drivers will connect to the same initial
-	// node.
-	shuffled := shuffleHosts(endpoints)
-
-	cfg := *c.session.connCfg
-	cfg.disableCoalesce = true
-
-	var err error
-	for _, host := range shuffled {
-		var conn *Conn
-		conn, err = c.session.dial(c.session.ctx, host, &cfg, c)
-		if err == nil {
-			return conn, nil
-		}
-
-		c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
-	}
-
-	return nil, err
-}
-
 // this is going to be version dependant and a nightmare to maintain :(
 var protocolSupportRe = regexp.MustCompile(`the lowest supported version is \d+ and the greatest is (\d+)$`)
 
@@ -249,14 +227,31 @@ func (c *controlConn) connect(hosts []*HostInfo) error {
 		return errors.New("control: no endpoints specified")
 	}
 
-	conn, err := c.shuffleDial(hosts)
-	if err != nil {
-		return fmt.Errorf("control: unable to connect to initial hosts: %v", err)
-	}
+	// shuffle endpoints so not all drivers will connect to the same initial
+	// node.
+	hosts = shuffleHosts(hosts)
 
-	if err := c.setupConn(conn); err != nil {
+	cfg := *c.session.connCfg
+	cfg.disableCoalesce = true
+
+	var conn *Conn
+	var err error
+	for _, host := range hosts {
+		conn, err = c.session.dial(c.session.ctx, host, &cfg, c)
+		if err != nil {
+			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
+			continue
+		}
+		err = c.setupConn(conn)
+		if err == nil {
+			break
+		}
+		c.session.logger.Printf("gocql: unable setup control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
 		conn.Close()
-		return fmt.Errorf("control: unable to setup connection: %v", err)
+		conn = nil
+	}
+	if conn == nil {
+		return fmt.Errorf("unable to connect to initial hosts: %v", err)
 	}
 
 	// we could fetch the initial ring here and update initial host data. So that
