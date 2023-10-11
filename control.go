@@ -368,6 +368,8 @@ func (c *controlConn) reconnect(refreshring bool) {
 			if c.session.cfg.ConvictionPolicy.AddFailure(err, host) {
 				c.session.handleNodeDown(host.ConnectAddress(), host.Port())
 			}
+			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
+			continue
 		} else {
 			break
 		}
