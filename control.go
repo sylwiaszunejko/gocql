@@ -370,27 +370,17 @@ func (c *controlConn) reconnect(refreshring bool) {
 			}
 			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
 			continue
-		} else {
+		}
+		err = c.setupConn(conn)
+		if err == nil {
 			break
 		}
+		c.session.logger.Printf("gocql: unable setup control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
+		conn.Close()
+		conn = nil
 	}
 
 	if conn == nil {
-		host := c.session.ring.rrHost()
-		if host == nil {
-			c.connect(c.session.ring.endpoints)
-			return
-		}
-
-		var err error
-		conn, err = c.session.connect(c.session.ctx, host, c)
-		if err != nil {
-			return
-		}
-	}
-
-	if err := c.setupConn(conn); err != nil {
-		conn.Close()
 		c.session.logger.Printf("gocql: control unable to register events: %v\n", err)
 		return
 	}
