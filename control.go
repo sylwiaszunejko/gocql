@@ -343,15 +343,24 @@ func (c *controlConn) reconnect(refreshring bool) {
 		return
 	}
 	defer atomic.StoreInt32(&c.reconnecting, 0)
-	// TODO: simplify this function, use session.ring to get hosts instead of the
-	// connection pool
 
-	var host *HostInfo
+	hosts := c.session.ring.allHosts()
+	hosts = shuffleHosts(hosts)
+
+	// keep the old behavior of connecting to the old host first by moving it to
+	// the front of the slice
 	ch := c.getConn()
 	if ch != nil {
-		host = ch.host
+		for i := range hosts {
+			if hosts[i].Equal(ch.host) {
+				hosts[0], hosts[i] = hosts[i], hosts[0]
+				break
+			}
+		}
 		ch.conn.Close()
 	}
+
+	host := hosts[0]
 
 	var newConn *Conn
 	if host != nil {
