@@ -252,6 +252,7 @@ func (p *policyConnPool) addHost(host *HostInfo) {
 	}
 	p.mu.Unlock()
 
+	pool.logger.Printf("connectionpool addHost")
 	pool.fill()
 }
 
@@ -323,6 +324,7 @@ func (pool *hostConnPool) Pick(token token) *Conn {
 	size, missing := pool.connPicker.Size()
 	if missing > 0 {
 		// try to fill the pool
+		pool.logger.Printf("connectionpool Pick")
 		go pool.fill()
 
 		if size == 0 {
@@ -394,6 +396,7 @@ func (pool *hostConnPool) fill() {
 
 	// fill only the first connection synchronously
 	if startCount == 0 {
+		pool.logger.Printf("connectionpool hostconnPool fill")
 		err := pool.connect()
 		pool.logConnectErr(err)
 
@@ -483,6 +486,7 @@ func (pool *hostConnPool) connectMany(count int) error {
 	for i := 0; i < count; i++ {
 		go func() {
 			defer wg.Done()
+			pool.logger.Printf("connectionpool hostConnPool connectMany")
 			err := pool.connect()
 			pool.logConnectErr(err)
 			if err != nil {
@@ -551,6 +555,7 @@ func (pool *hostConnPool) connect() (err error) {
 
 	// lazily initialize the connPicker when we know the required type
 	pool.initConnPicker(conn)
+	pool.logger.Printf("connectionpool hostConnPool connect")
 	pool.connPicker.Put(conn)
 
 	return nil

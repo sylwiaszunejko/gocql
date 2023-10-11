@@ -360,26 +360,20 @@ func (c *controlConn) reconnect(refreshring bool) {
 		ch.conn.Close()
 	}
 
-	host := hosts[0]
-
-	var newConn *Conn
-	if host != nil {
-		// try to connect to the old host
-		conn, err := c.session.connect(c.session.ctx, host, c)
+	var conn *Conn
+	var err error
+	for _, host := range hosts {
+		conn, err = c.session.connect(c.session.ctx, host, c)
 		if err != nil {
-			// host is dead
-			// TODO: this is replicated in a few places
 			if c.session.cfg.ConvictionPolicy.AddFailure(err, host) {
 				c.session.handleNodeDown(host.ConnectAddress(), host.Port())
 			}
 		} else {
-			newConn = conn
+			break
 		}
 	}
 
-	// TODO: should have our own round-robin for hosts so that we can try each
-	// in succession and guarantee that we get a different host each time.
-	if newConn == nil {
+	if conn == nil {
 		host := c.session.ring.rrHost()
 		if host == nil {
 			c.connect(c.session.ring.endpoints)
@@ -387,15 +381,14 @@ func (c *controlConn) reconnect(refreshring bool) {
 		}
 
 		var err error
-		newConn, err = c.session.connect(c.session.ctx, host, c)
+		conn, err = c.session.connect(c.session.ctx, host, c)
 		if err != nil {
-			// TODO: add log handler for things like this
 			return
 		}
 	}
 
-	if err := c.setupConn(newConn); err != nil {
-		newConn.Close()
+	if err := c.setupConn(conn); err != nil {
+		conn.Close()
 		c.session.logger.Printf("gocql: control unable to register events: %v\n", err)
 		return
 	}
