@@ -268,15 +268,17 @@ type connHost struct {
 }
 
 func (c *controlConn) setupConn(conn *Conn) error {
-	if err := c.registerEvents(conn); err != nil {
-		conn.Close()
+	// we need up-to-date host info for the filterHost call below
+	host, err := conn.localHostInfo(context.TODO())
+	if err != nil {
 		return err
 	}
 
-	// TODO(zariel): do we need to fetch host info everytime
-	// the control conn connects? Surely we have it cached?
-	host, err := conn.localHostInfo(context.TODO())
-	if err != nil {
+	if c.session.cfg.filterHost(host) {
+		return fmt.Errorf("host was filtered: %v", host.ConnectAddress())
+	}
+
+	if err := c.registerEvents(conn); err != nil {
 		return err
 	}
 
