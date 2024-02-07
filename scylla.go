@@ -406,7 +406,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 		return c
 	}
 	alternative := p.leastBusyConn()
-	if alternative == nil || alternative.AvailableStreams() * 120 > c.AvailableStreams() * 100 {
+	if alternative == nil || alternative.AvailableStreams()*120 > c.AvailableStreams()*100 {
 		return c
 	} else {
 		return alternative
@@ -414,7 +414,7 @@ func (p *scyllaConnPicker) maybeReplaceWithLessBusyConnection(c *Conn) *Conn {
 }
 
 func isHeavyLoaded(c *Conn) bool {
-    return c.streams.NumStreams / 2 > c.AvailableStreams();
+	return c.streams.NumStreams/2 > c.AvailableStreams()
 }
 
 func (p *scyllaConnPicker) leastBusyConn() *Conn {
@@ -669,6 +669,10 @@ func (sd *scyllaDialer) DialShard(ctx context.Context, host *HostInfo, shardID, 
 		return nil, fmt.Errorf("host missing connect ip address: %v", ip)
 	} else if port == 0 {
 		return nil, fmt.Errorf("host missing port: %v", port)
+	}
+
+	if shardID == 0 {
+		time.Sleep(4 * time.Second)
 	}
 
 	iter := newScyllaPortIterator(shardID, nrShards)
