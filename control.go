@@ -270,7 +270,11 @@ type connHost struct {
 func (c *controlConn) setupConn(conn *Conn) error {
 	// we need up-to-date host info for the filterHost call below
 	iter := conn.querySystemLocal(context.TODO())
-	host, err := c.session.hostInfoFromIter(iter, conn.host.connectAddress, conn.conn.RemoteAddr().(*net.TCPAddr).Port)
+	defaultPort := 9042
+	if tcpAddr, ok := conn.conn.RemoteAddr().(*net.TCPAddr); ok {
+		defaultPort = tcpAddr.Port
+	}
+	host, err := c.session.hostInfoFromIter(iter, conn.host.connectAddress, defaultPort)
 	if err != nil {
 		return err
 	}
