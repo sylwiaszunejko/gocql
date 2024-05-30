@@ -44,6 +44,32 @@ func TestRoundRobbin(t *testing.T) {
 	}
 }
 
+func TestRoundRobbinSameConnectAddress(t *testing.T) {
+	policy := RoundRobinHostPolicy()
+
+	hosts := [...]*HostInfo{
+		{hostId: "0", connectAddress: net.IPv4(0, 0, 0, 1), port: 9042},
+		{hostId: "1", connectAddress: net.IPv4(0, 0, 0, 1), port: 9043},
+	}
+
+	for _, host := range hosts {
+		policy.AddHost(host)
+	}
+
+	got := make(map[string]bool)
+	it := policy.Pick(nil)
+	for h := it(); h != nil; h = it() {
+		id := h.Info().hostId
+		if got[id] {
+			t.Fatalf("got duplicate host: %v", id)
+		}
+		got[id] = true
+	}
+	if len(got) != len(hosts) {
+		t.Fatalf("expected %d hosts got %d", len(hosts), len(got))
+	}
+}
+
 // Tests of the token-aware host selection policy implementation with a
 // round-robin host selection policy fallback.
 func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
@@ -132,7 +158,7 @@ func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
 			{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"25", "35", "45"}},
 			{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50", "60", "70"}},
 			{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"50", "60", "70"}},
-		}, routingKey: "8", lwt: true, shuffle: true, want: []string{"0", "2", "3", "1"}},
+		}, routingKey: "8", lwt: true, shuffle: true, want: []string{"0", "2", "3", "4", "5", "1"}},
 		"token 08 shuffling not configured": {hosts: []*HostInfo{
 			{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00", "10", "20"}},
 			{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"25", "35", "45"}},
@@ -140,7 +166,7 @@ func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
 			{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"25", "35", "45"}},
 			{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50", "60", "70"}},
 			{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"50", "60", "70"}},
-		}, routingKey: "8", lwt: true, shuffle: false, want: []string{"0", "2", "3", "1"}},
+		}, routingKey: "8", lwt: true, shuffle: false, want: []string{"0", "2", "3", "4", "5", "1"}},
 		"token 30 shuffling configured": {hosts: []*HostInfo{
 			{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00", "10", "20"}},
 			{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"25", "35", "45"}},
@@ -148,7 +174,7 @@ func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
 			{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"25", "35", "45"}},
 			{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50", "60", "70"}},
 			{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"50", "60", "70"}},
-		}, routingKey: "30", lwt: true, shuffle: true, want: []string{"1", "3", "2", "0"}},
+		}, routingKey: "30", lwt: true, shuffle: true, want: []string{"1", "3", "2", "4", "5", "0"}},
 		"token 30 shuffling not configured": {hosts: []*HostInfo{
 			{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00", "10", "20"}},
 			{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"25", "35", "45"}},
@@ -156,7 +182,7 @@ func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
 			{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"25", "35", "45"}},
 			{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50", "60", "70"}},
 			{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"50", "60", "70"}},
-		}, routingKey: "30", lwt: true, shuffle: false, want: []string{"1", "3", "2", "0"}},
+		}, routingKey: "30", lwt: true, shuffle: false, want: []string{"1", "3", "2", "4", "5", "0"}},
 		"token 55 shuffling configured": {hosts: []*HostInfo{
 			{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00", "10", "20"}},
 			{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"25", "35", "45"}},
@@ -164,7 +190,7 @@ func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
 			{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"25", "35", "45"}},
 			{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50", "60", "70"}},
 			{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"50", "60", "70"}},
-		}, routingKey: "55", lwt: true, shuffle: true, want: []string{"0", "2", "3", "1"}},
+		}, routingKey: "55", lwt: true, shuffle: true, want: []string{"4", "5", "2", "3", "0", "1"}},
 		"token 55 shuffling not configured": {hosts: []*HostInfo{
 			{hostId: "0", connectAddress: net.IPv4(10, 0, 0, 1), tokens: []string{"00", "10", "20"}},
 			{hostId: "1", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"25", "35", "45"}},
@@ -172,7 +198,7 @@ func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
 			{hostId: "3", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"25", "35", "45"}},
 			{hostId: "4", connectAddress: net.IPv4(10, 0, 0, 3), tokens: []string{"50", "60", "70"}},
 			{hostId: "5", connectAddress: net.IPv4(10, 0, 0, 4), tokens: []string{"50", "60", "70"}},
-		}, routingKey: "55", lwt: true, shuffle: false, want: []string{"0", "2", "3", "1"}},
+		}, routingKey: "55", lwt: true, shuffle: false, want: []string{"4", "5", "2", "3", "0", "1"}},
 	}
 	const keyspace = "myKeyspace"
 	for name, tc := range tests {
