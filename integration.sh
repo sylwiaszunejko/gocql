@@ -3,15 +3,12 @@
 # Copyright (C) 2017 ScyllaDB
 #
 
-readonly SCYLLA_IMAGE=${SCYLLA_IMAGE}
-
 set -eu -o pipefail
 
 function scylla_up() {
   local -r exec="docker compose exec -T"
 
-  echo "==> Running Scylla ${SCYLLA_IMAGE}"
-  docker pull ${SCYLLA_IMAGE}
+  echo "==> Running Scylla"
   docker compose up -d --wait
 }
 
