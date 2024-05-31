@@ -17,7 +17,7 @@ import (
 )
 
 // a token partitioner
-type partitioner interface {
+type Partitioner interface {
 	Name() string
 	Hash([]byte) Token
 	ParseString(string) Token
@@ -135,7 +135,7 @@ func (ht hostToken) String() string {
 
 // a data structure for organizing the relationship between tokens and hosts
 type tokenRing struct {
-	partitioner partitioner
+	partitioner Partitioner
 
 	// tokens map token range to primary replica.
 	// The elements in tokens are sorted by token ascending.

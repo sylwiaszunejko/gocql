@@ -18,7 +18,7 @@ type ExecutableQuery interface {
 	Table() string
 	IsIdempotent() bool
 	IsLWT() bool
-	GetCustomPartitioner() partitioner
+	GetCustomPartitioner() Partitioner
 
 	withContext(context.Context) ExecutableQuery
 

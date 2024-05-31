@@ -24,7 +24,7 @@ const (
 
 type scyllaCDCPartitioner struct{}
 
-var _ partitioner = scyllaCDCPartitioner{}
+var _ Partitioner = scyllaCDCPartitioner{}
 
 func (p scyllaCDCPartitioner) Name() string {
 	return scyllaCDCPartitionerName
