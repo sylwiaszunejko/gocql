@@ -780,14 +780,16 @@ type ScyllaShardAwareDialer struct {
 	net.Dialer
 }
 
-func (d *ScyllaShardAwareDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+func (d *ScyllaShardAwareDialer) DialContext(ctx context.Context, network, addr string) (conn net.Conn, err error) {
 	sourcePort := ScyllaGetSourcePort(ctx)
-	localAddr, err := net.ResolveTCPAddr(network, fmt.Sprintf(":%d", sourcePort))
+	if sourcePort == 0 {
+		return d.Dialer.DialContext(ctx, network, addr)
+	}
+	dialerWithLocalAddr := d.Dialer
+	dialerWithLocalAddr.LocalAddr, err = net.ResolveTCPAddr(network, fmt.Sprintf(":%d", sourcePort))
 	if err != nil {
 		return nil, err
 	}
-	var dialerWithLocalAddr net.Dialer = d.Dialer
-	dialerWithLocalAddr.LocalAddr = localAddr
 
 	return dialerWithLocalAddr.DialContext(ctx, network, addr)
 }
