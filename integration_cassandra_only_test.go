@@ -1,3 +1,4 @@
+//go:build (all || integration) && !scylla
 // +build all integration
 // +build !scylla
 
