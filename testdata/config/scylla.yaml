@@ -8,3 +8,5 @@ client_encryption_options:
   keyfile: /etc/scylla/db.key
   truststore: /etc/scylla/ca.crt
   require_client_auth: true
+# when using 5.4.x we have to specify force_schema_commit_log option
+force_schema_commit_log: true
