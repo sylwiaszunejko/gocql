@@ -33,7 +33,7 @@ services:
       timeout: 5s
       retries: 18
   node_2:
-    image: scylladb/scylla-nightly
+    image: ${SCYLLA_IMAGE}
     command: |
       --experimental-features consistent-topology-changes
       --experimental-features tablets
@@ -49,7 +49,7 @@ services:
       timeout: 5s
       retries: 18
   node_3:
-    image: scylladb/scylla-nightly
+    image: ${SCYLLA_IMAGE}
     command: |
       --experimental-features consistent-topology-changes
       --experimental-features tablets
@@ -68,7 +68,7 @@ services:
       node_2:
         condition: service_healthy
   node_4:
-    image: scylladb/scylla-nightly
+    image: ${SCYLLA_IMAGE}
     command: |
       --experimental-features consistent-topology-changes
       --experimental-features tablets
