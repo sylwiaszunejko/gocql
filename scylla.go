@@ -353,7 +353,7 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	}
 }
 
-func (p *scyllaConnPicker) Pick(t token, keyspace string, table string) *Conn {
+func (p *scyllaConnPicker) Pick(t Token, keyspace string, table string) *Conn {
 	if len(p.conns) == 0 {
 		return nil
 	}
@@ -860,7 +860,7 @@ func ScyllaGetSourcePort(ctx context.Context) uint16 {
 
 // Returns a partitioner specific to the table, or "nil"
 // if the cluster-global partitioner should be used
-func scyllaGetTablePartitioner(session *Session, keyspaceName, tableName string) (partitioner, error) {
+func scyllaGetTablePartitioner(session *Session, keyspaceName, tableName string) (Partitioner, error) {
 	isCdc, err := scyllaIsCdcTable(session, keyspaceName, tableName)
 	if err != nil {
 		return nil, err

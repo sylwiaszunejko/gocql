@@ -986,7 +986,7 @@ type queryRoutingInfo struct {
 	lwt bool
 
 	// If not nil, represents a custom partitioner for the table.
-	partitioner partitioner
+	partitioner Partitioner
 
 	keyspace string
 
@@ -999,7 +999,7 @@ func (qri *queryRoutingInfo) isLWT() bool {
 	return qri.lwt
 }
 
-func (qri *queryRoutingInfo) getPartitioner() partitioner {
+func (qri *queryRoutingInfo) getPartitioner() Partitioner {
 	qri.mu.RLock()
 	defer qri.mu.RUnlock()
 	return qri.partitioner
@@ -1310,7 +1310,7 @@ func (q *Query) IsLWT() bool {
 	return q.routingInfo.isLWT()
 }
 
-func (q *Query) GetCustomPartitioner() partitioner {
+func (q *Query) GetCustomPartitioner() Partitioner {
 	return q.routingInfo.getPartitioner()
 }
 
@@ -1933,7 +1933,7 @@ func (b *Batch) IsLWT() bool {
 	return b.routingInfo.isLWT()
 }
 
-func (b *Batch) GetCustomPartitioner() partitioner {
+func (b *Batch) GetCustomPartitioner() Partitioner {
 	return b.routingInfo.getPartitioner()
 }
 
@@ -2176,7 +2176,7 @@ type routingKeyInfo struct {
 	keyspace string
 	table    string
 	lwt         bool
-	partitioner partitioner
+	partitioner Partitioner
 }
 
 func (r *routingKeyInfo) String() string {
