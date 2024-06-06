@@ -8,3 +8,4 @@ client_encryption_options:
   keyfile: /etc/scylla/db.key
   truststore: /etc/scylla/ca.crt
   require_client_auth: true
+maintenance_socket: workdir

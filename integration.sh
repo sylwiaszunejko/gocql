@@ -27,6 +27,8 @@ function scylla_restart() {
 
 scylla_restart
 
+sudo chmod 0777 /tmp/scylla/cql.m
+
 readonly clusterSize=1
 readonly multiNodeClusterSize=3
 readonly scylla_liveset="192.168.100.11"
