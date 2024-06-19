@@ -319,13 +319,11 @@ func (h toCQLHelpers) tableOptionsToCQL(ops TableMetadataOptions) ([]string, err
 		"bloom_filter_fp_chance":      ops.BloomFilterFpChance,
 		"comment":                     ops.Comment,
 		"crc_check_chance":            ops.CrcCheckChance,
-		"dclocal_read_repair_chance":  ops.DcLocalReadRepairChance,
 		"default_time_to_live":        ops.DefaultTimeToLive,
 		"gc_grace_seconds":            ops.GcGraceSeconds,
 		"max_index_interval":          ops.MaxIndexInterval,
 		"memtable_flush_period_in_ms": ops.MemtableFlushPeriodInMs,
 		"min_index_interval":          ops.MinIndexInterval,
-		"read_repair_chance":          ops.ReadRepairChance,
 		"speculative_retry":           ops.SpeculativeRetry,
 	}
 

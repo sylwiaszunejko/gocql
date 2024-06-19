@@ -994,7 +994,6 @@ func getMaterializedViewsMetadata(session *Session, keyspaceName string) ([]Mate
 			compaction,
 			compression,
 			crc_check_chance,
-			dclocal_read_repair_chance,
 			default_time_to_live,
 			extensions,
 			gc_grace_seconds,
@@ -1003,7 +1002,6 @@ func getMaterializedViewsMetadata(session *Session, keyspaceName string) ([]Mate
 			max_index_interval,
 			memtable_flush_period_in_ms,
 			min_index_interval,
-			read_repair_chance,
 			speculative_retry
 		FROM %s
 		WHERE keyspace_name = ?`, tableName)
