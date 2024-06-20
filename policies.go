@@ -660,16 +660,14 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 			tablet := findTabletForToken(tablets, token, l, r)
 
 			replicas = []*HostInfo{}
+			hosts := t.hosts.get()
 			for _, replica := range tablet.Replicas() {
-				t.hosts.mu.Lock()
-				hosts := t.hosts.get()
 				for _, host := range hosts {
 					if host.hostId == replica.hostId.String() {
 						replicas = append(replicas, host)
 						break
 					}
 				}
-				t.hosts.mu.Unlock()
 			}
 		} else {
 			ht := meta.replicas[qry.Keyspace()].replicasFor(token)
