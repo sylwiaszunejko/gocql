@@ -512,7 +512,6 @@ type ReplicaInfo struct {
 
 // Experimental, this interface and use may change
 type TabletInfo struct {
-	mu           sync.RWMutex
 	keyspaceName string
 	tableName    string
 	firstToken   int64
@@ -521,32 +520,22 @@ type TabletInfo struct {
 }
 
 func (t *TabletInfo) KeyspaceName() string {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.keyspaceName
 }
 
 func (t *TabletInfo) FirstToken() int64 {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.firstToken
 }
 
 func (t *TabletInfo) LastToken() int64 {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.lastToken
 }
 
 func (t *TabletInfo) TableName() string {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.tableName
 }
 
 func (t *TabletInfo) Replicas() []ReplicaInfo {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.replicas
 }
 
