@@ -4,13 +4,11 @@
 package gocql
 
 import (
-	"sync"
 	"testing"
 )
 
 var tablets = []*TabletInfo{
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		-7917529027641081857,
@@ -18,7 +16,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 9}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		-6917529027641081857,
@@ -26,7 +23,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 8}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		-4611686018427387905,
@@ -34,7 +30,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 9}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		-2305843009213693953,
@@ -42,7 +37,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 8}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		-1,
@@ -50,7 +44,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 3}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		2305843009213693951,
@@ -58,7 +51,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 3}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		4611686018427387903,
@@ -66,7 +58,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 7}},
 	},
 	{
-		sync.RWMutex{},
 		"test1",
 		"table1",
 		6917529027641081855,
@@ -74,7 +65,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 7}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		-7917529027641081857,
@@ -82,7 +72,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 9}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		-6917529027641081857,
@@ -90,7 +79,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 8}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		-4611686018427387905,
@@ -98,7 +86,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 9}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		-2305843009213693953,
@@ -106,7 +93,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 8}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		-1,
@@ -114,7 +100,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 3}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		2305843009213693951,
@@ -122,7 +107,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 3}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		4611686018427387903,
@@ -130,7 +114,6 @@ var tablets = []*TabletInfo{
 		[]ReplicaInfo{{TimeUUID(), 7}},
 	},
 	{
-		sync.RWMutex{},
 		"test2",
 		"table1",
 		6917529027641081855,
@@ -180,7 +163,6 @@ func TestAddTabletToEmptyTablets(t *testing.T) {
 	tablets := []*TabletInfo{}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -193,7 +175,6 @@ func TestAddTabletToEmptyTablets(t *testing.T) {
 
 func TestAddTabletAtTheBeggining(t *testing.T) {
 	tablets := []*TabletInfo{{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -202,7 +183,6 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 	}}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -216,7 +196,6 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 
 func TestAddTabletAtTheEnd(t *testing.T) {
 	tablets := []*TabletInfo{{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -225,7 +204,6 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 	}}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-1,
@@ -239,14 +217,12 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 
 func TestAddTabletInTheMiddle(t *testing.T) {
 	tablets := []*TabletInfo{{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
 		-4611686018427387905,
 		[]ReplicaInfo{},
 	}, {
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-1,
@@ -255,7 +231,6 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 	}}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-4611686018427387905,
@@ -270,28 +245,24 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 
 func TestAddTabletIntersecting(t *testing.T) {
 	tablets := []*TabletInfo{{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
 		-4611686018427387905,
 		[]ReplicaInfo{},
 	}, {
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-4611686018427387905,
 		-2305843009213693953,
 		[]ReplicaInfo{},
 	}, {
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-2305843009213693953,
 		-1,
 		[]ReplicaInfo{},
 	}, {
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-1,
@@ -300,7 +271,6 @@ func TestAddTabletIntersecting(t *testing.T) {
 	}}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-3611686018427387905,
@@ -316,14 +286,12 @@ func TestAddTabletIntersecting(t *testing.T) {
 
 func TestAddTabletIntersectingWithFirst(t *testing.T) {
 	tablets := []*TabletInfo{{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
 		-7917529027641081857,
 		[]ReplicaInfo{},
 	}, {
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -332,7 +300,6 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 	}}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-8011686018427387905,
@@ -346,14 +313,12 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 
 func TestAddTabletIntersectingWithLast(t *testing.T) {
 	tablets := []*TabletInfo{{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
 		-7917529027641081857,
 		[]ReplicaInfo{},
 	}, {
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -362,7 +327,6 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 	}}
 
 	tablets = addTabletToTabletsList(tablets, &TabletInfo{
-		sync.RWMutex{},
 		"test_ks",
 		"test_tb",
 		-5011686018427387905,
