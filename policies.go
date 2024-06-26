@@ -651,15 +651,12 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 	var replicas []*HostInfo
 
 	if qry.GetSession() != nil && qry.GetSession().tabletsRoutingV1 {
-		t.tablets.mu.Lock()
 		tablets := t.tablets.get()
 
 		// Search for tablets with Keyspace and Table from the Query
 		l, r := findTablets(tablets, qry.Keyspace(), qry.Table())
 		if l != -1 {
 			tablet := findTabletForToken(tablets, token, l, r)
-
-			replicas = []*HostInfo{}
 			hosts := t.hosts.get()
 			for _, replica := range tablet.Replicas() {
 				for _, host := range hosts {
@@ -669,34 +666,23 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 					}
 				}
 			}
-		} else {
-			ht := meta.replicas[qry.Keyspace()].replicasFor(token)
-
-			if ht == nil {
-				host, _ := meta.tokenRing.GetHostForToken(token)
-				replicas = []*HostInfo{host}
-			} else {
-				replicas = ht.hosts
-			}
 		}
+	}
 
-		if t.shuffleReplicas && !qry.IsLWT() {
-			replicas = shuffleHosts(replicas)
-		}
-
-		t.tablets.mu.Unlock()
-	} else {
+	if len(replicas) == 0 {
 		ht := meta.replicas[qry.Keyspace()].replicasFor(token)
-
-		if ht == nil {
-			host, _ := meta.tokenRing.GetHostForToken(token)
-			replicas = []*HostInfo{host}
-		} else {
+		if ht != nil {
 			replicas = ht.hosts
-			if t.shuffleReplicas && !qry.IsLWT() {
-				replicas = shuffleHosts(replicas)
-			}
 		}
+	}
+
+	if len(replicas) == 0 {
+		host, _ := meta.tokenRing.GetHostForToken(token)
+		replicas = []*HostInfo{host}
+	}
+
+	if t.shuffleReplicas && !qry.IsLWT() && len(replicas) > 1 {
+		replicas = shuffleHosts(replicas)
 	}
 
 	if s := qry.GetSession(); s != nil && t.avoidSlowReplicas {
