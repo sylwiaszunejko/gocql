@@ -230,7 +230,7 @@ func (s *Session) init() error {
 			return err
 		}
 		s.control.getConn().conn.mu.Lock()
-		s.tabletsRoutingV1 = s.control.getConn().conn.tabletsRoutingV1
+		s.tabletsRoutingV1 = s.control.getConn().conn.isTabletSupported()
 		s.control.getConn().conn.mu.Unlock()
 
 		if !s.cfg.DisableInitialHostLookup {

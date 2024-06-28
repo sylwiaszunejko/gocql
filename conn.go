@@ -209,7 +209,7 @@ type Conn struct {
 	timeouts int64
 
 	logger           StdLogger
-	tabletsRoutingV1 bool
+	tabletsRoutingV1 int32
 }
 
 // connect establishes a connection to a Cassandra node using session's connection config.
@@ -604,6 +604,18 @@ func (c *Conn) closeWithError(err error) {
 	}
 }
 
+func (c *Conn) isTabletSupported() bool {
+	return atomic.LoadInt32(&c.tabletsRoutingV1) == 1
+}
+
+func (c *Conn) setTabletSupported(val bool) {
+	intVal := int32(0)
+	if val {
+		intVal = 1
+	}
+	atomic.StoreInt32(&c.tabletsRoutingV1, intVal)
+}
+
 func (c *Conn) close() error {
 	return c.conn.Close()
 }
@@ -725,9 +737,7 @@ func (c *Conn) recv(ctx context.Context) error {
 	} else if head.stream == -1 {
 		// TODO: handle cassandra event frames, we shouldnt get any currently
 		framer := newFramerWithExts(c.compressor, c.version, c.cqlProtoExts)
-		c.mu.Lock()
-		c.tabletsRoutingV1 = framer.tabletsRoutingV1
-		c.mu.Unlock()
+		c.setTabletSupported(framer.tabletsRoutingV1)
 		if err := framer.readFrame(c, &head); err != nil {
 			return err
 		}
@@ -737,9 +747,7 @@ func (c *Conn) recv(ctx context.Context) error {
 		// reserved stream that we dont use, probably due to a protocol error
 		// or a bug in Cassandra, this should be an error, parse it and return.
 		framer := newFramerWithExts(c.compressor, c.version, c.cqlProtoExts)
-		c.mu.Lock()
-		c.tabletsRoutingV1 = framer.tabletsRoutingV1
-		c.mu.Unlock()
+		c.setTabletSupported(framer.tabletsRoutingV1)
 		if err := framer.readFrame(c, &head); err != nil {
 			return err
 		}
@@ -1076,9 +1084,7 @@ func (c *Conn) exec(ctx context.Context, req frameBuilder, tracer Tracer) (*fram
 
 	// resp is basically a waiting semaphore protecting the framer
 	framer := newFramerWithExts(c.compressor, c.version, c.cqlProtoExts)
-	c.mu.Lock()
-	c.tabletsRoutingV1 = framer.tabletsRoutingV1
-	c.mu.Unlock()
+	c.setTabletSupported(framer.tabletsRoutingV1)
 
 	call := &callReq{
 		timeout:  make(chan struct{}),

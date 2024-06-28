@@ -375,8 +375,7 @@ func (p *scyllaConnPicker) Pick(t Token, keyspace string, table string) *Conn {
 			continue
 		}
 
-		conn.mu.Lock()
-		if conn.tabletsRoutingV1 {
+		if conn.isTabletSupported() {
 			tablets := conn.session.getTablets()
 
 			// Search for tablets with Keyspace and Table from the Query
@@ -392,7 +391,6 @@ func (p *scyllaConnPicker) Pick(t Token, keyspace string, table string) *Conn {
 				}
 			}
 		}
-		conn.mu.Unlock()
 
 		break
 	}
