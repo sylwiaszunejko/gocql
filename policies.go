@@ -310,6 +310,9 @@ type HostSelectionPolicy interface {
 	SetTablets
 	KeyspaceChanged(KeyspaceUpdateEvent)
 	Init(*Session)
+	// Reset is opprotunity to reset HostSelectionPolicy if Session initilization failed and we want to
+	// call HostSelectionPolicy.Init() again with new Session
+	Reset()
 	IsLocal(host *HostInfo) bool
 	// Pick returns an iteration function over selected hosts.
 	// Multiple attempts of a single query execution won't call the returned NextHost function concurrently,
@@ -359,6 +362,7 @@ func (r *roundRobinHostPolicy) IsLocal(*HostInfo) bool              { return tru
 func (r *roundRobinHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *roundRobinHostPolicy) SetPartitioner(partitioner string)   {}
 func (r *roundRobinHostPolicy) Init(*Session)                       {}
+func (r *roundRobinHostPolicy) Reset()                              {}
 
 // Experimental, this interface and use may change
 func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo) {}
@@ -470,6 +474,19 @@ func (t *tokenAwareHostPolicy) Init(s *Session) {
 	t.getKeyspaceMetadata = s.KeyspaceMetadata
 	t.getKeyspaceName = func() string { return s.cfg.Keyspace }
 	t.logger = s.logger
+}
+
+func (t *tokenAwareHostPolicy) Reset() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Sharing token aware host selection policy between sessions is not supported
+	// but session initialization can failed for some reasons. So in our application
+	// may be we want to create new session again.
+	// Reset method should be called in Session.Close method
+	t.getKeyspaceMetadata = nil
+	t.getKeyspaceName = nil
+	t.logger = nil
 }
 
 func (t *tokenAwareHostPolicy) IsLocal(host *HostInfo) bool {
@@ -805,6 +822,7 @@ type hostPoolHostPolicy struct {
 }
 
 func (r *hostPoolHostPolicy) Init(*Session)                       {}
+func (r *hostPoolHostPolicy) Reset()                              {}
 func (r *hostPoolHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *hostPoolHostPolicy) SetPartitioner(string)               {}
 func (r *hostPoolHostPolicy) IsLocal(*HostInfo) bool              { return true }
@@ -944,6 +962,7 @@ func DCAwareRoundRobinPolicy(localDC string) HostSelectionPolicy {
 }
 
 func (d *dcAwareRR) Init(*Session)                       {}
+func (d *dcAwareRR) Reset()                              {}
 func (d *dcAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (d *dcAwareRR) SetPartitioner(p string)             {}
 
@@ -1040,6 +1059,7 @@ func RackAwareRoundRobinPolicy(localDC string, localRack string) HostSelectionPo
 }
 
 func (d *rackAwareRR) Init(*Session)                       {}
+func (d *rackAwareRR) Reset()                              {}
 func (d *rackAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (d *rackAwareRR) SetPartitioner(p string)             {}
 

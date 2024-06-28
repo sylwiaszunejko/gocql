@@ -1035,3 +1035,101 @@ func TestHostPolicy_TokenAware_Issue1274(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	close(cancel)
 }
+
+func TestTokenAwarePolicyReset(t *testing.T) {
+	policy := TokenAwareHostPolicy(
+		RackAwareRoundRobinPolicy("local", "b"),
+		NonLocalReplicasFallback(),
+	)
+	policyInternal := policy.(*tokenAwareHostPolicy)
+
+	if policyInternal.fallback == nil {
+		t.Fatal("fallback is nil")
+	}
+	if !policyInternal.nonLocalReplicasFallback {
+		t.Fatal("nonLocalReplicasFallback is false")
+	}
+
+	policy.Init(&Session{logger: &defaultLogger{}})
+	if policyInternal.getKeyspaceMetadata == nil {
+		t.Fatal("keyspace metatadata fn is nil")
+	}
+	if policyInternal.getKeyspaceName == nil {
+		t.Fatal("keyspace name fn is nil")
+	}
+	if policyInternal.logger == nil {
+		t.Fatal("logger is nil")
+	}
+
+	// Reset - should reset fields that were set in Init
+	policy.Reset()
+
+	if policyInternal.fallback == nil { // we don't touch fallback
+		t.Fatal("fallback is nil")
+	}
+	if !policyInternal.nonLocalReplicasFallback { // we don't touch nonLocalReplicasFallback
+		t.Fatal("nonLocalReplicasFallback is false")
+	}
+	if policyInternal.getKeyspaceMetadata != nil {
+		t.Fatal("keyspace metatadata fn is not nil")
+	}
+	if policyInternal.getKeyspaceName != nil {
+		t.Fatal("keyspace name fn is not nil")
+	}
+	if policyInternal.logger != nil {
+		t.Fatal("logger is nil")
+	}
+}
+
+func TestTokenAwarePolicyResetInSessionClose(t *testing.T) {
+	policy := TokenAwareHostPolicy(
+		RackAwareRoundRobinPolicy("local", "b"),
+		NonLocalReplicasFallback(),
+	)
+	policyInternal := policy.(*tokenAwareHostPolicy)
+
+	if policyInternal.fallback == nil {
+		t.Fatal("fallback is nil")
+	}
+	if !policyInternal.nonLocalReplicasFallback {
+		t.Fatal("nonLocalReplicasFallback is false")
+	}
+
+	// emulate session initialization
+	session := &Session{
+		logger: &defaultLogger{},
+		policy: policy,
+	}
+	policy.Init(session)
+	// check that we are realy initialize policy
+	if policyInternal.getKeyspaceMetadata == nil {
+		t.Fatal("keyspace metatadata fn is nil")
+	}
+	if policyInternal.getKeyspaceName == nil {
+		t.Fatal("keyspace name fn is nil")
+	}
+	if policyInternal.logger == nil {
+		t.Fatal("logger is nil")
+	}
+
+	// session.Close should call policy.Reset method
+	session.Close()
+
+	// check that session.Close has called policy.Reset method
+
+	if policyInternal.fallback == nil { // we don't touch fallback in Reset
+		t.Fatal("fallback is nil")
+	}
+	if !policyInternal.nonLocalReplicasFallback { // we don't touch nonLocalReplicasFallback in Reset
+		t.Fatal("nonLocalReplicasFallback is false")
+	}
+	if policyInternal.getKeyspaceMetadata != nil {
+		t.Fatal("keyspace metatadata fn is not nil")
+	}
+	if policyInternal.getKeyspaceName != nil {
+		t.Fatal("keyspace name fn is not nil")
+	}
+	if policyInternal.logger != nil {
+		t.Fatal("logger is nil")
+	}
+}
