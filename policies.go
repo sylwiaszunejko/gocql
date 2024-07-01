@@ -308,7 +308,6 @@ type HostSelectionPolicy interface {
 	SetPartitioner
 	// Experimental, this interface and use may change
 	SetTablets
-	DCFailover
 	KeyspaceChanged(KeyspaceUpdateEvent)
 	Init(*Session)
 	// Reset is opprotunity to reset HostSelectionPolicy if Session initilization failed and we want to
@@ -366,8 +365,7 @@ func (r *roundRobinHostPolicy) Init(*Session)                       {}
 func (r *roundRobinHostPolicy) Reset()                              {}
 
 // Experimental, this interface and use may change
-func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo)      {}
-func (r *roundRobinHostPolicy) PermitDCFailover() HostSelectionPolicy { return r }
+func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo) {}
 
 func (r *roundRobinHostPolicy) Pick(qry ExecutableQuery) NextHost {
 	nextStartOffset := atomic.AddUint64(&r.lastUsedHostIdx, 1)
@@ -549,8 +547,6 @@ func (t *tokenAwareHostPolicy) SetTablets(tablets []*TabletInfo) {
 
 	t.tablets.set(tablets)
 }
-
-func (t *tokenAwareHostPolicy) PermitDCFailover() HostSelectionPolicy { return t }
 
 func (t *tokenAwareHostPolicy) AddHost(host *HostInfo) {
 	t.mu.Lock()
@@ -832,8 +828,7 @@ func (r *hostPoolHostPolicy) SetPartitioner(string)               {}
 func (r *hostPoolHostPolicy) IsLocal(*HostInfo) bool              { return true }
 
 // Experimental, this interface and use may change
-func (r *hostPoolHostPolicy) SetTablets(tablets []*TabletInfo)      {}
-func (r *hostPoolHostPolicy) PermitDCFailover() HostSelectionPolicy { return r }
+func (r *hostPoolHostPolicy) SetTablets(tablets []*TabletInfo) {}
 
 func (r *hostPoolHostPolicy) SetHosts(hosts []*HostInfo) {
 	peers := make([]string, len(hosts))
@@ -960,13 +955,30 @@ type dcAwareRR struct {
 	permitDCFailover bool
 }
 
+type dcFailoverEnabledPolicy interface {
+	setDCFailoverEnabled()
+}
+
+type dcAwarePolicyOption func(p dcFailoverEnabledPolicy)
+
+func HostPolicyOptionEnableDCFailover(p dcFailoverEnabledPolicy) {
+	p.setDCFailoverEnabled()
+}
+
 // DCAwareRoundRobinPolicy is a host selection policies which will prioritize and
 // return hosts which are in the local datacentre before returning hosts in all
 // other datercentres
-func DCAwareRoundRobinPolicy(localDC string) HostSelectionPolicy {
-	return &dcAwareRR{local: localDC, permitDCFailover: false}
+func DCAwareRoundRobinPolicy(localDC string, opts ...dcAwarePolicyOption) HostSelectionPolicy {
+	p := &dcAwareRR{local: localDC, permitDCFailover: false}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
+func (d *dcAwareRR) setDCFailoverEnabled() {
+	d.permitDCFailover = true
+}
 func (d *dcAwareRR) Init(*Session)                       {}
 func (d *dcAwareRR) Reset()                              {}
 func (d *dcAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
@@ -978,10 +990,6 @@ func (d *dcAwareRR) IsLocal(host *HostInfo) bool {
 
 // Experimental, this interface and use may change
 func (d *dcAwareRR) SetTablets(tablets []*TabletInfo) {}
-func (d *dcAwareRR) PermitDCFailover() HostSelectionPolicy {
-	d.permitDCFailover = true
-	return d
-}
 
 func (d *dcAwareRR) AddHost(host *HostInfo) {
 	if d.IsLocal(host) {
@@ -1069,9 +1077,12 @@ type rackAwareRR struct {
 	permitDCFailover bool
 }
 
-func RackAwareRoundRobinPolicy(localDC string, localRack string) HostSelectionPolicy {
-	hosts := make([]cowHostList, 3)
-	return &rackAwareRR{localDC: localDC, localRack: localRack, hosts: hosts, permitDCFailover: false}
+func RackAwareRoundRobinPolicy(localDC string, localRack string, opts ...dcAwarePolicyOption) HostSelectionPolicy {
+	p := &rackAwareRR{localDC: localDC, localRack: localRack, hosts: make([]cowHostList, 3)}
+	for _, opt := range opts {
+		opt(p)
+	}
+	return p
 }
 
 func (d *rackAwareRR) Init(*Session)                       {}
@@ -1081,6 +1092,10 @@ func (d *rackAwareRR) SetPartitioner(p string)             {}
 
 func (d *rackAwareRR) MaxHostTier() uint {
 	return 2
+}
+
+func (d *rackAwareRR) setDCFailoverEnabled() {
+	d.permitDCFailover = true
 }
 
 // Experimental, this interface and use may change

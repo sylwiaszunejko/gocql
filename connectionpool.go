@@ -32,11 +32,6 @@ type SetTablets interface {
 	SetTablets(tablets []*TabletInfo)
 }
 
-// interface to implement to permit dc failover
-type DCFailover interface {
-	PermitDCFailover() HostSelectionPolicy
-}
-
 func setupTLSConfig(sslOpts *SslOptions) (*tls.Config, error) {
 	//  Config.InsecureSkipVerify | EnableHostVerification | Result
 	//  Config is nil             | true                   | verify host
