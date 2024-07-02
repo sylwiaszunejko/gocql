@@ -601,6 +601,37 @@ func TestHostPolicy_DCAwareRR(t *testing.T) {
 
 }
 
+func TestHostPolicy_DCAwareRR_wrongDc(t *testing.T) {
+	p := DCAwareRoundRobinPolicy("wrong_dc", HostPolicyOptionDisableDCFailover)
+
+	hosts := [...]*HostInfo{
+		{hostId: "0", connectAddress: net.ParseIP("10.0.0.1"), dataCenter: "local"},
+		{hostId: "1", connectAddress: net.ParseIP("10.0.0.2"), dataCenter: "local"},
+		{hostId: "2", connectAddress: net.ParseIP("10.0.0.3"), dataCenter: "remote"},
+		{hostId: "3", connectAddress: net.ParseIP("10.0.0.4"), dataCenter: "remote"},
+	}
+
+	for _, host := range hosts {
+		p.AddHost(host)
+	}
+
+	got := make(map[string]bool, len(hosts))
+
+	it := p.Pick(nil)
+	for h := it(); h != nil; h = it() {
+		id := h.Info().hostId
+
+		if got[id] {
+			t.Fatalf("got duplicate host %s", id)
+		}
+		got[id] = true
+	}
+
+	if len(got) != 0 {
+		t.Fatalf("expected %d hosts got %d", 0, len(got))
+	}
+}
+
 // Tests of the token-aware host selection policy implementation with a
 // DC aware round-robin host selection policy fallback
 // with {"class": "NetworkTopologyStrategy", "a": 1, "b": 1, "c": 1} replication.
