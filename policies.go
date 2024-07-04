@@ -319,6 +319,8 @@ type HostSelectionPolicy interface {
 	// so it's safe to have internal state without additional synchronization as long as every call to Pick returns
 	// a different instance of NextHost.
 	Pick(ExecutableQuery) NextHost
+	// IsOperational checks if host policy can properly work with given Session/Cluster/ClusterConfig
+	IsOperational(*Session) error
 }
 
 // SelectedHost is an interface returned when picking a host from a host
@@ -363,6 +365,7 @@ func (r *roundRobinHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *roundRobinHostPolicy) SetPartitioner(partitioner string)   {}
 func (r *roundRobinHostPolicy) Init(*Session)                       {}
 func (r *roundRobinHostPolicy) Reset()                              {}
+func (r *roundRobinHostPolicy) IsOperational(*Session) error        { return nil }
 
 // Experimental, this interface and use may change
 func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo) {}
@@ -487,6 +490,10 @@ func (t *tokenAwareHostPolicy) Reset() {
 	t.getKeyspaceMetadata = nil
 	t.getKeyspaceName = nil
 	t.logger = nil
+}
+
+func (t *tokenAwareHostPolicy) IsOperational(session *Session) error {
+	return t.fallback.IsOperational(session)
 }
 
 func (t *tokenAwareHostPolicy) IsLocal(host *HostInfo) bool {
@@ -823,6 +830,7 @@ type hostPoolHostPolicy struct {
 
 func (r *hostPoolHostPolicy) Init(*Session)                       {}
 func (r *hostPoolHostPolicy) Reset()                              {}
+func (r *hostPoolHostPolicy) IsOperational(*Session) error        { return nil }
 func (r *hostPoolHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *hostPoolHostPolicy) SetPartitioner(string)               {}
 func (r *hostPoolHostPolicy) IsLocal(*HostInfo) bool              { return true }
@@ -984,6 +992,27 @@ func (d *dcAwareRR) Reset()                              {}
 func (d *dcAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (d *dcAwareRR) SetPartitioner(p string)             {}
 
+func (d *dcAwareRR) IsOperational(session *Session) error {
+	if session.cfg.disableInit || session.cfg.disableControlConn {
+		return nil
+	}
+
+	hosts, _, err := session.hostSource.GetHosts()
+	if err != nil {
+		return fmt.Errorf("gocql: unable to check if session is operational: %v", err)
+	}
+	for _, host := range hosts {
+		if !session.cfg.filterHost(host) && host.DataCenter() == d.local {
+			// Policy can work properly only if there is at least one host from target DC
+			// No need to check host status, since it could be down due to the outage
+			// We only need to make sure that policy is not misconfigured with wrong DC
+			return nil
+		}
+	}
+
+	return fmt.Errorf("gocql: datacenter %s in the policy was not found in the topology - probable DC aware policy misconfiguration", d.local)
+}
+
 func (d *dcAwareRR) IsLocal(host *HostInfo) bool {
 	return host.DataCenter() == d.local
 }
@@ -1087,6 +1116,25 @@ func (d *rackAwareRR) Init(*Session)                       {}
 func (d *rackAwareRR) Reset()                              {}
 func (d *rackAwareRR) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (d *rackAwareRR) SetPartitioner(p string)             {}
+
+func (d *rackAwareRR) IsOperational(session *Session) error {
+	if session.cfg.disableInit || session.cfg.disableControlConn {
+		return nil
+	}
+	hosts, _, err := session.hostSource.GetHosts()
+	if err != nil {
+		return fmt.Errorf("gocql: unable to check if session is operational: %v", err)
+	}
+	for _, host := range hosts {
+		if !session.cfg.filterHost(host) && host.DataCenter() == d.localDC && host.Rack() == d.localRack {
+			// Policy can work properly only if there is at least one host from target DC+Rack
+			// No need to check host status, since it could be down due to the outage
+			// We only need to make sure that policy is not misconfigured with wrong DC+Rack
+			return nil
+		}
+	}
+	return fmt.Errorf("gocql: rack %s/%s was not found in the topology - probable Rack aware policy misconfiguration", d.localDC, d.localRack)
+}
 
 func (d *rackAwareRR) MaxHostTier() uint {
 	return 2

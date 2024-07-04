@@ -601,8 +601,8 @@ func TestHostPolicy_DCAwareRR(t *testing.T) {
 
 }
 
-func TestHostPolicy_DCAwareRR_wrongDc(t *testing.T) {
-	p := DCAwareRoundRobinPolicy("wrong_dc", HostPolicyOptionDisableDCFailover)
+func TestHostPolicy_DCAwareRR_disableDCFailover(t *testing.T) {
+	p := DCAwareRoundRobinPolicy("local", HostPolicyOptionDisableDCFailover)
 
 	hosts := [...]*HostInfo{
 		{hostId: "0", connectAddress: net.ParseIP("10.0.0.1"), dataCenter: "local"},
@@ -616,19 +616,28 @@ func TestHostPolicy_DCAwareRR_wrongDc(t *testing.T) {
 	}
 
 	got := make(map[string]bool, len(hosts))
+	var dcs []string
 
 	it := p.Pick(nil)
 	for h := it(); h != nil; h = it() {
 		id := h.Info().hostId
+		dc := h.Info().dataCenter
 
 		if got[id] {
 			t.Fatalf("got duplicate host %s", id)
 		}
 		got[id] = true
+		dcs = append(dcs, dc)
 	}
 
-	if len(got) != 0 {
-		t.Fatalf("expected %d hosts got %d", 0, len(got))
+	if len(got) != 2 {
+		t.Fatalf("expected %d hosts got %d", 2, len(got))
+	}
+
+	for _, dc := range dcs {
+		if dc == "remote" {
+			t.Fatalf("got remote dc but failover was diabled")
+		}
 	}
 }
 
