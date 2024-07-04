@@ -948,10 +948,10 @@ func (host selectedHostPoolHost) Mark(err error) {
 }
 
 type dcAwareRR struct {
-	local            string
-	localHosts       cowHostList
-	remoteHosts      cowHostList
-	lastUsedHostIdx  uint64
+	local             string
+	localHosts        cowHostList
+	remoteHosts       cowHostList
+	lastUsedHostIdx   uint64
 	disableDCFailover bool
 }
 
@@ -1053,12 +1053,10 @@ func roundRobbin(shift int, hosts ...[]*HostInfo) NextHost {
 
 func (d *dcAwareRR) Pick(q ExecutableQuery) NextHost {
 	nextStartOffset := atomic.AddUint64(&d.lastUsedHostIdx, 1)
-	if !d.disableDCFailover {
-		return roundRobbin(int(nextStartOffset), d.localHosts.get(), d.remoteHosts.get())
-	} else {
+	if d.disableDCFailover {
 		return roundRobbin(int(nextStartOffset), d.localHosts.get())
 	}
-
+	return roundRobbin(int(nextStartOffset), d.localHosts.get(), d.remoteHosts.get())
 }
 
 // RackAwareRoundRobinPolicy is a host selection policies which will prioritize and
@@ -1070,10 +1068,10 @@ type rackAwareRR struct {
 	// It is accessed atomically and needs to be aligned to 64 bits, so we
 	// keep it first in the struct. Do not move it or add new struct members
 	// before it.
-	lastUsedHostIdx  uint64
-	localDC          string
-	localRack        string
-	hosts            []cowHostList
+	lastUsedHostIdx   uint64
+	localDC           string
+	localRack         string
+	hosts             []cowHostList
 	disableDCFailover bool
 }
 
@@ -1132,12 +1130,10 @@ func (d *rackAwareRR) HostDown(host *HostInfo) { d.RemoveHost(host) }
 
 func (d *rackAwareRR) Pick(q ExecutableQuery) NextHost {
 	nextStartOffset := atomic.AddUint64(&d.lastUsedHostIdx, 1)
-	if !d.disableDCFailover {
-		return roundRobbin(int(nextStartOffset), d.hosts[0].get(), d.hosts[1].get(), d.hosts[2].get())
-	} else {
+	if d.disableDCFailover {
 		return roundRobbin(int(nextStartOffset), d.hosts[0].get(), d.hosts[1].get())
 	}
-
+	return roundRobbin(int(nextStartOffset), d.hosts[0].get(), d.hosts[1].get(), d.hosts[2].get())
 }
 
 // ReadyPolicy defines a policy for when a HostSelectionPolicy can be used. After
