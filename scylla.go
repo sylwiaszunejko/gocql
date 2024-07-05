@@ -353,7 +353,7 @@ func newScyllaConnPicker(conn *Conn) *scyllaConnPicker {
 	}
 }
 
-func (p *scyllaConnPicker) Pick(t Token, keyspace string, table string) *Conn {
+func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
 	if len(p.conns) == 0 {
 		return nil
 	}
@@ -375,11 +375,11 @@ func (p *scyllaConnPicker) Pick(t Token, keyspace string, table string) *Conn {
 			continue
 		}
 
-		if conn.isTabletSupported() {
+		if qry != nil && conn.isTabletSupported() {
 			tablets := conn.session.getTablets()
 
 			// Search for tablets with Keyspace and Table from the Query
-			l, r := findTablets(tablets, keyspace, table)
+			l, r := findTablets(tablets, qry.Keyspace(), qry.Table())
 
 			if l != -1 {
 				tablet := findTabletForToken(tablets, mmt, l, r)
@@ -403,6 +403,9 @@ func (p *scyllaConnPicker) Pick(t Token, keyspace string, table string) *Conn {
 		// We have this shard's connection
 		// so let's give it to the caller.
 		// But only if it's not loaded too much and load is well distributed.
+		if qry != nil && qry.IsLWT() {
+			return c
+		}
 		return p.maybeReplaceWithLessBusyConnection(c)
 	}
 	return p.leastBusyConn()
