@@ -197,6 +197,10 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 		}
 	}
 
+	if s.policy.IsOperational(s) != nil {
+		return nil, fmt.Errorf("gocql: unable to create session: %v", err)
+	}
+
 	return s, nil
 }
 
