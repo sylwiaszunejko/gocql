@@ -25,6 +25,7 @@ type KeyspaceMetadata struct {
 	Types           map[string]*TypeMetadata
 	Indexes         map[string]*IndexMetadata
 	Views           map[string]*ViewMetadata
+	CreateStmts     string
 }
 
 // schema metadata for a table (a.k.a. column family)
@@ -358,8 +359,13 @@ func (s *schemaDescriber) refreshSchema(keyspaceName string) error {
 		return err
 	}
 
+	createStmts, err := getCreateStatements(s.session, keyspaceName)
+	if err != nil {
+		return err
+	}
+
 	// organize the schema data
-	compileMetadata(keyspace, tables, columns, functions, aggregates, types, indexes, views)
+	compileMetadata(keyspace, tables, columns, functions, aggregates, types, indexes, views, createStmts)
 
 	// update the cache
 	s.cache[keyspaceName] = keyspace
@@ -381,6 +387,7 @@ func compileMetadata(
 	types []TypeMetadata,
 	indexes []IndexMetadata,
 	views []ViewMetadata,
+	createStmts []byte,
 ) {
 	keyspace.Tables = make(map[string]*TableMetadata)
 	for i := range tables {
@@ -452,6 +459,8 @@ func compileMetadata(
 		v := &views[i]
 		v.PartitionKey, v.ClusteringColumns, v.OrderedColumns = compileColumns(v.Columns, v.OrderedColumns)
 	}
+
+	keyspace.CreateStmts = string(createStmts)
 }
 
 func compileColumns(columns map[string]*ColumnMetadata, orderedColumns []string) (
@@ -742,6 +751,35 @@ func getIndexMetadata(session *Session, keyspaceName string) ([]IndexMetadata, e
 	}
 
 	return indexes, nil
+}
+
+// get create statements for the keyspace
+func getCreateStatements(session *Session, keyspaceName string) ([]byte, error) {
+	if !session.useSystemSchema {
+		return nil, nil
+	}
+	iter := session.control.query(fmt.Sprintf(`DESCRIBE KEYSPACE %s WITH INTERNALS`, keyspaceName))
+
+	var createStatements []string
+
+	var stmt string
+	for iter.Scan(nil, nil, nil, &stmt) {
+		if stmt == "" {
+			continue
+		}
+		createStatements = append(createStatements, stmt)
+	}
+
+	if err := iter.Close(); err != nil {
+		if errFrame, ok := err.(errorFrame); ok && errFrame.code == ErrCodeSyntax {
+			// DESCRIBE KEYSPACE is not supported on older versions of Cassandra and Scylla
+			// For such case schema statement is going to be recreated on the client side
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error querying keyspace schema: %v", err)
+	}
+
+	return []byte(strings.Join(createStatements, "\n")), nil
 }
 
 // query for view metadata in the system_schema.views

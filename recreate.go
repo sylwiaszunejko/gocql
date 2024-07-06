@@ -20,6 +20,12 @@ import (
 // user defined types, tables, indexes, functions, aggregates and views associated
 // with this keyspace.
 func (km *KeyspaceMetadata) ToCQL() (string, error) {
+	// Be aware that `CreateStmts` is not only a cache for ToCQL,
+	// but it also can be populated from response to `DESCRIBE KEYSPACE %s WITH INTERNALS`
+	if len(km.CreateStmts) != 0 {
+		return km.CreateStmts, nil
+	}
+
 	var sb strings.Builder
 
 	if err := km.keyspaceToCQL(&sb); err != nil {
@@ -63,7 +69,8 @@ func (km *KeyspaceMetadata) ToCQL() (string, error) {
 		}
 	}
 
-	return sb.String(), nil
+	km.CreateStmts = sb.String()
+	return km.CreateStmts, nil
 }
 
 func (km *KeyspaceMetadata) typesSortedTopologically() []*TypeMetadata {
