@@ -1393,9 +1393,24 @@ func (q *Query) Iter() *Iter {
 	if isUseStatement(q.stmt) {
 		return &Iter{err: ErrUseStmt}
 	}
-	// if the query was specifically run on a connection then re-use that
-	// connection when fetching the next results
+
+	if !q.disableAutoPage {
+		return q.executeQuery()
+	}
+
+	// Retry on empty page if pagination is manual
+	iter := q.executeQuery()
+	for iter.err == nil && iter.numRows == 0 && !iter.LastPage() {
+		q.PageState(iter.PageState())
+		iter = q.executeQuery()
+	}
+	return iter
+}
+
+func (q *Query) executeQuery() *Iter {
 	if q.conn != nil {
+		// if the query was specifically run on a connection then re-use that
+		// connection when fetching the next results
 		return q.conn.executeQuery(q.Context(), q)
 	}
 	return q.session.executeQuery(q)
@@ -1769,6 +1784,11 @@ func (iter *Iter) checkErrAndNotFound() error {
 // subsequent queries to resume paging this point.
 func (iter *Iter) PageState() []byte {
 	return iter.meta.pagingState
+}
+
+// LastPage returns true if there are no more pages to fetch.
+func (iter *Iter) LastPage() bool {
+	return len(iter.meta.pagingState) == 0
 }
 
 // NumRows returns the number of rows in this pagination, it will update when new

@@ -419,6 +419,11 @@ func TestPagingWithAllowFiltering(t *testing.T) {
 
 				for {
 					iter := qry.PageState(currentPageState).Iter()
+
+					// Here we make sure that all iterator, but last one have some data in it
+					if !iter.LastPage() && iter.NumRows() == 0 {
+						t.Errorf("expected at least one row, but got 0")
+					}
 					for iter.Scan(&c1, &f1) {
 						if c1 != f1 {
 							t.Fatalf("expected c1 and f1 values to be the same, but got c1=%d f1=%d", c1, f1)
@@ -428,9 +433,12 @@ func TestPagingWithAllowFiltering(t *testing.T) {
 					if err := iter.Close(); err != nil {
 						t.Fatal("select:", err.Error())
 					}
-					newPageState := iter.PageState()
-					if len(newPageState) == 0 || len(currentPageState) == len(newPageState) && bytes.Compare(newPageState, currentPageState) == 0 {
+					if iter.LastPage() {
 						break
+					}
+					newPageState := iter.PageState()
+					if len(currentPageState) == len(newPageState) && bytes.Compare(newPageState, currentPageState) == 0 {
+						t.Fatalf("page state did not change")
 					}
 					currentPageState = newPageState
 				}
@@ -2355,7 +2363,7 @@ func TestManualQueryPaging(t *testing.T) {
 			fetched++
 		}
 
-		if len(iter.PageState()) > 0 {
+		if !iter.LastPage() {
 			// more pages
 			iter = query.PageState(iter.PageState()).Iter()
 		} else {
