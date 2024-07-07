@@ -422,6 +422,14 @@ func TestSimpleRetryPolicy(t *testing.T) {
 	}
 }
 
+func TestLWTSimpleRetryPolicy(t *testing.T) {
+	ebrp := &SimpleRetryPolicy{NumRetries: 2}
+	// Verify that SimpleRetryPolicy implements both interfaces
+	var _ RetryPolicy = ebrp
+	var lwt_rt LWTRetryPolicy = ebrp
+	assertEqual(t, "retry type of LWT policy", lwt_rt.GetRetryTypeLWT(nil), Retry)
+}
+
 func TestExponentialBackoffPolicy(t *testing.T) {
 	// test with defaults
 	sut := &ExponentialBackoffRetryPolicy{NumRetries: 2}
@@ -448,6 +456,14 @@ func TestExponentialBackoffPolicy(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestLWTExponentialBackoffPolicy(t *testing.T) {
+	ebrp := &ExponentialBackoffRetryPolicy{NumRetries: 2}
+	// Verify that ExponentialBackoffRetryPolicy implements both interfaces
+	var _ RetryPolicy = ebrp
+	var lwt_rt LWTRetryPolicy = ebrp
+	assertEqual(t, "retry type of LWT policy", lwt_rt.GetRetryTypeLWT(nil), Retry)
 }
 
 func TestDowngradingConsistencyRetryPolicy(t *testing.T) {
