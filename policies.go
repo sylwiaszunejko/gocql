@@ -156,6 +156,14 @@ type RetryPolicy interface {
 	GetRetryType(error) RetryType
 }
 
+// LWTRetryPolicy is a similar interface to RetryPolicy
+// If a query is recognized as an LWT query and its RetryPolicy satisfies this
+// interface, then this interface will be used instead of RetryPolicy.
+type LWTRetryPolicy interface {
+	AttemptLWT(RetryableQuery) bool
+	GetRetryTypeLWT(error) RetryType
+}
+
 // SimpleRetryPolicy has simple logic for attempting a query a fixed number of times.
 //
 // See below for examples of usage:
@@ -175,8 +183,20 @@ func (s *SimpleRetryPolicy) Attempt(q RetryableQuery) bool {
 	return q.Attempts() <= s.NumRetries
 }
 
+func (s *SimpleRetryPolicy) AttemptLWT(q RetryableQuery) bool {
+	return s.Attempt(q)
+}
+
 func (s *SimpleRetryPolicy) GetRetryType(err error) RetryType {
 	return RetryNextHost
+}
+
+// Retrying on a different host is fine for normal (non-LWT) queries,
+// but in case of LWTs it will cause Paxos contention and possibly
+// even timeouts if other clients send statements touching the same
+// partition to the original node at the same time.
+func (s *SimpleRetryPolicy) GetRetryTypeLWT(err error) RetryType {
+	return Retry
 }
 
 // ExponentialBackoffRetryPolicy sleeps between attempts
@@ -191,6 +211,10 @@ func (e *ExponentialBackoffRetryPolicy) Attempt(q RetryableQuery) bool {
 	}
 	time.Sleep(e.napTime(q.Attempts()))
 	return true
+}
+
+func (e *ExponentialBackoffRetryPolicy) AttemptLWT(q RetryableQuery) bool {
+	return e.Attempt(q)
 }
 
 // used to calculate exponentially growing time
@@ -213,6 +237,14 @@ func getExponentialTime(min time.Duration, max time.Duration, attempts int) time
 
 func (e *ExponentialBackoffRetryPolicy) GetRetryType(err error) RetryType {
 	return RetryNextHost
+}
+
+// Retrying on a different host is fine for normal (non-LWT) queries,
+// but in case of LWTs it will cause Paxos contention and possibly
+// even timeouts if other clients send statements touching the same
+// partition to the original node at the same time.
+func (e *ExponentialBackoffRetryPolicy) GetRetryTypeLWT(err error) RetryType {
+	return Retry
 }
 
 // DowngradingConsistencyRetryPolicy: Next retry will be with the next consistency level
