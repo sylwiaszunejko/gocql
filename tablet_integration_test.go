@@ -69,7 +69,9 @@ func TestTablets(t *testing.T) {
 			}
 		}
 
-		assertEqual(t, "queriedHosts", 1, queriedHosts)
+		if queriedHosts != 1 {
+			t.Fatalf("trace should show only one host but it showed %d hosts, hosts: %s trace:\n%s", queriedHosts, hostAddresses, buf.String())
+		}
 	}
 }
 
@@ -123,12 +125,14 @@ func TestTabletsShardAwareness(t *testing.T) {
 		allShards := make(map[string]bool)
 		shardList := []string{}
 		for _, item := range shards {
-			if _, value := allShards[item]; !value {
+			if !allShards[item] {
 				allShards[item] = true
 				shardList = append(shardList, item)
 			}
 		}
 
-		assertEqual(t, "shardList", 1, len(shardList))
+		if len(shardList) != 1 {
+			t.Fatalf("trace should show only one shard but it showed %d shards, shards: %s trace:\n%s", len(shardList), shardList, buf.String())
+		}
 	}
 }
