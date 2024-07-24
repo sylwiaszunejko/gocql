@@ -233,9 +233,10 @@ func (s *Session) init() error {
 		if err := s.control.connect(hosts); err != nil {
 			return err
 		}
-		s.control.getConn().conn.mu.Lock()
-		s.tabletsRoutingV1 = s.control.getConn().conn.isTabletSupported()
-		s.control.getConn().conn.mu.Unlock()
+		conn := s.control.getConn().conn
+		conn.mu.Lock()
+		s.tabletsRoutingV1 = conn.isTabletSupported()
+		conn.mu.Unlock()
 
 		if !s.cfg.DisableInitialHostLookup {
 			var partitioner string
