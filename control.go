@@ -50,10 +50,11 @@ type controlConn struct {
 }
 
 func createControlConn(session *Session) *controlConn {
+
 	control := &controlConn{
-		session: session,
-		quit:    make(chan struct{}),
-		retry:   &SimpleRetryPolicy{NumRetries: 3},
+		session:            session,
+		quit:               make(chan struct{}),
+		retry:              &SimpleRetryPolicy{NumRetries: 3},
 	}
 
 	control.conn.Store((*connHost)(nil))

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -85,6 +86,8 @@ type Session struct {
 	logger StdLogger
 
 	tabletsRoutingV1 bool
+
+	usingTimeoutClause string
 }
 
 var queryPool = &sync.Pool{
@@ -236,6 +239,9 @@ func (s *Session) init() error {
 		conn := s.control.getConn().conn
 		conn.mu.Lock()
 		s.tabletsRoutingV1 = conn.isTabletSupported()
+		if s.cfg.MetadataSchemaRequestTimeout > time.Duration(0) && isScyllaConn(conn) {
+			s.usingTimeoutClause = " USING TIMEOUT " + strconv.FormatInt(int64(s.cfg.MetadataSchemaRequestTimeout.Milliseconds()), 10) + "ms"
+		}
 		conn.mu.Unlock()
 
 		if !s.cfg.DisableInitialHostLookup {

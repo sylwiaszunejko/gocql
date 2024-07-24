@@ -513,7 +513,7 @@ func getKeyspaceMetadata(session *Session, keyspaceName string) (*KeyspaceMetada
 
 	var replication map[string]string
 
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 	if iter.NumRows() == 0 {
 		return nil, ErrKeyspaceDoesNotExist
 	}
@@ -541,7 +541,7 @@ func getTableMetadata(session *Session, keyspaceName string) ([]TableMetadata, e
 	}
 
 	stmt := `SELECT * FROM system_schema.tables WHERE keyspace_name = ?`
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 
 	var tables []TableMetadata
 	table := TableMetadata{Keyspace: keyspaceName}
@@ -573,7 +573,7 @@ func getTableMetadata(session *Session, keyspaceName string) ([]TableMetadata, e
 
 	stmt = `SELECT * FROM system_schema.scylla_tables WHERE keyspace_name = ? AND table_name = ?`
 	for i, t := range tables {
-		iter := session.control.query(stmt, keyspaceName, t.Name)
+		iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName, t.Name)
 
 		table := TableMetadata{}
 		if iter.MapScan(map[string]interface{}{
@@ -601,7 +601,7 @@ func getColumnMetadata(session *Session, keyspaceName string) ([]ColumnMetadata,
 
 	var columns []ColumnMetadata
 
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 	column := ColumnMetadata{Keyspace: keyspaceName}
 
 	for iter.MapScan(map[string]interface{}{
@@ -630,7 +630,7 @@ func getTypeMetadata(session *Session, keyspaceName string) ([]TypeMetadata, err
 	}
 
 	stmt := `SELECT * FROM system_schema.types WHERE keyspace_name = ?`
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 
 	var types []TypeMetadata
 	tm := TypeMetadata{Keyspace: keyspaceName}
@@ -661,7 +661,7 @@ func getFunctionsMetadata(session *Session, keyspaceName string) ([]FunctionMeta
 	var functions []FunctionMetadata
 	function := FunctionMetadata{Keyspace: keyspaceName}
 
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 	for iter.MapScan(map[string]interface{}{
 		"function_name":        &function.Name,
 		"argument_types":       &function.ArgumentTypes,
@@ -693,7 +693,7 @@ func getAggregatesMetadata(session *Session, keyspaceName string) ([]AggregateMe
 	var aggregates []AggregateMetadata
 	aggregate := AggregateMetadata{Keyspace: keyspaceName}
 
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 	for iter.MapScan(map[string]interface{}{
 		"aggregate_name": &aggregate.Name,
 		"argument_types": &aggregate.ArgumentTypes,
@@ -725,7 +725,7 @@ func getIndexMetadata(session *Session, keyspaceName string) ([]IndexMetadata, e
 	var indexes []IndexMetadata
 	index := IndexMetadata{}
 
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 	for iter.MapScan(map[string]interface{}{
 		"index_name":    &index.Name,
 		"keyspace_name": &index.KeyspaceName,
@@ -752,7 +752,7 @@ func getViewMetadata(session *Session, keyspaceName string) ([]ViewMetadata, err
 
 	stmt := `SELECT * FROM system_schema.views WHERE keyspace_name = ?`
 
-	iter := session.control.query(stmt, keyspaceName)
+	iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 
 	var views []ViewMetadata
 	view := ViewMetadata{KeyspaceName: keyspaceName}

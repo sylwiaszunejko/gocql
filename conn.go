@@ -1769,9 +1769,13 @@ func (c *Conn) query(ctx context.Context, statement string, values ...interface{
 }
 
 func (c *Conn) querySystemPeers(ctx context.Context, version cassVersion) *Iter {
-	const (
-		peerSchema    = "SELECT * FROM system.peers"
-		peerV2Schemas = "SELECT * FROM system.peers_v2"
+	usingClause := ""
+	if c.session.control != nil {
+		usingClause = c.session.usingTimeoutClause
+	}
+	var (
+		peerSchema    = "SELECT * FROM system.peers" + usingClause
+		peerV2Schemas = "SELECT * FROM system.peers_v2" + usingClause
 	)
 
 	c.mu.Lock()
@@ -1804,11 +1808,19 @@ func (c *Conn) querySystemPeers(ctx context.Context, version cassVersion) *Iter 
 }
 
 func (c *Conn) querySystemLocal(ctx context.Context) *Iter {
-	return c.query(ctx, "SELECT * FROM system.local WHERE key='local'")
+	usingClause := ""
+	if c.session.control != nil {
+		usingClause = c.session.usingTimeoutClause
+	}
+	return c.query(ctx, "SELECT * FROM system.local WHERE key='local'"+usingClause)
 }
 
 func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
-	const localSchemas = "SELECT schema_version FROM system.local WHERE key='local'"
+	usingClause := ""
+	if c.session.control != nil {
+		usingClause = c.session.usingTimeoutClause
+	}
+	var localSchemas = "SELECT schema_version FROM system.local WHERE key='local'" + usingClause
 
 	var versions map[string]struct{}
 	var schemaVersion string
