@@ -7,7 +7,10 @@ package gocql
 
 import (
 	"encoding/json"
+	"flag"
+	"fmt"
 	"io/ioutil"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -15,9 +18,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+var updateGolden = flag.Bool("update-golden", false, "update golden files")
+
 func TestRecreateSchema(t *testing.T) {
 	session := createSessionFromCluster(createCluster(), t)
 	defer session.Close()
+
+	getStmtFromCluster := isDescribeKeyspaceSupported(t, session)
 
 	tcs := []struct {
 		Name     string
@@ -97,13 +104,30 @@ func TestRecreateSchema(t *testing.T) {
 				t.Fatal("recreate schema", err)
 			}
 
-			golden, err := ioutil.ReadFile(test.Golden)
-			if err != nil {
-				t.Fatal(err)
+			dump = trimSchema(dump)
+
+			var golden []byte
+			if getStmtFromCluster {
+				golden, err = getCreateStatements(session, test.Keyspace)
+				if err != nil {
+					t.Fatal(err)
+				}
+				golden = []byte(trimSchema(string(golden)))
+			} else {
+				if *updateGolden {
+					if err := ioutil.WriteFile(test.Golden, []byte(dump), 0644); err != nil {
+						t.Fatal(err)
+					}
+				}
+				golden, err = ioutil.ReadFile(test.Golden)
+				if err != nil {
+					t.Fatal(err)
+				}
+				golden = []byte(trimSchema(string(golden)))
 			}
 
-			goldenQueries := sortQueries(strings.Split(string(golden), ";"))
-			dumpQueries := sortQueries(strings.Split(dump, ";"))
+			goldenQueries := trimQueries(sortQueries(strings.Split(string(golden), ";")))
+			dumpQueries := trimQueries(sortQueries(strings.Split(dump, ";")))
 
 			if len(goldenQueries) != len(dumpQueries) {
 				t.Errorf("Expected len(dumpQueries) to be %d, got %d", len(goldenQueries), len(dumpQueries))
@@ -139,13 +163,30 @@ func TestRecreateSchema(t *testing.T) {
 				t.Fatal("recreate schema", err)
 			}
 
-			secondDumpQueries := sortQueries(strings.Split(secondDump, ";"))
+			secondDump = trimSchema(secondDump)
+
+			secondDumpQueries := trimQueries(sortQueries(strings.Split(secondDump, ";")))
 
 			if !cmp.Equal(secondDumpQueries, dumpQueries) {
 				t.Errorf("first dump and second one differs: %s", cmp.Diff(secondDumpQueries, dumpQueries))
 			}
 		})
 	}
+}
+
+func isDescribeKeyspaceSupported(t *testing.T, s *Session) bool {
+	t.Helper()
+
+	err := s.control.query(fmt.Sprintf(`DESCRIBE KEYSPACE system WITH INTERNALS`)).Close()
+	if err != nil {
+		if errFrame, ok := err.(errorFrame); ok && errFrame.code == ErrCodeSyntax {
+			// DESCRIBE KEYSPACE is not supported on older versions of Cassandra and Scylla
+			// For such case schema statement is going to be recreated on the client side
+			return false
+		}
+		t.Fatalf("error querying keyspace schema: %v", err)
+	}
+	return true
 }
 
 func TestScyllaEncryptionOptionsUnmarshaller(t *testing.T) {
@@ -198,9 +239,20 @@ func trimQueries(in []string) []string {
 	queries := in[:0]
 	for _, q := range in {
 		q = strings.TrimSpace(q)
+		if q == "" {
+			continue
+		}
 		if len(q) != 0 {
 			queries = append(queries, q)
 		}
 	}
 	return queries
+}
+
+var schemaVersion = regexp.MustCompile(` WITH ID = [0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}[ \t\n]+AND`)
+
+func trimSchema(s string) string {
+	// Remove temporary items from the scheme, in particular schema version:
+	// ) WITH ID = cf0364d0-3b85-11ef-b79d-80a2ee1928c0
+	return strings.ReplaceAll(schemaVersion.ReplaceAllString(s, " WITH"), "\n\n", "\n")
 }

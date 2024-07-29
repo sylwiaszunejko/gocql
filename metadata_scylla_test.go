@@ -113,7 +113,7 @@ func TestCompileMetadata(t *testing.T) {
 			ViewName:     "sec_idx_index",
 		},
 	}
-	compileMetadata(keyspace, tables, columns, nil, nil, nil, indexes, views)
+	compileMetadata(keyspace, tables, columns, nil, nil, nil, indexes, views, nil)
 	assertKeyspaceMetadata(
 		t,
 		keyspace,
