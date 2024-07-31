@@ -557,7 +557,7 @@ func getKeyspaceMetadata(session *Session, keyspaceName string) (*KeyspaceMetada
 
 		var replication map[string]string
 
-		iter := session.control.query(stmt, keyspaceName)
+		iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 		if iter.NumRows() == 0 {
 			return nil, ErrKeyspaceDoesNotExist
 		}
@@ -583,7 +583,7 @@ func getKeyspaceMetadata(session *Session, keyspaceName string) (*KeyspaceMetada
 
 		var strategyOptionsJSON []byte
 
-		iter := session.control.query(stmt, keyspaceName)
+		iter := session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 		if iter.NumRows() == 0 {
 			return nil, ErrKeyspaceDoesNotExist
 		}
@@ -631,7 +631,7 @@ func getTableMetadata(session *Session, keyspaceName string) ([]TableMetadata, e
 					view_name
 				FROM system_schema.views
 				WHERE keyspace_name = ?`
-			iter = session.control.query(stmt, keyspaceName)
+			iter = session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 			return iter
 		}
 
@@ -693,7 +693,7 @@ func getTableMetadata(session *Session, keyspaceName string) ([]TableMetadata, e
 		}
 	}
 
-	iter = session.control.query(stmt, keyspaceName)
+	iter = session.control.query(stmt+session.usingTimeoutClause, keyspaceName)
 
 	tables := []TableMetadata{}
 	table := TableMetadata{Keyspace: keyspaceName}
@@ -756,7 +756,7 @@ func (s *Session) scanColumnMetadataV1(keyspace string) ([]ColumnMetadata, error
 
 	var columns []ColumnMetadata
 
-	rows := s.control.query(stmt, keyspace).Scanner()
+	rows := s.control.query(stmt+s.usingTimeoutClause, keyspace).Scanner()
 	for rows.Next() {
 		var (
 			column           = ColumnMetadata{Keyspace: keyspace}
@@ -817,7 +817,7 @@ func (s *Session) scanColumnMetadataV2(keyspace string) ([]ColumnMetadata, error
 
 	var columns []ColumnMetadata
 
-	rows := s.control.query(stmt, keyspace).Scanner()
+	rows := s.control.query(stmt+s.usingTimeoutClause, keyspace).Scanner()
 	for rows.Next() {
 		var (
 			column           = ColumnMetadata{Keyspace: keyspace}
@@ -875,7 +875,7 @@ func (s *Session) scanColumnMetadataSystem(keyspace string) ([]ColumnMetadata, e
 
 	var columns []ColumnMetadata
 
-	rows := s.control.query(stmt, keyspace).Scanner()
+	rows := s.control.query(stmt+s.usingTimeoutClause, keyspace).Scanner()
 	for rows.Next() {
 		column := ColumnMetadata{Keyspace: keyspace}
 
