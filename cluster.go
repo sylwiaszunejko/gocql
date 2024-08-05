@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const defaultDriverName = "ScyllaDB GoCQL Driver"
+
 // PoolConfig configures the connection pool used by the driver, it defaults to
 // using a round-robin host selection policy and a round-robin connection selection
 // policy for each host.
@@ -144,6 +146,14 @@ type ClusterConfig struct {
 	// Sends a client side timestamp for all requests which overrides the timestamp at which it arrives at the server.
 	// Default: true, only enabled for protocol 3 and above.
 	DefaultTimestamp bool
+
+	// The name of the driver that is going to be reported to the server.
+	// Default: "ScyllaDB GoLang Driver"
+	DriverName string
+
+	// The version of the driver that is going to be reported to the server.
+	// Defaulted to current library version
+	DriverVersion string
 
 	// PoolConfig configures the underlying connection pool, allowing the
 	// configuration of host selection and connection selection policies.
@@ -289,6 +299,8 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		MaxRoutingKeyInfo:            1000,
 		PageSize:                     5000,
 		DefaultTimestamp:             true,
+		DriverName:                   defaultDriverName,
+		DriverVersion:                defaultDriverVersion,
 		MaxWaitSchemaAgreement:       60 * time.Second,
 		ReconnectInterval:            60 * time.Second,
 		ConvictionPolicy:             &SimpleConvictionPolicy{},
