@@ -41,7 +41,7 @@ jobs:
       - name: Build and push Scylla-bench Docker Image with gocql from PR
         run: |
           cd scylla-bench
-          GOCQL_REPO="${{ github.event.pull_request.head.repo.full_name }}" GOCQL_COMMIT_ID="${{ github.event.pull_request.head.ref }}" make build-with-custom-gocql-version
+          GOCQL_REPO="${{ github.event.pull_request.head.repo.full_name }}" GOCQL_VERSION="${{ github.event.pull_request.head.ref }}" make build-with-custom-gocql-version
           DOCKER_IMAGE_TAG="scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.ref }}" make build-docker-image
           docker push "scylladb/gocql-extended-ci:scylla-bench-${NAME}"
 
