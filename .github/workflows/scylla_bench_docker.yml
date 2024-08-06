@@ -1,0 +1,57 @@
+name: Build scylla-bench docker image with gocql PR
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  authorize:
+    environment:
+      ${{ github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.repo.full_name != github.repository &&
+      'default' || 'internal' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+
+  build-scylla-bench:
+    if: contains(github.event.pull_request.labels.*.name, 'extended-ci')
+    needs: authorize
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Check out the scylla-bench repository
+        uses: actions/checkout@v2
+        with:
+          repository: scylladb/scylla-bench
+          path: scylla-bench
+
+      - name: Checkout GoCQL PR Repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          path: gocql
+
+      - name: Build and push Scylla-bench Docker Image with gocql from PR
+        run: |
+          cd scylla-bench
+          GOCQL_REPO="${{ github.event.pull_request.head.repo.full_name }} GOCQL_COMMIT_ID="${{ github.event.pull_request.head.ref }}" IMAGE_TAG="scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.ref }}" make build-image-with-custom-gocql-commit
+          docker push "scylladb/gocql-extended-ci:scylla-bench-${NAME}"
+
+      - name: Start Jenkins job
+        uses: sylwiaszunejko/jenkins_client@main
+        with:
+          jenkins_job_name: 'scylla-staging/sylwia.szunejko/longevity-large-partition-asymmetric-cluster-3h-test'
+          jenkins_job_parameters: '{"email_recipients": "sylwia.szunejko@scylladb.com", "scylla_version": "master:latest", "extra_environment_variables": "SCT_STRESS_IMAGE.scylla-bench=scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.ref }}"}'
+          jenkins_base_url: 'https://jenkins.scylladb.com/'
+          jenkins_user: sylwiaszunejko
+          jenkins_password: ${{ secrets.JENKINS_TOKEN }}
+          wait_for_result: 'True'
+          polling_interval: '120'
+          polling_timeout: '12600'
