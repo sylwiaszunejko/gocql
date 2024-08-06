@@ -1,0 +1,66 @@
+name: Build scylla-bench docker image with gocql PR
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  trigger-longevity-large-partition-asymmetric-cluster-3h-test:
+    if: contains(github.event.pull_request.labels.*.name, 'extended-ci')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        scylla-version: [ENTERPRISE-RELEASE, OSS-RELEASE]
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Check out the scylla-bench repository
+        uses: actions/checkout@v2
+        with:
+          repository: scylladb/scylla-bench
+          path: scylla-bench
+
+      - name: Checkout GoCQL PR Repository
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          path: gocql
+
+      - name: Build and push Scylla-bench Docker Image with gocql from PR
+        run: |
+          cd scylla-bench
+          GOCQL_REPO="github.com/${{ github.event.pull_request.head.repo.full_name }}" GOCQL_VERSION="${{ github.event.pull_request.head.ref }}" make build-with-custom-gocql-version
+          DOCKER_IMAGE_TAG="scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.sha }}" DOCKER_IMAGE_LABELS="com.scylladb.gocql-version=${{ github.event.pull_request.head.sha }}" make build-sct-docker-image
+          docker push "scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.sha }}"
+
+      - name: Get scylla version
+        id: scylla-version
+        run: |
+          if [[ "${{ matrix.scylla-version }}" == "ENTERPRISE-RELEASE" ]]; then
+            echo "value=$(python3 gocql/ci/version_fetch.py --version-index 1 scylla-enterprise-stable:1 | tr -d '\"')" | tee -a $GITHUB_OUTPUT
+          elif [[ "${{ matrix.scylla-version }}" == "OSS-RELEASE" ]]; then
+            echo "value=$(python3 gocql/ci/version_fetch.py --version-index 1 scylla-oss-stable:1 | tr -d '\"')" | tee -a $GITHUB_OUTPUT
+          elif echo "${{ matrix.scylla-version }}" | grep -P '^[0-9\.]+'; then # If you want to run specific version do just that
+            echo "value=${{ matrix.scylla-version }}" | tee -a $GITHUB_OUTPUT
+          else
+            echo "Unknown scylla version name `${{ matrix.scylla-version }}`"
+            exit 1
+          fi
+
+      - name: Start Jenkins job
+        uses: sylwiaszunejko/jenkins_client@main
+        with:
+          jenkins_job_name: 'scylla-drivers/gocql/extended-ci/longevity-large-partition-asymmetric-cluster-3h-test'
+          jenkins_job_parameters: '{"email_recipients": "scylla-drivers@scylladb.com", "scylla_version": "${{ steps.scylla-version.outputs.value }}", "extra_environment_variables": "SCT_STRESS_IMAGE.scylla-bench=scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.sha }}"}'
+          jenkins_base_url: 'https://jenkins.scylladb.com/'
+          jenkins_user: ${{ secrets.JENKINS_USERNAME }}
+          jenkins_password: ${{ secrets.JENKINS_TOKEN }}
+          wait_for_result: 'True'
+          polling_interval: '120'
+          polling_timeout: '14000'
+          queue_max_timeout: '14000'
