@@ -1865,6 +1865,8 @@ func unmarshalUUID(info TypeInfo, data []byte, value interface{}) error {
 			*v = ""
 		case *[]byte:
 			*v = nil
+		case *[16]byte:
+			*v = [16]byte{}
 		case *UUID:
 			*v = UUID{}
 		default:
