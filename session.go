@@ -2320,7 +2320,7 @@ func (t *traceWriter) Trace(traceId []byte) {
 			WHERE session_id = ?`, traceId)
 
 		for iter.Scan(&timestamp, &activity, &source, &elapsed, &thread) {
-			if strings.Contains(activity, "Done processing") {
+			if strings.Contains(activity, "preparing a result") {
 				isDone = true
 				break
 			}
