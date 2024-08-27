@@ -5,11 +5,7 @@
 package gocql
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net"
 	"sync"
@@ -32,55 +28,6 @@ type SetTablets interface {
 	SetTablets(tablets []*TabletInfo)
 }
 
-func setupTLSConfig(sslOpts *SslOptions) (*tls.Config, error) {
-	//  Config.InsecureSkipVerify | EnableHostVerification | Result
-	//  Config is nil             | true                   | verify host
-	//  Config is nil             | false                  | do not verify host
-	//  false                     | false                  | verify host
-	//  true                      | false                  | do not verify host
-	//  false                     | true                   | verify host
-	//  true                      | true                   | verify host
-	var tlsConfig *tls.Config
-	if sslOpts.Config == nil {
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: !sslOpts.EnableHostVerification,
-		}
-	} else {
-		// use clone to avoid race.
-		tlsConfig = sslOpts.Config.Clone()
-	}
-
-	if tlsConfig.InsecureSkipVerify && sslOpts.EnableHostVerification {
-		tlsConfig.InsecureSkipVerify = false
-	}
-
-	// ca cert is optional
-	if sslOpts.CaPath != "" {
-		if tlsConfig.RootCAs == nil {
-			tlsConfig.RootCAs = x509.NewCertPool()
-		}
-
-		pem, err := ioutil.ReadFile(sslOpts.CaPath)
-		if err != nil {
-			return nil, fmt.Errorf("connectionpool: unable to open CA certs: %v", err)
-		}
-
-		if !tlsConfig.RootCAs.AppendCertsFromPEM(pem) {
-			return nil, errors.New("connectionpool: failed parsing or CA certs")
-		}
-	}
-
-	if sslOpts.CertPath != "" || sslOpts.KeyPath != "" {
-		mycert, err := tls.LoadX509KeyPair(sslOpts.CertPath, sslOpts.KeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("connectionpool: unable to load X509 key pair: %v", err)
-		}
-		tlsConfig.Certificates = append(tlsConfig.Certificates, mycert)
-	}
-
-	return tlsConfig, nil
-}
-
 type policyConnPool struct {
 	session *Session
 
@@ -93,22 +40,9 @@ type policyConnPool struct {
 }
 
 func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
-	var (
-		err        error
-		hostDialer HostDialer
-	)
+	hostDialer := cfg.HostDialer
 
-	hostDialer = cfg.HostDialer
-	var tlsConfig *tls.Config
 	if hostDialer == nil {
-		// TODO(zariel): move tls config setup into session init.
-		if cfg.SslOpts != nil {
-			tlsConfig, err = setupTLSConfig(cfg.SslOpts)
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		dialer := cfg.Dialer
 		if dialer == nil {
 			d := net.Dialer{
@@ -123,7 +57,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 		hostDialer = &scyllaDialer{
 			dialer:    dialer,
 			logger:    cfg.logger(),
-			tlsConfig: tlsConfig,
+			tlsConfig: cfg.getActualTLSConfig(),
 			cfg:       cfg,
 		}
 	}
@@ -141,7 +75,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 		AuthProvider:   cfg.AuthProvider,
 		Keepalive:      cfg.SocketKeepalive,
 		Logger:         cfg.logger(),
-		tlsConfig:      tlsConfig,
+		tlsConfig:      cfg.getActualTLSConfig(),
 	}, nil
 }
 
