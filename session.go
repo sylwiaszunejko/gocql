@@ -2315,15 +2315,14 @@ func (t *traceWriter) Trace(traceId []byte) {
 
 	isDone := false
 	for i := 0; i < fetchAttempts; i++ {
-		iter := t.session.control.query(`SELECT event_id, activity, source, source_elapsed, thread
-			FROM system_traces.events
-			WHERE session_id = ?`, traceId)
+		var duration int
 
-		for iter.Scan(&timestamp, &activity, &source, &elapsed, &thread) {
-			if strings.Contains(activity, "preparing a result") {
-				isDone = true
-				break
-			}
+		iter := t.session.control.query(`SELECT duration
+			FROM system_traces.sessions
+			WHERE session_id = ?`, traceId)
+		iter.Scan(&duration)
+		if duration > 0 {
+			isDone = true
 		}
 
 		if err := iter.Close(); err != nil {
