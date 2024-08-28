@@ -359,4 +359,7 @@
 // system_traces.events tables. NewTraceWriter returns an implementation of Tracer that writes the events to a writer.
 // Gathering trace information might be essential for debugging and optimizing queries, but writing traces has overhead,
 // so this feature should not be used on production systems with very high load unless you know what you are doing.
+// There is also a new implementation of Tracer - TracerEnhanced, that is intended to be more reliable and convinient to use.
+// It has a funcionality to check if trace is ready to be extracted and only actually gets it if requested which makes
+// the impact on a performance smaller.
 package gocql // import "github.com/gocql/gocql"

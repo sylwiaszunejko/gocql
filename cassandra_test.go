@@ -105,7 +105,7 @@ func TestTracing(t *testing.T) {
 	}
 
 	buf := &bytes.Buffer{}
-	trace := &traceWriter{session: session, w: buf}
+	trace := &TraceWriter{session: session, w: buf}
 	if err := session.Query(`INSERT INTO trace (id) VALUES (?)`, 42).Trace(trace).Exec(); err != nil {
 		t.Fatal("insert:", err)
 	} else if buf.Len() == 0 {
