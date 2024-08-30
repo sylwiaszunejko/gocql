@@ -42,11 +42,11 @@ func TestSessionAPI(t *testing.T) {
 		t.Fatalf("expceted prefetch 0.75, got %v", s.prefetch)
 	}
 
-	trace := &traceWriter{}
+	trace := NewTracer(nil)
 
 	s.SetTrace(trace)
 	if s.trace != trace {
-		t.Fatalf("expected traceWriter '%v',got '%v'", trace, s.trace)
+		t.Fatalf("expected tracer '%v',got '%v'", trace, s.trace)
 	}
 
 	qry := s.Query("test", 1)
@@ -138,7 +138,7 @@ func TestQueryBasicAPI(t *testing.T) {
 		t.Fatalf("expected Query.GetConsistency to return 'LocalSerial', got '%s'", qry.GetConsistency())
 	}
 
-	trace := &traceWriter{}
+	trace := NewTracer(nil)
 	qry.Trace(trace)
 	if qry.trace != trace {
 		t.Fatalf("expected Query.Trace to be '%v', got '%v'", trace, qry.trace)
@@ -247,7 +247,7 @@ func TestBatchBasicAPI(t *testing.T) {
 		t.Fatalf("expected batch.GetConsistency() to return 'One', got '%s'", b.GetConsistency())
 	}
 
-	trace := &traceWriter{}
+	trace := NewTracer(nil)
 	b.Trace(trace)
 	if b.trace != trace {
 		t.Fatalf("expected batch.Trace to be '%v', got '%v'", trace, b.trace)

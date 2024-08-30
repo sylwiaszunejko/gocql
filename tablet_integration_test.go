@@ -4,11 +4,8 @@
 package gocql
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 	"testing"
 )
 
@@ -46,6 +43,7 @@ func TestTablets(t *testing.T) {
 		}
 	}
 
+	trace := NewTracer(session)
 	i = 0
 	for i < 50 {
 		i = i + 1
@@ -54,23 +52,50 @@ func TestTablets(t *testing.T) {
 		var ck int
 		var v int
 
-		buf := &bytes.Buffer{}
-		trace := NewTraceWriter(session, buf)
-
 		err = session.Query(`SELECT pk, ck, v FROM test1.table1 WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
 
-		queriedHosts := 0
-		for _, hostAddress := range hostAddresses {
-			if strings.Contains(buf.String(), hostAddress) {
-				queriedHosts = queriedHosts + 1
+	for _, traceID := range trace.AllTraceIDs() {
+		var (
+			isReady bool
+			err     error
+		)
+		for !isReady {
+			isReady, err = trace.IsReady(traceID)
+			if err != nil {
+				t.Fatal("Error: ", err)
 			}
 		}
 
-		if queriedHosts != 1 {
-			t.Fatalf("trace should show only one host but it showed %d hosts, hosts: %s trace:\n%s", queriedHosts, hostAddresses, buf.String())
+		hosts := []string{}
+		activities, err := trace.GetActivities(traceID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		coordinator, _, err := trace.GetCoordinatorTime(traceID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, entry := range activities {
+			hosts = append(hosts, entry.Source)
+		}
+		hosts = append(hosts, coordinator)
+
+		// find duplicates to check how many hosts are used
+		allHosts := make(map[string]bool)
+		hostList := []string{}
+		for _, item := range hosts {
+			if !allHosts[item] {
+				allHosts[item] = true
+				hostList = append(hostList, item)
+			}
+		}
+
+		if len(hostList) != 1 {
+			t.Fatalf("trace should show only one host but it showed %d hosts, hosts: %s", len(hostList), hostAddresses)
 		}
 	}
 }
@@ -101,6 +126,7 @@ func TestTabletsShardAwareness(t *testing.T) {
 		}
 	}
 
+	trace := NewTracer(session)
 	i = 0
 	for i < 50 {
 		i = i + 1
@@ -109,30 +135,41 @@ func TestTabletsShardAwareness(t *testing.T) {
 		var ck int
 		var v int
 
-		buf := &bytes.Buffer{}
-		trace := NewTraceWriter(session, buf)
-
 		err := session.Query(`SELECT pk, ck, v FROM test1.table_shard WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
 
-		re := regexp.MustCompile(`\[shard .*\]`)
+	for _, traceID := range trace.AllTraceIDs() {
+		var (
+			isReady bool
+			err     error
+		)
+		for !isReady {
+			isReady, err = trace.IsReady(traceID)
+			if err != nil {
+				t.Fatal("Error: ", err)
+			}
+		}
 
-		shards := re.FindAllString(buf.String(), -1)
+		activities, err := trace.GetActivities(traceID)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// find duplicates to check how many shards are used
 		allShards := make(map[string]bool)
 		shardList := []string{}
-		for _, item := range shards {
-			if !allShards[item] {
-				allShards[item] = true
-				shardList = append(shardList, item)
+		for _, item := range activities {
+			if !allShards[item.Thread] {
+				allShards[item.Thread] = true
+				shardList = append(shardList, item.Thread)
 			}
 		}
 
 		if len(shardList) != 1 {
-			t.Fatalf("trace should show only one shard but it showed %d shards, shards: %s trace:\n%s", len(shardList), shardList, buf.String())
+			t.Fatalf("trace should show only one shard but it showed %d shards, shards: %s", len(shardList), shardList)
 		}
 	}
 }

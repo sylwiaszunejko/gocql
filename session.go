@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -2255,120 +2254,6 @@ type inflightCachedEntry struct {
 	wg    sync.WaitGroup
 	err   error
 	value interface{}
-}
-
-// Tracer is the interface implemented by query tracers. Tracers have the
-// ability to obtain a detailed event log of all events that happened during
-// the execution of a query from Cassandra. Gathering this information might
-// be essential for debugging and optimizing queries, but this feature should
-// not be used on production systems with very high load.
-type Tracer interface {
-	Trace(traceId []byte)
-}
-
-type traceWriter struct {
-	session *Session
-	w       io.Writer
-	mu      sync.Mutex
-
-	maxAttempts   int
-	sleepInterval time.Duration
-}
-
-// NewTraceWriter returns a simple Tracer implementation that outputs
-// the event log in a textual format.
-func NewTraceWriter(session *Session, w io.Writer) Tracer {
-	return &traceWriter{session: session, w: w, maxAttempts: 5, sleepInterval: 3 * time.Millisecond}
-}
-
-func (t *traceWriter) SetMaxAttempts(maxAttempts int) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.maxAttempts = maxAttempts
-}
-
-func (t *traceWriter) SetSleepInterval(sleepInterval time.Duration) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.sleepInterval = sleepInterval
-}
-
-func (t *traceWriter) Trace(traceId []byte) {
-	var (
-		timestamp time.Time
-		activity  string
-		source    string
-		elapsed   int
-		thread    string
-	)
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	fetchAttempts := 1
-	if t.maxAttempts > 0 {
-		fetchAttempts = t.maxAttempts
-	}
-
-	isDone := false
-	for i := 0; i < fetchAttempts; i++ {
-		var duration int
-
-		iter := t.session.control.query(`SELECT duration
-			FROM system_traces.sessions
-			WHERE session_id = ?`, traceId)
-		iter.Scan(&duration)
-		if duration > 0 {
-			isDone = true
-		}
-
-		if err := iter.Close(); err != nil {
-			fmt.Fprintln(t.w, "Error:", err)
-			return
-		}
-
-		if isDone || i == fetchAttempts-1 {
-			break
-		}
-
-		time.Sleep(t.sleepInterval)
-	}
-	if !isDone {
-		fmt.Fprintln(t.w, "Error: failed to wait tracing to complete. !!! Tracing is incomplete !!!")
-	}
-
-	var (
-		coordinator string
-		duration    int
-	)
-
-	iter := t.session.control.query(`SELECT coordinator, duration
-		FROM system_traces.sessions
-		WHERE session_id = ?`, traceId)
-
-	iter.Scan(&coordinator, &duration)
-	if err := iter.Close(); err != nil {
-		fmt.Fprintln(t.w, "Error:", err)
-		return
-	}
-
-	fmt.Fprintf(t.w, "Tracing session %016x (coordinator: %s, duration: %v):\n",
-		traceId, coordinator, time.Duration(duration)*time.Microsecond)
-
-	iter = t.session.control.query(`SELECT event_id, activity, source, source_elapsed, thread
-			FROM system_traces.events
-			WHERE session_id = ?`, traceId)
-
-	for iter.Scan(&timestamp, &activity, &source, &elapsed, &thread) {
-		fmt.Fprintf(t.w, "%s: %s [%s] (source: %s, elapsed: %d)\n",
-			timestamp.Format("2006/01/02 15:04:05.999999"), activity, thread, source, elapsed)
-	}
-
-	if err := iter.Close(); err != nil {
-		fmt.Fprintln(t.w, "Error:", err)
-	}
 }
 
 type ObservedQuery struct {
