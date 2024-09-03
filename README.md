@@ -5,11 +5,11 @@
 This is a fork of [gocql](https://github.com/gocql/gocql) package that we created at Scylla.
 It contains extensions to tokenAwareHostPolicy supported by the Scylla 2.3 and onwards.
 It allows driver to select a connection to a particular shard on a host based on the token.
-This eliminates passing data between shards and significantly reduces latency. 
+This eliminates passing data between shards and significantly reduces latency.
 The protocol extension spec is available [here](https://github.com/scylladb/scylla/blob/master/docs/protocol-extensions.md).
 
 There are open pull requests to merge the functionality to the upstream project:
- 
+
 * [gocql/gocql#1210](https://github.com/gocql/gocql/pull/1210)
 * [gocql/gocql#1211](https://github.com/gocql/gocql/pull/1211).
 
@@ -31,7 +31,7 @@ Add the following line to your project `go.mod` file.
 replace github.com/gocql/gocql => github.com/scylladb/gocql latest
 ```
 
-and run 
+and run
 
 ```
 go mod tidy
@@ -45,7 +45,7 @@ Configuration
 -------------
 
 In order to make shard-awareness work, token aware host selection policy has to be enabled.
-Please make sure that the gocql configuration has `PoolConfig.HostSelectionPolicy` properly set like in the example below. 
+Please make sure that the gocql configuration has `PoolConfig.HostSelectionPolicy` properly set like in the example below.
 
 __When working with a Scylla cluster, `PoolConfig.NumConns` option has no effect - the driver opens one connection for each shard and completely ignores this option.__
 
@@ -59,7 +59,7 @@ if localDC != "" {
 }
 c.PoolConfig.HostSelectionPolicy = gocql.TokenAwareHostPolicy(fallback)
 
-// If using multi-dc cluster use the "local" consistency levels. 
+// If using multi-dc cluster use the "local" consistency levels.
 if localDC != "" {
 	c.Consistency = gocql.LocalQuorum
 }
@@ -113,7 +113,7 @@ If you suspect that this feature is causing you problems, you can completely dis
 
 ### Iterator
 
-Paging is a way to parse large result sets in smaller chunks. 
+Paging is a way to parse large result sets in smaller chunks.
 The driver provides an iterator to simplify this process.
 
 Use `Query.Iter()` to obtain iterator:
