@@ -109,7 +109,7 @@ The feature is designed to gracefully fall back to the using the non-shard-aware
 The driver will print a warning about misconfigured address translation if it detects it.
 Issues with shard-aware port not being reachable are not reported in non-debug mode, because there is no way to detect it without false positives.
 
-If you suspect that this feature is causing you problems, you can completely disable it by setting the `ClusterConfig.DisableShardAwarePort` flag to false.
+If you suspect that this feature is causing you problems, you can completely disable it by setting the `ClusterConfig.DisableShardAwarePort` flag to true.
 
 ### Iterator
 
