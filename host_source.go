@@ -658,7 +658,7 @@ func checkSystemSchema(control *controlConn) (bool, error) {
 
 // Given a map that represents a row from either system.local or system.peers
 // return as much information as we can in *HostInfo
-func (s *Session) hostInfoFromMap(row map[string]interface{}, host *HostInfo) (*HostInfo, error) {
+func hostInfoFromMap(row map[string]interface{}, host *HostInfo, translateAddressPort func(addr net.IP, port int) (net.IP, int)) (*HostInfo, error) {
 	const assertErrorMsg = "Assertion failed for %s"
 	var ok bool
 
@@ -771,7 +771,7 @@ func (s *Session) hostInfoFromMap(row map[string]interface{}, host *HostInfo) (*
 	}
 
 	host.untranslatedConnectAddress = host.ConnectAddress()
-	ip, port := s.cfg.translateAddressPort(host.untranslatedConnectAddress, host.port)
+	ip, port := translateAddressPort(host.untranslatedConnectAddress, host.port)
 	host.connectAddress = ip
 	host.port = port
 
@@ -789,7 +789,7 @@ func (s *Session) hostInfoFromIter(iter *Iter, connectAddress net.IP, defaultPor
 		return nil, errors.New("query returned 0 rows")
 	}
 
-	host, err := s.hostInfoFromMap(rows[0], &HostInfo{connectAddress: connectAddress, port: defaultPort})
+	host, err := hostInfoFromMap(rows[0], &HostInfo{connectAddress: connectAddress, port: defaultPort}, s.cfg.translateAddressPort)
 	if err != nil {
 		return nil, err
 	}
@@ -840,7 +840,7 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 
 	for _, row := range rows {
 		// extract all available info about the peer
-		host, err := r.session.hostInfoFromMap(row, &HostInfo{port: r.session.cfg.Port})
+		host, err := hostInfoFromMap(row, &HostInfo{port: r.session.cfg.Port}, r.session.cfg.translateAddressPort)
 		if err != nil {
 			return nil, err
 		} else if !isValidPeer(host) {
@@ -913,7 +913,7 @@ func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 			}
 
 			for _, row := range rows {
-				h, err := r.session.hostInfoFromMap(row, &HostInfo{port: r.session.cfg.Port})
+				h, err := hostInfoFromMap(row, &HostInfo{port: r.session.cfg.Port}, r.session.cfg.translateAddressPort)
 				if err != nil {
 					return nil, err
 				}
