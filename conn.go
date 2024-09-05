@@ -1895,7 +1895,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	}
 
 	// not exported
-	return fmt.Errorf("gocql: cluster schema versions not consistent: %+v", schemas)
+	return &ErrSchemaMismatch{schemas: schemas}
 }
 
 var (
@@ -1905,3 +1905,11 @@ var (
 	ErrConnectionClosed  = errors.New("gocql: connection closed waiting for response")
 	ErrNoStreams         = errors.New("gocql: no streams available on connection")
 )
+
+type ErrSchemaMismatch struct {
+	schemas []string
+}
+
+func (e *ErrSchemaMismatch) Error() string {
+	return fmt.Sprintf("gocql: cluster schema versions not consistent: %+v", e.schemas)
+}
