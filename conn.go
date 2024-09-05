@@ -1828,6 +1828,8 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	endDeadline := time.Now().Add(c.session.cfg.MaxWaitSchemaAgreement)
 
 	var err error
+	ticker := time.NewTicker(200 * time.Millisecond) // Create a ticker that ticks every 200ms
+	defer ticker.Stop()
 
 	for time.Now().Before(endDeadline) {
 		iter := c.querySystemPeers(ctx, c.host.version)
@@ -1879,7 +1881,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(200 * time.Millisecond):
+		case <-ticker.C:
 		}
 	}
 
