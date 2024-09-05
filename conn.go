@@ -1815,7 +1815,7 @@ func (c *Conn) querySystemLocal(ctx context.Context) *Iter {
 	return c.query(ctx, "SELECT * FROM system.local WHERE key='local'"+usingClause)
 }
 
-func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
+func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	usingClause := ""
 	if c.session.control != nil {
 		usingClause = c.session.usingTimeoutClause
@@ -1827,18 +1827,25 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
 
 	endDeadline := time.Now().Add(c.session.cfg.MaxWaitSchemaAgreement)
 
+	var err error
+
 	for time.Now().Before(endDeadline) {
 		iter := c.querySystemPeers(ctx, c.host.version)
 
 		versions = make(map[string]struct{})
 
-		rows, err := iter.SliceMap()
+		var rows []map[string]interface{}
+		rows, err = iter.SliceMap()
 		if err != nil {
+			if err == ErrConnectionClosed {
+				break
+			}
 			goto cont
 		}
 
 		for _, row := range rows {
-			host, err := hostInfoFromMap(row, &HostInfo{connectAddress: c.host.ConnectAddress(), port: c.session.cfg.Port}, c.session.cfg.translateAddressPort)
+			var host *HostInfo
+			host, err = hostInfoFromMap(row, &HostInfo{connectAddress: c.host.ConnectAddress(), port: c.session.cfg.Port}, c.session.cfg.translateAddressPort)
 			if err != nil {
 				goto cont
 			}
