@@ -1831,6 +1831,15 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	ticker := time.NewTicker(200 * time.Millisecond) // Create a ticker that ticks every 200ms
 	defer ticker.Stop()
 
+	waitForNextTick := func() error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			return nil
+		}
+	}
+
 	for time.Now().Before(endDeadline) {
 		iter := c.querySystemPeers(ctx, c.host.version)
 
@@ -1842,14 +1851,16 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 			if err == ErrConnectionClosed {
 				break
 			}
-			goto cont
+			waitForNextTick()
+			continue
 		}
 
 		for _, row := range rows {
 			var host *HostInfo
 			host, err = hostInfoFromMap(row, &HostInfo{connectAddress: c.host.ConnectAddress(), port: c.session.cfg.Port}, c.session.cfg.translateAddressPort)
 			if err != nil {
-				goto cont
+				waitForNextTick()
+				continue
 			}
 			if !isValidPeer(host) || host.schemaVersion == "" {
 				c.logger.Printf("invalid peer or peer with empty schema_version: peer=%q", host)
@@ -1860,7 +1871,8 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		}
 
 		if err = iter.Close(); err != nil {
-			goto cont
+			waitForNextTick()
+			continue
 		}
 
 		iter = c.query(ctx, localSchemas)
@@ -1870,18 +1882,16 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		}
 
 		if err = iter.Close(); err != nil {
-			goto cont
+			waitForNextTick()
+			continue
 		}
 
 		if len(versions) <= 1 {
 			return nil
 		}
 
-	cont:
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
+		if err := waitForNextTick(); err != nil {
+			return err
 		}
 	}
 
