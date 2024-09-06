@@ -6,6 +6,7 @@ package gocql
 // This file groups integration tests where Cassandra has to be set up with some special integration variables
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -232,4 +233,25 @@ func TestSessionAwaitSchemaAgreement(t *testing.T) {
 	if err := session.AwaitSchemaAgreement(context.Background()); err != nil {
 		t.Fatalf("expected session.AwaitSchemaAgreement to not return an error but got '%v'", err)
 	}
+}
+
+func TestSessionAwaitSchemaAgreementSessionClosed(t *testing.T) {
+	session := createSession(t)
+	session.Close()
+
+	if err := session.AwaitSchemaAgreement(context.Background()); !errors.Is(err, ErrConnectionClosed) {
+		t.Fatalf("expected session.AwaitSchemaAgreement to return ErrConnectionClosed but got '%v'", err)
+	}
+
+}
+
+func TestSessionAwaitSchemaAgreementContextCanceled(t *testing.T) {
+	session := createSession(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if err := session.AwaitSchemaAgreement(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected session.AwaitSchemaAgreement to return 'context canceled' but got '%v'", err)
+	}
+
 }

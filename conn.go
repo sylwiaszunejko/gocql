@@ -1815,7 +1815,7 @@ func (c *Conn) querySystemLocal(ctx context.Context) *Iter {
 	return c.query(ctx, "SELECT * FROM system.local WHERE key='local'"+usingClause)
 }
 
-func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
+func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	usingClause := ""
 	if c.session.control != nil {
 		usingClause = c.session.usingTimeoutClause
@@ -1827,20 +1827,35 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
 
 	endDeadline := time.Now().Add(c.session.cfg.MaxWaitSchemaAgreement)
 
-	for time.Now().Before(endDeadline) {
+	var err error
+	ticker := time.NewTicker(200 * time.Millisecond) // Create a ticker that ticks every 200ms
+	defer ticker.Stop()
+
+	waitForNextTick := func() error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			return nil
+		}
+	}
+
+	getSchemaAgreement := func() error {
 		iter := c.querySystemPeers(ctx, c.host.version)
 
 		versions = make(map[string]struct{})
 
-		rows, err := iter.SliceMap()
+		var rows []map[string]interface{}
+		rows, err = iter.SliceMap()
 		if err != nil {
-			goto cont
+			return err
 		}
 
 		for _, row := range rows {
-			host, err := c.session.hostInfoFromMap(row, &HostInfo{connectAddress: c.host.ConnectAddress(), port: c.session.cfg.Port})
+			var host *HostInfo
+			host, err = hostInfoFromMap(row, &HostInfo{connectAddress: c.host.ConnectAddress(), port: c.session.cfg.Port}, c.session.cfg.translateAddressPort)
 			if err != nil {
-				goto cont
+				return err
 			}
 			if !isValidPeer(host) || host.schemaVersion == "" {
 				c.logger.Printf("invalid peer or peer with empty schema_version: peer=%q", host)
@@ -1851,7 +1866,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
 		}
 
 		if err = iter.Close(); err != nil {
-			goto cont
+			return err
 		}
 
 		iter = c.query(ctx, localSchemas)
@@ -1861,32 +1876,34 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) (err error) {
 		}
 
 		if err = iter.Close(); err != nil {
-			goto cont
+			return err
 		}
 
-		if len(versions) <= 1 {
-			return nil
+		if len(versions) > 1 {
+			schemas := make([]string, 0, len(versions))
+			for schema := range versions {
+				schemas = append(schemas, schema)
+			}
+
+			return &ErrSchemaMismatch{schemas: schemas}
 		}
 
-	cont:
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(200 * time.Millisecond):
+		return nil
+	}
+
+	for time.Now().Before(endDeadline) {
+		err = getSchemaAgreement()
+
+		if err == ErrConnectionClosed || err == nil {
+			return err
+		}
+
+		if tickerErr := waitForNextTick(); tickerErr != nil {
+			return tickerErr
 		}
 	}
 
-	if err != nil {
-		return err
-	}
-
-	schemas := make([]string, 0, len(versions))
-	for schema := range versions {
-		schemas = append(schemas, schema)
-	}
-
-	// not exported
-	return fmt.Errorf("gocql: cluster schema versions not consistent: %+v", schemas)
+	return err
 }
 
 var (
@@ -1896,3 +1913,11 @@ var (
 	ErrConnectionClosed  = errors.New("gocql: connection closed waiting for response")
 	ErrNoStreams         = errors.New("gocql: no streams available on connection")
 )
+
+type ErrSchemaMismatch struct {
+	schemas []string
+}
+
+func (e *ErrSchemaMismatch) Error() string {
+	return fmt.Sprintf("gocql: cluster schema versions not consistent: %+v", e.schemas)
+}
