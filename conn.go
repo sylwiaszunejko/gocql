@@ -1840,7 +1840,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		}
 	}
 
-	for time.Now().Before(endDeadline) {
+	getSchemaAgreement := func() error {
 		iter := c.querySystemPeers(ctx, c.host.version)
 
 		versions = make(map[string]struct{})
@@ -1848,19 +1848,14 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		var rows []map[string]interface{}
 		rows, err = iter.SliceMap()
 		if err != nil {
-			if err == ErrConnectionClosed {
-				break
-			}
-			waitForNextTick()
-			continue
+			return err
 		}
 
 		for _, row := range rows {
 			var host *HostInfo
 			host, err = hostInfoFromMap(row, &HostInfo{connectAddress: c.host.ConnectAddress(), port: c.session.cfg.Port}, c.session.cfg.translateAddressPort)
 			if err != nil {
-				waitForNextTick()
-				continue
+				return err
 			}
 			if !isValidPeer(host) || host.schemaVersion == "" {
 				c.logger.Printf("invalid peer or peer with empty schema_version: peer=%q", host)
@@ -1871,8 +1866,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		}
 
 		if err = iter.Close(); err != nil {
-			waitForNextTick()
-			continue
+			return err
 		}
 
 		iter = c.query(ctx, localSchemas)
@@ -1882,30 +1876,34 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		}
 
 		if err = iter.Close(); err != nil {
-			waitForNextTick()
-			continue
-		}
-
-		if len(versions) <= 1 {
-			return nil
-		}
-
-		if err := waitForNextTick(); err != nil {
 			return err
 		}
+
+		if len(versions) > 1 {
+			schemas := make([]string, 0, len(versions))
+			for schema := range versions {
+				schemas = append(schemas, schema)
+			}
+
+			return &ErrSchemaMismatch{schemas: schemas}
+		}
+
+		return nil
 	}
 
-	if err != nil {
-		return err
+	for time.Now().Before(endDeadline) {
+		err = getSchemaAgreement()
+
+		if err == ErrConnectionClosed || err == nil {
+			return err
+		}
+
+		if tickerErr := waitForNextTick(); tickerErr != nil {
+			return tickerErr
+		}
 	}
 
-	schemas := make([]string, 0, len(versions))
-	for schema := range versions {
-		schemas = append(schemas, schema)
-	}
-
-	// not exported
-	return &ErrSchemaMismatch{schemas: schemas}
+	return err
 }
 
 var (
