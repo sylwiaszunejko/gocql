@@ -551,4 +551,5 @@ func (pool *hostConnPool) HandleError(conn *Conn, err error, closed bool) {
 	}
 
 	pool.connPicker.Remove(conn)
+	go pool.fill()
 }
