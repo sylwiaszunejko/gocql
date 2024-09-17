@@ -1,0 +1,63 @@
+name: Docker Cleanup
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'  # Runs every Monday at noon (UTC)
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'  # Specify the version of Python
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Clean up old Docker images
+      env:
+        DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        REPO_NAME: "scylladb/gocql-extended-ci"
+        DELETE_AFTER_DAYS: 4  # Number of days after which to delete images
+      run: |
+        python <<EOF
+        import requests
+        from datetime import datetime, timedelta
+
+        DOCKERHUB_USERNAME = "${{ secrets.DOCKERHUB_USERNAME }}"
+        DOCKERHUB_TOKEN = "${{ secrets.DOCKERHUB_TOKEN }}"
+        REPO_NAME = "${{ env.REPO_NAME }}"
+        DELETE_AFTER_DAYS = int("${{ env.DELETE_AFTER_DAYS }}")
+
+        def get_repo_tags(username, repo, token):
+            url = f"https://hub.docker.com/v2/repositories/scylladb/gocql-extended-ci/tags/"
+            headers = {"Authorization": f"Bearer {token}"}
+            response = requests.get(url, headers=headers)
+            return response.json()["results"]
+
+        def delete_tag(username, repo, tag, token):
+            url = f"https://hub.docker.com/v2/repositories/scylladb/gocql-extended-ci/tags/{tag}/"
+            headers = {"Authorization": f"Bearer {token}"}
+            response = requests.delete(url, headers=headers)
+            if response.status_code == 204:
+                print(f"Deleted tag: {tag}")
+            else:
+                print(f"Failed to delete tag: {tag}, Status Code: {response.status_code}")
+
+        def clean_old_images():
+            tags = get_repo_tags(DOCKERHUB_USERNAME, REPO_NAME, DOCKERHUB_TOKEN)
+            threshold_date = datetime.utcnow() - timedelta(days=DELETE_AFTER_DAYS)
+            {username}
+            for tag in tags:
+                last_updated = datetime.strptime(tag["last_updated"], "%Y-%m-%dT%H:%M:%S.%fZ")
+                if last_updated < threshold_date and tag["name"] != "latest":  # Skip "latest"
+                    delete_tag(DOCKERHUB_USERNAME, REPO_NAME, tag["name"], DOCKERHUB_TOKEN)
+
+        clean_old_images()
+        EOF
