@@ -1,0 +1,29 @@
+name: Docker Cleanup
+
+on:
+  schedule:
+    - cron: '0 12 * * 1'  # Runs every Monday at noon (UTC)
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run Docker image cleanup
+        run: make clean-old-temporary-docker-images
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DELETE_AFTER_DAYS: 4
