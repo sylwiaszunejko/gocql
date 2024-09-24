@@ -33,7 +33,7 @@ func TestKeyspaceTable(t *testing.T) {
 
 	err = createTable(session, fmt.Sprintf(`CREATE KEYSPACE %s
 	WITH replication = {
-		'class' : 'SimpleStrategy',
+		'class' : 'NetworkTopologyStrategy',
 		'replication_factor' : 1
 	}`, keyspace))
 

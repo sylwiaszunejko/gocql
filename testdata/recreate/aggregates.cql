@@ -1,5 +1,5 @@
 CREATE KEYSPACE gocqlx_aggregates WITH replication = {
-  'class': 'SimpleStrategy',
+  'class': 'NetworkTopologyStrategy',
   'replication_factor': '2'
 };
 

@@ -1,4 +1,1 @@
-CREATE KEYSPACE gocqlx_keyspace WITH replication = {
-    'class': 'SimpleStrategy',
-    'replication_factor': '2'
-};
+CREATE KEYSPACE gocqlx_keyspace WITH replication = {'class': 'org.apache.cassandra.locator.NetworkTopologyStrategy', 'datacenter1': '2'} AND durable_writes = true;

@@ -154,7 +154,7 @@ func createKeyspace(tb testing.TB, cluster *ClusterConfig, keyspace string) {
 
 	err = createTable(session, fmt.Sprintf(`CREATE KEYSPACE %s
 	WITH replication = {
-		'class' : 'SimpleStrategy',
+		'class' : 'NetworkTopologyStrategy',
 		'replication_factor' : %d
 	}`, keyspace, *flagRF))
 

@@ -62,7 +62,7 @@ func TestUnixSockets(t *testing.T) {
 
 	err = createTable(sess, fmt.Sprintf(`CREATE KEYSPACE %s
 	WITH replication = {
-		'class' : 'SimpleStrategy',
+		'class' : 'NetworkTopologyStrategy',
 		'replication_factor' : 1
 	}`, keyspace))
 	if err != nil {

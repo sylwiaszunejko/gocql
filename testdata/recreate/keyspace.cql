@@ -1,4 +1,4 @@
 CREATE KEYSPACE gocqlx_keyspace WITH replication = {
-  'class': 'SimpleStrategy',
+  'class': 'NetworkTopologyStrategy',
   'replication_factor': '2'
 };
