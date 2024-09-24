@@ -2112,15 +2112,15 @@ func TestGetKeyspaceMetadata(t *testing.T) {
 	if keyspaceMetadata.Name != "gocql_test" {
 		t.Errorf("Expected keyspace name to be 'gocql' but was '%s'", keyspaceMetadata.Name)
 	}
-	if keyspaceMetadata.StrategyClass != "org.apache.cassandra.locator.SimpleStrategy" {
-		t.Errorf("Expected replication strategy class to be 'org.apache.cassandra.locator.SimpleStrategy' but was '%s'", keyspaceMetadata.StrategyClass)
+	if keyspaceMetadata.StrategyClass != "org.apache.cassandra.locator.NetworkTopologyStrategy" {
+		t.Errorf("Expected replication strategy class to be 'org.apache.cassandra.locator.NetworkTopologyStrategy' but was '%s'", keyspaceMetadata.StrategyClass)
 	}
 	if keyspaceMetadata.StrategyOptions == nil {
 		t.Error("Expected replication strategy options map but was nil")
 	}
-	rfStr, ok := keyspaceMetadata.StrategyOptions["replication_factor"]
+	rfStr, ok := keyspaceMetadata.StrategyOptions["datacenter1"]
 	if !ok {
-		t.Fatalf("Expected strategy option 'replication_factor' but was not found in %v", keyspaceMetadata.StrategyOptions)
+		t.Fatalf("Expected strategy option 'datacenter1' but was not found in %v", keyspaceMetadata.StrategyOptions)
 	}
 	rfInt, err := strconv.Atoi(rfStr.(string))
 	if err != nil {
