@@ -475,6 +475,16 @@ func (s *Session) SetTrace(trace Tracer) {
 	s.mu.Unlock()
 }
 
+var selectWildcardNextWarning int64
+
+func warnSelectWildcardStartPerformanceIssue() {
+	now := time.Now().Unix()
+	if atomic.LoadInt64(&selectWildcardNextWarning) < now {
+		atomic.StoreInt64(&selectWildcardNextWarning, now+60)
+		Logger.Println("warning: skipping metadata is disabled for `SELECT * FROM ...` queries due to potential correctness issues when altering the table. This may cause a decrease in performance. It is recommended to avoid using `SELECT * FROM ...` and provide specific column names.")
+	}
+}
+
 // Query generates a new query object for interacting with the database.
 // Further details of the query may be tweaked using the resulting query
 // value before the query is executed. Query is automatically prepared
@@ -483,6 +493,10 @@ func (s *Session) Query(stmt string, values ...interface{}) *Query {
 	qry := queryPool.Get().(*Query)
 	qry.session = s
 	qry.stmt = stmt
+	if !qry.disableSkipMetadata && strings.HasPrefix(strings.ToLower(stmt), "select *") {
+		qry.disableSkipMetadata = true
+		warnSelectWildcardStartPerformanceIssue()
+	}
 	qry.values = values
 	qry.defaultsFromSession()
 	qry.routingInfo.lwt = false
@@ -506,6 +520,10 @@ func (s *Session) Bind(stmt string, b func(q *QueryInfo) ([]interface{}, error))
 	qry := queryPool.Get().(*Query)
 	qry.session = s
 	qry.stmt = stmt
+	if !qry.disableSkipMetadata && strings.HasPrefix(strings.ToLower(stmt), "select *") {
+		qry.disableSkipMetadata = true
+		warnSelectWildcardStartPerformanceIssue()
+	}
 	qry.binding = b
 	qry.defaultsFromSession()
 	qry.routingInfo.lwt = false
