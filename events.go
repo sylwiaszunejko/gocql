@@ -114,6 +114,7 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 			s.handleKeyspaceChange(f.keyspace, f.change)
 		case *schemaChangeTable:
 			s.schemaDescriber.clearSchema(f.keyspace)
+			s.stmtsLRU.clear()
 		case *schemaChangeAggregate:
 			s.schemaDescriber.clearSchema(f.keyspace)
 		case *schemaChangeFunction:
