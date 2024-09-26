@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/snappy"
+	"github.com/klauspost/compress/s2"
 
 	"github.com/gocql/gocql"
 )
@@ -66,8 +66,8 @@ func TestSnappyCompressor(t *testing.T) {
 		}
 
 		str := "My Test String"
-		//Test Encoding
-		expected := snappy.Encode(nil, []byte(str))
+		//Test Encoding with S2 library, Snappy compatible encoding.
+		expected := s2.EncodeSnappy(nil, []byte(str))
 		if res, err := c.Encode([]byte(str)); err != nil {
 			t.Fatalf("failed to encode '%v' with error %v", str, err)
 		} else if bytes.Compare(expected, res) != 0 {
@@ -79,8 +79,8 @@ func TestSnappyCompressor(t *testing.T) {
 			t.Fatalf("failed to encode '%v' with error '%v'", str, err)
 		}
 
-		//Test Decoding
-		if expected, err := snappy.Decode(nil, val); err != nil {
+		//Test Decoding with S2 library, Snappy compatible encoding.
+		if expected, err := s2.Decode(nil, val); err != nil {
 			t.Fatalf("failed to decode '%v' with error %v", val, err)
 		} else if res, err := c.Decode(val); err != nil {
 			t.Fatalf("failed to decode '%v' with error %v", val, err)
