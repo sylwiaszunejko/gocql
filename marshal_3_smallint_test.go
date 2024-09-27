@@ -1,83 +1,102 @@
-package gocql
+package gocql_test
 
 import (
+	"math/big"
 	"testing"
 
+	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/internal/tests/utils"
 	"github.com/gocql/gocql/marshal/tests/mod"
 	"github.com/gocql/gocql/marshal/tests/serialization"
 )
 
 func TestMarshalSmallint(t *testing.T) {
-	marshal := func(i interface{}) ([]byte, error) { return Marshal(NativeType{proto: 4, typ: TypeSmallInt}, i) }
+	tType := gocql.NewNativeType(4, gocql.TypeSmallInt, "")
+
+	marshal := func(i interface{}) ([]byte, error) { return gocql.Marshal(tType, i) }
 	unmarshal := func(bytes []byte, i interface{}) error {
-		return Unmarshal(NativeType{proto: 4, typ: TypeSmallInt}, bytes, i)
+		return gocql.Unmarshal(tType, bytes, i)
 	}
 
-	brokenTypes := utils.GetTypes(mod.String(""), (*mod.String)(nil))
+	// unmarshal `custom string` unsupported
+	brokenCustomStrings := utils.GetTypes(mod.String(""), (*mod.String)(nil))
+
+	// marshal "" (empty string) unsupported
+	// unmarshal nil value into (string)("0")
+	brokenEmptyStrings := utils.GetTypes(string(""), mod.String(""))
+
+	// marshal `custom string` unsupported
+	// marshal `big.Int` unsupported
+	brokenMarshalTypes := append(brokenCustomStrings, utils.GetTypes(big.Int{}, &big.Int{})...)
 
 	serialization.Set{
 		Data: nil,
 		Values: mod.Values{
 			(*int8)(nil), (*int16)(nil), (*int32)(nil), (*int64)(nil), (*int)(nil),
-			(*uint8)(nil), (*uint16)(nil), (*uint32)(nil), (*uint64)(nil), (*uint)(nil), (*string)(nil),
+			(*uint8)(nil), (*uint16)(nil), (*uint32)(nil), (*uint64)(nil), (*uint)(nil),
+			(*string)(nil), (*big.Int)(nil), "",
 		}.AddVariants(mod.CustomType),
-	}.Run("[nil]refs", t, marshal, unmarshal)
+		BrokenMarshalTypes:   brokenEmptyStrings,
+		BrokenUnmarshalTypes: brokenEmptyStrings,
+	}.Run("[nil]nullable", t, marshal, unmarshal)
 
 	serialization.Set{
 		Data: nil,
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
-			uint8(0), uint16(0), uint32(0), uint64(0), uint(0), "0",
+			uint8(0), uint16(0), uint32(0), uint64(0), uint(0),
+			"0", big.Int{},
 		}.AddVariants(mod.CustomType),
-		BrokenUnmarshalTypes: brokenTypes,
-	}.Run("unmarshal nil data", t, nil, unmarshal)
+		BrokenUnmarshalTypes: brokenCustomStrings,
+	}.Run("[nil]unmarshal", t, nil, unmarshal)
 
 	serialization.Set{
 		Data: make([]byte, 0),
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
-			uint8(0), uint16(0), uint32(0), uint64(0), uint(0), "0",
+			uint8(0), uint16(0), uint32(0), uint64(0), uint(0),
+			"0", *big.NewInt(0),
 		}.AddVariants(mod.All...),
-		BrokenUnmarshalTypes: brokenTypes,
-	}.Run("unmarshal zero data", t, nil, unmarshal)
+		BrokenUnmarshalTypes: brokenCustomStrings,
+	}.Run("[]unmarshal", t, nil, unmarshal)
 
 	serialization.Set{
 		Data: []byte("\x00\x00"),
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
-			uint8(0), uint16(0), uint32(0), uint64(0), uint(0), "0",
+			uint8(0), uint16(0), uint32(0), uint64(0), uint(0),
+			"0", *big.NewInt(0),
 		}.AddVariants(mod.All...),
-		BrokenMarshalTypes:   brokenTypes,
-		BrokenUnmarshalTypes: brokenTypes,
+		BrokenMarshalTypes:   brokenMarshalTypes,
+		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("zeros", t, marshal, unmarshal)
 
 	serialization.Set{
 		Data:                 []byte("\x00\x7f"),
-		Values:               mod.Values{int8(127), int16(127), int32(127), int64(127), int(127), "127"}.AddVariants(mod.All...),
-		BrokenMarshalTypes:   brokenTypes,
-		BrokenUnmarshalTypes: brokenTypes,
+		Values:               mod.Values{int8(127), int16(127), int32(127), int64(127), int(127), "127", *big.NewInt(127)}.AddVariants(mod.All...),
+		BrokenMarshalTypes:   brokenMarshalTypes,
+		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("127", t, marshal, unmarshal)
 
 	serialization.Set{
 		Data:                 []byte("\xff\x80"),
-		Values:               mod.Values{int8(-128), int16(-128), int32(-128), int64(-128), int(-128), "-128"}.AddVariants(mod.All...),
-		BrokenMarshalTypes:   brokenTypes,
-		BrokenUnmarshalTypes: brokenTypes,
+		Values:               mod.Values{int8(-128), int16(-128), int32(-128), int64(-128), int(-128), "-128", *big.NewInt(-128)}.AddVariants(mod.All...),
+		BrokenMarshalTypes:   brokenMarshalTypes,
+		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("-128", t, marshal, unmarshal)
 
 	serialization.Set{
 		Data:                 []byte("\x7f\xff"),
-		Values:               mod.Values{int16(32767), int32(32767), int64(32767), int(32767), "32767"}.AddVariants(mod.All...),
-		BrokenMarshalTypes:   brokenTypes,
-		BrokenUnmarshalTypes: brokenTypes,
+		Values:               mod.Values{int16(32767), int32(32767), int64(32767), int(32767), "32767", *big.NewInt(32767)}.AddVariants(mod.All...),
+		BrokenMarshalTypes:   brokenMarshalTypes,
+		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("32767", t, marshal, unmarshal)
 
 	serialization.Set{
 		Data:                 []byte("\x80\x00"),
-		Values:               mod.Values{int16(-32768), int32(-32768), int64(-32768), int(-32768), "-32768"}.AddVariants(mod.All...),
-		BrokenMarshalTypes:   brokenTypes,
-		BrokenUnmarshalTypes: brokenTypes,
+		Values:               mod.Values{int16(-32768), int32(-32768), int64(-32768), int(-32768), "-32768", *big.NewInt(-32768)}.AddVariants(mod.All...),
+		BrokenMarshalTypes:   brokenMarshalTypes,
+		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("-32768", t, marshal, unmarshal)
 
 	serialization.Set{
