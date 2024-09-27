@@ -1,0 +1,48 @@
+package gocql_test
+
+import (
+	"testing"
+
+	"github.com/gocql/gocql"
+	"github.com/gocql/gocql/marshal/tests/mod"
+	"github.com/gocql/gocql/marshal/tests/serialization"
+)
+
+func TestMarshalBoolean(t *testing.T) {
+	tType := gocql.NewNativeType(4, gocql.TypeBoolean, "")
+
+	marshal := func(i interface{}) ([]byte, error) { return gocql.Marshal(tType, i) }
+	unmarshal := func(bytes []byte, i interface{}) error {
+		return gocql.Unmarshal(tType, bytes, i)
+	}
+
+	serialization.Set{
+		Data:   nil,
+		Values: mod.Values{(*bool)(nil)}.AddVariants(mod.CustomType),
+	}.Run("[nil]nullable", t, marshal, unmarshal)
+
+	serialization.Set{
+		Data:   nil,
+		Values: mod.Values{false}.AddVariants(mod.CustomType),
+	}.Run("[nil]unmarshal", t, nil, unmarshal)
+
+	serialization.Set{
+		Data:   make([]byte, 0),
+		Values: mod.Values{false}.AddVariants(mod.All...),
+	}.Run("[]unmarshal", t, nil, unmarshal)
+
+	serialization.Set{
+		Data:   []byte("\x00"),
+		Values: mod.Values{false}.AddVariants(mod.All...),
+	}.Run("zeros", t, marshal, unmarshal)
+
+	serialization.Set{
+		Data:   []byte("\x01"),
+		Values: mod.Values{true}.AddVariants(mod.All...),
+	}.Run("[ff]unmarshal", t, nil, unmarshal)
+
+	serialization.Set{
+		Data:   []byte("\xff"),
+		Values: mod.Values{true}.AddVariants(mod.All...),
+	}.Run("[01]", t, nil, unmarshal)
+}
