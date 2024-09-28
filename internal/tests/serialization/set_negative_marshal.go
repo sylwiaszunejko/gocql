@@ -2,7 +2,6 @@ package serialization
 
 import (
 	"errors"
-	"github.com/gocql/gocql/internal/tests/utils"
 	"reflect"
 	"runtime/debug"
 	"testing"
@@ -25,18 +24,18 @@ func (s NegativeMarshalSet) Run(name string, t *testing.T, marshal func(interfac
 		for m := range s.Values {
 			val := s.Values[m]
 
-			t.Run(utils.StringValue(val), func(t *testing.T) {
+			t.Run(stringValue(val), func(t *testing.T) {
 				_, err := func() (d []byte, err error) {
 					defer func() {
 						if r := recover(); r != nil {
-							err = utils.PanicErr{Err: r.(error), Stack: debug.Stack()}
+							err = panicErr{err: r.(error), stack: debug.Stack()}
 						}
 					}()
 					return marshal(val)
 				}()
 
 				testFailed := false
-				wasPanic := errors.As(err, &utils.PanicErr{})
+				wasPanic := errors.As(err, &panicErr{})
 				if err == nil || wasPanic {
 					testFailed = true
 				}

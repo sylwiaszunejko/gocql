@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/gocql/gocql/internal/tests/utils"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalDecimal(t *testing.T) {
@@ -20,7 +19,7 @@ func TestMarshalDecimal(t *testing.T) {
 	}
 
 	// Unmarshal does not support deserialization of `decimal` with `nil` and `zero` `value len` 'into `inf.Dec`.
-	brokenUnmarshalTypes := utils.GetTypes(inf.Dec{}, (*inf.Dec)(nil))
+	brokenUnmarshalTypes := serialization.GetTypes(inf.Dec{}, (*inf.Dec)(nil))
 
 	serialization.PositiveSet{
 		Data:   nil,

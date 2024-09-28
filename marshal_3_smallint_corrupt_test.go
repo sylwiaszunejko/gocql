@@ -1,28 +1,30 @@
-package gocql
+package gocql_test
 
 import (
 	"math/big"
 	"testing"
 
-	"github.com/gocql/gocql/internal/tests/utils"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalSmallintCorrupt(t *testing.T) {
-	marshal := func(i interface{}) ([]byte, error) { return Marshal(NativeType{proto: 4, typ: TypeSmallInt}, i) }
+	tType := gocql.NewNativeType(4, gocql.TypeSmallInt, "")
+
+	marshal := func(i interface{}) ([]byte, error) { return gocql.Marshal(tType, i) }
 	unmarshal := func(bytes []byte, i interface{}) error {
-		return Unmarshal(NativeType{proto: 4, typ: TypeSmallInt}, bytes, i)
+		return gocql.Unmarshal(tType, bytes, i)
 	}
 
 	// unmarshal function does not return an error in cases where the length of the data is different from 0 or 2
-	brokenUnmarshalTypes := utils.GetTypes(
+	brokenUnmarshalTypes := serialization.GetTypes(
 		mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
 			uint8(0), uint16(0), uint32(0), uint64(0), uint(0),
 			*big.NewInt(0),
 		}.AddVariants(mod.All...)...)
-	brokenUnmarshalTypes = append(brokenUnmarshalTypes, utils.GetTypes("", (*string)(nil))...)
+	brokenUnmarshalTypes = append(brokenUnmarshalTypes, serialization.GetTypes("", (*string)(nil))...)
 
 	serialization.NegativeMarshalSet{
 		Values: mod.Values{

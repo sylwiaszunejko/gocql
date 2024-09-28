@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/gocql/gocql/internal/tests/utils"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalVarInt(t *testing.T) {
@@ -19,17 +18,17 @@ func TestMarshalVarInt(t *testing.T) {
 	}
 
 	// unmarshal `custom string` unsupported
-	brokenCustomStrings := utils.GetTypes(mod.String(""), (*mod.String)(nil))
+	brokenCustomStrings := serialization.GetTypes(mod.String(""), (*mod.String)(nil))
 
 	// marshal "" (empty string) unsupported
 	// unmarshal nil value into (string)("0")
-	brokenEmptyStrings := utils.GetTypes(string(""), mod.String(""))
+	brokenEmptyStrings := serialization.GetTypes(string(""), mod.String(""))
 
 	// marshal data, which equal math.MaxUint64, into uint and uit64 leads to an error
-	brokenUints := utils.GetTypes(uint(0), mod.Uint64(0), mod.Uint(0), (*uint)(nil), (*mod.Uint64)(nil), (*mod.Uint)(nil))
+	brokenUints := serialization.GetTypes(uint(0), mod.Uint64(0), mod.Uint(0), (*uint)(nil), (*mod.Uint64)(nil), (*mod.Uint)(nil))
 
 	// marshal and unmarshal all strings with data or value which out of range of int64 unsupported
-	brokenBigStrings := utils.GetTypes(string(""), (*string)(nil), mod.String(""), (*mod.String)(nil))
+	brokenBigStrings := serialization.GetTypes(string(""), (*string)(nil), mod.String(""), (*mod.String)(nil))
 
 	serialization.PositiveSet{
 		Data: nil,

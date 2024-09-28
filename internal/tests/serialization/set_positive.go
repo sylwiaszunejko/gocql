@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gocql/gocql/internal/tests/utils"
 	"reflect"
 	"runtime/debug"
 	"testing"
@@ -37,15 +36,15 @@ func (s PositiveSet) Run(name string, t *testing.T, marshal func(interface{}) ([
 
 				if unmarshal != nil {
 					if rt := reflect.TypeOf(val); rt.Kind() != reflect.Ptr {
-						unmarshalIn := utils.NewRef(val)
+						unmarshalIn := newRef(val)
 						s.runUnmarshalTest("unmarshal", t, unmarshal, val, unmarshalIn)
 					} else {
 						// Test unmarshal to (*type)(nil)
-						unmarshalIn := utils.NewRef(val)
+						unmarshalIn := newRef(val)
 						s.runUnmarshalTest("unmarshal**nil", t, unmarshal, val, unmarshalIn)
 
 						// Test unmarshal to &type{}
-						unmarshalInZero := utils.NewRefToZero(val)
+						unmarshalInZero := newRefToZero(val)
 						s.runUnmarshalTest("unmarshal**zero", t, unmarshal, val, unmarshalInZero)
 					}
 				}
@@ -60,7 +59,7 @@ func (s PositiveSet) runMarshalTest(t *testing.T, f func(interface{}) ([]byte, e
 		result, err := func() (d []byte, err error) {
 			defer func() {
 				if r := recover(); r != nil {
-					err = utils.PanicErr{Err: r.(error), Stack: debug.Stack()}
+					err = panicErr{err: r.(error), stack: debug.Stack()}
 				}
 			}()
 			return f(val)
@@ -68,11 +67,11 @@ func (s PositiveSet) runMarshalTest(t *testing.T, f func(interface{}) ([]byte, e
 
 		expected := bytes.Clone(s.Data)
 		if err != nil {
-			if !errors.As(err, &utils.PanicErr{}) {
-				err = errors.Join(MarshalErr, err)
+			if !errors.As(err, &panicErr{}) {
+				err = errors.Join(marshalErr, err)
 			}
-		} else if !utils.EqualData(expected, result) {
-			err = UnequalError{Expected: utils.StringData(s.Data), Got: utils.StringData(result)}
+		} else if !equalData(expected, result) {
+			err = unequalError{Expected: stringData(s.Data), Got: stringData(result)}
 		}
 
 		if isTypeOf(val, s.BrokenMarshalTypes) {
@@ -95,18 +94,18 @@ func (s PositiveSet) runUnmarshalTest(name string, t *testing.T, f func([]byte, 
 		err := func() (err error) {
 			defer func() {
 				if r := recover(); r != nil {
-					err = utils.PanicErr{Err: fmt.Errorf("%s", r), Stack: debug.Stack()}
+					err = panicErr{err: fmt.Errorf("%s", r), stack: debug.Stack()}
 				}
 			}()
 			return f(bytes.Clone(s.Data), result)
 		}()
 
 		if err != nil {
-			if !errors.As(err, &utils.PanicErr{}) {
-				err = errors.Join(UnmarshalErr, err)
+			if !errors.As(err, &panicErr{}) {
+				err = errors.Join(unmarshalErr, err)
 			}
-		} else if !utils.EqualVals(expected, utils.DeReference(result)) {
-			err = UnequalError{Expected: utils.StringValue(expected), Got: utils.StringValue(result)}
+		} else if !equalVals(expected, deReference(result)) {
+			err = unequalError{Expected: stringValue(expected), Got: stringValue(result)}
 		} else {
 			err = expectedPtr.Valid(result)
 		}

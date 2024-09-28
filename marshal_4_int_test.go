@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/gocql/gocql/internal/tests/utils"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalInt(t *testing.T) {
@@ -19,18 +18,18 @@ func TestMarshalInt(t *testing.T) {
 	}
 
 	// unmarshal `custom string` unsupported
-	brokenCustomStrings := utils.GetTypes(mod.String(""), (*mod.String)(nil))
+	brokenCustomStrings := serialization.GetTypes(mod.String(""), (*mod.String)(nil))
 
 	// marshal "" (empty string) unsupported
 	// unmarshal nil value into (string)("0")
-	brokenEmptyStrings := utils.GetTypes(string(""), mod.String(""))
+	brokenEmptyStrings := serialization.GetTypes(string(""), mod.String(""))
 
 	// marshal `custom string` unsupported
 	// marshal `big.Int` unsupported
-	brokenMarshalTypes := append(brokenCustomStrings, utils.GetTypes(big.Int{}, &big.Int{})...)
+	brokenMarshalTypes := append(brokenCustomStrings, serialization.GetTypes(big.Int{}, &big.Int{})...)
 
 	// marshal data, which equal math.MaxUint32, into uint32, uit64, uint leads to an error
-	brokenUints := utils.GetTypes(mod.Uint32(0), mod.Uint64(0), mod.Uint(0), (*mod.Uint32)(nil), (*mod.Uint64)(nil), (*mod.Uint)(nil))
+	brokenUints := serialization.GetTypes(mod.Uint32(0), mod.Uint64(0), mod.Uint(0), (*mod.Uint32)(nil), (*mod.Uint64)(nil), (*mod.Uint)(nil))
 
 	serialization.PositiveSet{
 		Data: nil,

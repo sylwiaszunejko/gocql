@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gocql/gocql/internal/tests/utils"
 	"reflect"
 	"runtime/debug"
 	"testing"
@@ -29,15 +28,15 @@ func (s NegativeUnmarshalSet) Run(name string, t *testing.T, unmarshal func([]by
 			val := s.Values[m]
 
 			if rt := reflect.TypeOf(val); rt.Kind() != reflect.Ptr {
-				unmarshalIn := utils.NewRef(val)
+				unmarshalIn := newRef(val)
 				s.run(fmt.Sprintf("%T", val), t, unmarshal, val, unmarshalIn)
 			} else {
 				// Test unmarshal to (*type)(nil)
-				unmarshalIn := utils.NewRef(val)
+				unmarshalIn := newRef(val)
 				s.run(fmt.Sprintf("%T**nil", val), t, unmarshal, val, unmarshalIn)
 
 				// Test unmarshal to &type{}
-				unmarshalInZero := utils.NewRefToZero(val)
+				unmarshalInZero := newRefToZero(val)
 				s.run(fmt.Sprintf("%T**zero", val), t, unmarshal, val, unmarshalInZero)
 			}
 		}
@@ -49,14 +48,14 @@ func (s NegativeUnmarshalSet) run(name string, t *testing.T, f func([]byte, inte
 		err := func() (err error) {
 			defer func() {
 				if r := recover(); r != nil {
-					err = utils.PanicErr{Err: r.(error), Stack: debug.Stack()}
+					err = panicErr{err: r.(error), stack: debug.Stack()}
 				}
 			}()
 			return f(bytes.Clone(s.Data), unmarshalIn)
 		}()
 
 		testFailed := false
-		wasPanic := errors.As(err, &utils.PanicErr{})
+		wasPanic := errors.As(err, &panicErr{})
 		if err == nil || wasPanic {
 			testFailed = true
 		}
