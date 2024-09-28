@@ -29,7 +29,7 @@ func TestMarshalTinyint(t *testing.T) {
 	// marshal `big.Int` unsupported
 	brokenMarshalTypes := append(brokenCustomStrings, utils.GetTypes(big.Int{}, &big.Int{})...)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: nil,
 		Values: mod.Values{
 			(*int8)(nil), (*int16)(nil), (*int32)(nil), (*int64)(nil), (*int)(nil),
@@ -40,7 +40,7 @@ func TestMarshalTinyint(t *testing.T) {
 		BrokenUnmarshalTypes: brokenEmptyStrings,
 	}.Run("[nil]nullable", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: nil,
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
@@ -50,7 +50,7 @@ func TestMarshalTinyint(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("[nil]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: make([]byte, 0),
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
@@ -60,7 +60,7 @@ func TestMarshalTinyint(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("[]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00"),
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
@@ -71,21 +71,21 @@ func TestMarshalTinyint(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("zeros", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:                 []byte("\x7f"),
 		Values:               mod.Values{int8(127), int16(127), int32(127), int64(127), int(127), "127", *big.NewInt(127)}.AddVariants(mod.All...),
 		BrokenMarshalTypes:   brokenMarshalTypes,
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("127", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:                 []byte("\x80"),
 		Values:               mod.Values{int8(-128), int16(-128), int32(-128), int64(-128), int(-128), "-128", *big.NewInt(-128)}.AddVariants(mod.All...),
 		BrokenMarshalTypes:   brokenMarshalTypes,
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("-128", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\xff"),
 		Values: mod.Values{uint8(255), uint16(255), uint32(255), uint64(255), uint(255)}.AddVariants(mod.All...),
 	}.Run("255", t, marshal, unmarshal)

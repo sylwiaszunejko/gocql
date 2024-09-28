@@ -16,32 +16,32 @@ func TestMarshalBoolean(t *testing.T) {
 		return gocql.Unmarshal(tType, bytes, i)
 	}
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   nil,
 		Values: mod.Values{(*bool)(nil)}.AddVariants(mod.CustomType),
 	}.Run("[nil]nullable", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   nil,
 		Values: mod.Values{false}.AddVariants(mod.CustomType),
 	}.Run("[nil]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   make([]byte, 0),
 		Values: mod.Values{false}.AddVariants(mod.All...),
 	}.Run("[]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x00"),
 		Values: mod.Values{false}.AddVariants(mod.All...),
 	}.Run("zeros", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x01"),
 		Values: mod.Values{true}.AddVariants(mod.All...),
 	}.Run("[ff]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\xff"),
 		Values: mod.Values{true}.AddVariants(mod.All...),
 	}.Run("[01]", t, nil, unmarshal)
