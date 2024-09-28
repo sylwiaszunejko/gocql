@@ -94,8 +94,8 @@ var marshalTests = []struct {
 		NativeType{proto: 2, typ: TypeTimeUUID},
 		[]byte{0xb8, 0xe8, 0x56, 0x2c, 0xc, 0xd0},
 		[]byte{0xb8, 0xe8, 0x56, 0x2c, 0xc, 0xd0},
-		MarshalError("can not marshal []byte 6 bytes long into timeuuid, must be exactly 16 bytes long"),
-		UnmarshalError("unable to parse UUID: UUIDs must be exactly 16 bytes long"),
+		marshalErrorf("can not marshal []byte 6 bytes long into timeuuid, must be exactly 16 bytes long"),
+		unmarshalErrorf("unable to parse UUID: UUIDs must be exactly 16 bytes long"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeTimeUUID},
@@ -528,7 +528,7 @@ var marshalTests = []struct {
 		[]byte(nil),
 		nil,
 		nil,
-		UnmarshalError("can not unmarshal into non-pointer <nil>"),
+		unmarshalErrorf("can not unmarshal into non-pointer <nil>"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInet},
@@ -591,7 +591,7 @@ var marshalTests = []struct {
 		[]byte(nil),
 		nil,
 		nil,
-		UnmarshalError("can not unmarshal into non-pointer <nil>"),
+		unmarshalErrorf("can not unmarshal into non-pointer <nil>"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeVarchar},
@@ -1081,169 +1081,169 @@ var unmarshalTests = []struct {
 		NativeType{proto: 2, typ: TypeSmallInt},
 		[]byte("\xff\xff"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeSmallInt},
 		[]byte("\x01\x00"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\xff\xff\xff\xff"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\x00\x00\x01\x00"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\xff\xff\xff\xff"),
 		uint16(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint16"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\x00\x01\x00\x00"),
 		uint16(0),
-		UnmarshalError("unmarshal int: value 65536 out of range for uint16"),
+		unmarshalErrorf("unmarshal int: value 65536 out of range for uint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x00\x01\x00"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x00\x01\x00"),
 		uint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for uint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for uint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		uint16(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint16"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x01\x00\x00"),
 		uint16(0),
-		UnmarshalError("unmarshal int: value 65536 out of range for uint16"),
+		unmarshalErrorf("unmarshal int: value 65536 out of range for uint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		uint32(0),
-		UnmarshalError("unmarshal int: value -1 out of range for uint32"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for uint32"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x01\x00\x00\x00\x00"),
 		uint32(0),
-		UnmarshalError("unmarshal int: value 4294967296 out of range for uint32"),
+		unmarshalErrorf("unmarshal int: value 4294967296 out of range for uint32"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeSmallInt},
 		[]byte("\xff\xff"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeSmallInt},
 		[]byte("\x01\x00"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\xff\xff\xff\xff"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\x00\x00\x01\x00"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\xff\xff\xff\xff"),
 		AliasUint16(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint16"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\x00\x01\x00\x00"),
 		AliasUint16(0),
-		UnmarshalError("unmarshal int: value 65536 out of range for gocql.AliasUint16"),
+		unmarshalErrorf("unmarshal int: value 65536 out of range for gocql.AliasUint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x00\x01\x00"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x00\x01\x00"),
 		AliasUint8(0),
-		UnmarshalError("unmarshal int: value 256 out of range for gocql.AliasUint8"),
+		unmarshalErrorf("unmarshal int: value 256 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		AliasUint16(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint16"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x01\x00\x00"),
 		AliasUint16(0),
-		UnmarshalError("unmarshal int: value 65536 out of range for gocql.AliasUint16"),
+		unmarshalErrorf("unmarshal int: value 65536 out of range for gocql.AliasUint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
 		AliasUint32(0),
-		UnmarshalError("unmarshal int: value -1 out of range for gocql.AliasUint32"),
+		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint32"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x01\x00\x00\x00\x00"),
 		AliasUint32(0),
-		UnmarshalError("unmarshal int: value 4294967296 out of range for gocql.AliasUint32"),
+		unmarshalErrorf("unmarshal int: value 4294967296 out of range for gocql.AliasUint32"),
 	},
 	{
 		CollectionType{
@@ -1255,7 +1255,7 @@ var unmarshalTests = []struct {
 			l := []int{1, 2}
 			return &l
 		}(),
-		UnmarshalError("unmarshal list: unexpected eof"),
+		unmarshalErrorf("unmarshal list: unexpected eof"),
 	},
 	{
 		CollectionType{
@@ -1265,7 +1265,7 @@ var unmarshalTests = []struct {
 		},
 		[]byte("\x00\x01\x00\x03fo"),
 		map[string]int{"foo": 1},
-		UnmarshalError("unmarshal map: unexpected eof"),
+		unmarshalErrorf("unmarshal map: unexpected eof"),
 	},
 	{
 		CollectionType{
@@ -1275,43 +1275,43 @@ var unmarshalTests = []struct {
 		},
 		[]byte("\x00\x01\x00\x03foo\x00\x04\x00\x00"),
 		map[string]int{"foo": 1},
-		UnmarshalError("unmarshal map: unexpected eof"),
+		unmarshalErrorf("unmarshal map: unexpected eof"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeDecimal},
 		[]byte("\xff\xff\xff"),
 		inf.NewDec(0, 0), // From the datastax/python-driver test suite
-		UnmarshalError("inf.Dec needs at least 4 bytes, while value has only 3"),
+		unmarshalErrorf("inf.Dec needs at least 4 bytes, while value has only 3"),
 	},
 	{
 		NativeType{proto: 5, typ: TypeDuration},
 		[]byte("\x89\xa2\xc3\xc2\x9a\xe0F\x91"),
 		Duration{},
-		UnmarshalError("failed to unmarshal duration into *gocql.Duration: failed to extract nanoseconds: data expect to have 9 bytes, but it has only 8"),
+		unmarshalErrorf("failed to unmarshal duration into *gocql.Duration: failed to extract nanoseconds: data expect to have 9 bytes, but it has only 8"),
 	},
 	{
 		NativeType{proto: 5, typ: TypeDuration},
 		[]byte("\x89\xa2\xc3\xc2\x9a"),
 		Duration{},
-		UnmarshalError("failed to unmarshal duration into *gocql.Duration: failed to extract nanoseconds: unexpected eof"),
+		unmarshalErrorf("failed to unmarshal duration into *gocql.Duration: failed to extract nanoseconds: unexpected eof"),
 	},
 	{
 		NativeType{proto: 5, typ: TypeDuration},
 		[]byte("\x89\xa2\xc3\xc2"),
 		Duration{},
-		UnmarshalError("failed to unmarshal duration into *gocql.Duration: failed to extract days: data expect to have 5 bytes, but it has only 4"),
+		unmarshalErrorf("failed to unmarshal duration into *gocql.Duration: failed to extract days: data expect to have 5 bytes, but it has only 4"),
 	},
 	{
 		NativeType{proto: 5, typ: TypeDuration},
 		[]byte("\x89\xa2"),
 		Duration{},
-		UnmarshalError("failed to unmarshal duration into *gocql.Duration: failed to extract days: unexpected eof"),
+		unmarshalErrorf("failed to unmarshal duration into *gocql.Duration: failed to extract days: unexpected eof"),
 	},
 	{
 		NativeType{proto: 5, typ: TypeDuration},
 		[]byte("\x89"),
 		Duration{},
-		UnmarshalError("failed to unmarshal duration into *gocql.Duration: failed to extract month: data expect to have 2 bytes, but it has only 1"),
+		unmarshalErrorf("failed to unmarshal duration into *gocql.Duration: failed to extract month: data expect to have 2 bytes, but it has only 1"),
 	},
 }
 
@@ -2505,7 +2505,7 @@ func TestUnmarshalUDT(t *testing.T) {
 		bytesWithLength([]byte("\x00\x2a")), // second
 	)
 	value := map[string]interface{}{}
-	expectedErr := UnmarshalError("can not unmarshal into non-pointer map[string]interface {}")
+	expectedErr := unmarshalErrorf("can not unmarshal into non-pointer map[string]interface {}")
 
 	if err := Unmarshal(info, data, value); err != expectedErr {
 		t.Errorf("(%v=>%T): %#v returned error %#v, want %#v.",
