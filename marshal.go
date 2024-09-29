@@ -2712,22 +2712,46 @@ func (t Type) String() string {
 	}
 }
 
-type MarshalError string
+type MarshalError struct {
+	cause error
+	msg   string
+}
 
 func (m MarshalError) Error() string {
-	return string(m)
+	if m.cause != nil {
+		return m.msg + ": " + m.cause.Error()
+	}
+	return m.msg
+}
+
+func (m MarshalError) Cause() error { return m.cause }
+
+func (m MarshalError) Unwrap() error {
+	return m.cause
 }
 
 func marshalErrorf(format string, args ...interface{}) MarshalError {
-	return MarshalError(fmt.Sprintf(format, args...))
+	return MarshalError{msg: fmt.Sprintf(format, args...)}
 }
 
-type UnmarshalError string
+type UnmarshalError struct {
+	cause error
+	msg   string
+}
 
 func (m UnmarshalError) Error() string {
-	return string(m)
+	if m.cause != nil {
+		return m.msg + ": " + m.cause.Error()
+	}
+	return m.msg
+}
+
+func (m UnmarshalError) Cause() error { return m.cause }
+
+func (m UnmarshalError) Unwrap() error {
+	return m.cause
 }
 
 func unmarshalErrorf(format string, args ...interface{}) UnmarshalError {
-	return UnmarshalError(fmt.Sprintf(format, args...))
+	return UnmarshalError{msg: fmt.Sprintf(format, args...)}
 }
