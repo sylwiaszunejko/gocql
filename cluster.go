@@ -216,6 +216,9 @@ type ClusterConfig struct {
 	// statement.
 	//
 	// See https://issues.apache.org/jira/browse/CASSANDRA-10786
+	// See https://github.com/scylladb/scylladb/issues/20860
+	//
+	// Default: true
 	DisableSkipMetadata bool
 
 	// QueryObserver will set the provided query observer on all queries created from this session.
@@ -318,6 +321,7 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		SocketKeepalive:              15 * time.Second,
 		WriteCoalesceWaitTime:        200 * time.Microsecond,
 		MetadataSchemaRequestTimeout: 60 * time.Second,
+		DisableSkipMetadata:          true,
 	}
 
 	return cfg
