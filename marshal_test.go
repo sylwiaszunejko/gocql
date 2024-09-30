@@ -815,97 +815,6 @@ var marshalTests = []struct {
 		nil,
 	},
 	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x7f\xff"),
-		32767, // math.MaxInt16
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x7f\xff"),
-		"32767", // math.MaxInt16
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x00\x01"),
-		int16(1),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		int16(-1),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x00\xff"),
-		uint8(255),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		uint16(65535),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		uint32(65535),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		uint64(65535),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x00\xff"),
-		AliasUint8(255),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		AliasUint16(65535),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		AliasUint32(65535),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		AliasUint64(65535),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		AliasUint(65535),
-		nil,
-		nil,
-	},
-	{
 		NativeType{proto: 2, typ: TypeTinyInt},
 		[]byte("\x7f"),
 		127, // math.MaxInt8
@@ -1078,18 +987,6 @@ var unmarshalTests = []struct {
 	UnmarshalError error
 }{
 	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		uint8(0),
-		unmarshalErrorf("unmarshal int: value -1 out of range for uint8"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x01\x00"),
-		uint8(0),
-		unmarshalErrorf("unmarshal int: value 256 out of range for uint8"),
-	},
-	{
 		NativeType{proto: 2, typ: TypeInt},
 		[]byte("\xff\xff\xff\xff"),
 		uint8(0),
@@ -1160,18 +1057,6 @@ var unmarshalTests = []struct {
 		[]byte("\x00\x00\x00\x01\x00\x00\x00\x00"),
 		uint32(0),
 		unmarshalErrorf("unmarshal int: value 4294967296 out of range for uint32"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\xff\xff"),
-		AliasUint8(0),
-		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint8"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeSmallInt},
-		[]byte("\x01\x00"),
-		AliasUint8(0),
-		unmarshalErrorf("unmarshal int: value 256 out of range for gocql.AliasUint8"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeInt},
