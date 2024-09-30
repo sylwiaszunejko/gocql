@@ -465,6 +465,10 @@ func (cfg *ClusterConfig) Validate() error {
 		return errors.New("ProtoVersion should be positive number or zero")
 	}
 
+	if !cfg.DisableSkipMetadata {
+		Logger.Println("warning: enabling skipping metadata can lead to unpredictible results when executing query and altering columns involved in the query.")
+	}
+
 	return cfg.ValidateAndInitSSL()
 }
 
