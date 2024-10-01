@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"gopkg.in/inf.v0"
+
+	"github.com/gocql/gocql/marshal/tinyint"
 )
 
 var (
@@ -30,14 +32,33 @@ var (
 	ErrorUDTUnavailable = errors.New("UDT are not available on protocols less than 3, please update config")
 )
 
-// Marshaler is the interface implemented by objects that can marshal
-// themselves into values understood by Cassandra.
+// Marshaler is an interface for custom unmarshaler.
+// Each value of the 'CQL binary protocol' consist of <value_len> and <value_data>.
+// <value_len> can be 'unset'(-2), 'nil'(-1), 'zero'(0) or any value up to 2147483647.
+// When <value_len> is 'unset', 'nil' or 'zero', <value_data> is not present.
+// 'unset' is applicable only to columns, with some exceptions.
+// As you can see from API MarshalCQL only returns <value_data>, but there is a way for it to control <value_len>:
+//  1. If MarshalCQL returns (gocql.UnsetValue, nil), gocql writes 'unset' to <value_len>
+//  2. If MarshalCQL returns ([]byte(nil), nil), gocql writes 'nil' to <value_len>
+//  3. If MarshalCQL returns ([]byte{}, nil), gocql writes 'zero' to <value_len>
+//
+// Some CQL databases have proprietary value coding features, which you may want to consider.
+// CQL binary protocol info:https://github.com/apache/cassandra/tree/trunk/doc
 type Marshaler interface {
 	MarshalCQL(info TypeInfo) ([]byte, error)
 }
 
-// Unmarshaler is the interface implemented by objects that can unmarshal
-// a Cassandra specific description of themselves.
+// Unmarshaler is an interface for custom unmarshaler.
+// Each value of the 'CQL binary protocol' consist of <value_len> and <value_data>.
+// <value_len> can be 'unset'(-2), 'nil'(-1), 'zero'(0) or any value up to 2147483647.
+// When <value_len> is 'unset', 'nil' or 'zero', <value_data> is not present.
+// As you can see from an API UnmarshalCQL receives only 'info TypeInfo' and
+// 'data []byte', but gocql has the following way to signal about <value_len>:
+//  1. When <value_len> is 'nil' gocql feeds nil to 'data []byte'
+//  2. When <value_len> is 'zero' gocql feeds []byte{} to 'data []byte'
+//
+// Some CQL databases have proprietary value coding features, which you may want to consider.
+// CQL binary protocol info:https://github.com/apache/cassandra/tree/trunk/doc
 type Unmarshaler interface {
 	UnmarshalCQL(info TypeInfo, data []byte) error
 }
@@ -115,7 +136,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeBoolean:
 		return marshalBool(info, value)
 	case TypeTinyInt:
-		return marshalTinyInt(info, value)
+		return marshalTinyInt(value)
 	case TypeSmallInt:
 		return marshalSmallInt(info, value)
 	case TypeInt:
@@ -225,7 +246,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeSmallInt:
 		return unmarshalSmallInt(info, data, value)
 	case TypeTinyInt:
-		return unmarshalTinyInt(info, data, value)
+		return unmarshalTinyInt(data, value)
 	case TypeFloat:
 		return unmarshalFloat(info, data, value)
 	case TypeDouble:
@@ -438,88 +459,12 @@ func marshalSmallInt(info TypeInfo, value interface{}) ([]byte, error) {
 	return nil, marshalErrorf("can not marshal %T into %s", value, info)
 }
 
-func marshalTinyInt(info TypeInfo, value interface{}) ([]byte, error) {
-	switch v := value.(type) {
-	case Marshaler:
-		return v.MarshalCQL(info)
-	case unsetColumn:
-		return nil, nil
-	case int8:
-		return []byte{byte(v)}, nil
-	case uint8:
-		return []byte{byte(v)}, nil
-	case int16:
-		if v > math.MaxInt8 || v < math.MinInt8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case uint16:
-		if v > math.MaxUint8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case int:
-		if v > math.MaxInt8 || v < math.MinInt8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case int32:
-		if v > math.MaxInt8 || v < math.MinInt8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case int64:
-		if v > math.MaxInt8 || v < math.MinInt8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case uint:
-		if v > math.MaxUint8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case uint32:
-		if v > math.MaxUint8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case uint64:
-		if v > math.MaxUint8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case string:
-		n, err := strconv.ParseInt(v, 10, 8)
-		if err != nil {
-			return nil, marshalErrorf("can not marshal %T into %s: %v", value, info, err)
-		}
-		return []byte{byte(n)}, nil
+func marshalTinyInt(value interface{}) ([]byte, error) {
+	data, err := tinyint.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	switch rv := reflect.ValueOf(value); rv.Type().Kind() {
-	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		v := rv.Int()
-		if v > math.MaxInt8 || v < math.MinInt8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		v := rv.Uint()
-		if v > math.MaxUint8 {
-			return nil, marshalErrorf("marshal tinyint: value %d out of range", v)
-		}
-		return []byte{byte(v)}, nil
-	case reflect.Ptr:
-		if rv.IsNil() {
-			return nil, nil
-		}
-	}
-
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
+	return data, nil
 }
 
 func marshalInt(info TypeInfo, value interface{}) ([]byte, error) {
@@ -619,13 +564,6 @@ func decShort(p []byte) int16 {
 	return int16(p[0])<<8 | int16(p[1])
 }
 
-func decTiny(p []byte) int8 {
-	if len(p) != 1 {
-		return 0
-	}
-	return int8(p[0])
-}
-
 func marshalBigInt(info TypeInfo, value interface{}) ([]byte, error) {
 	switch v := value.(type) {
 	case Marshaler:
@@ -715,8 +653,11 @@ func unmarshalSmallInt(info TypeInfo, data []byte, value interface{}) error {
 	return unmarshalIntlike(info, int64(decShort(data)), data, value)
 }
 
-func unmarshalTinyInt(info TypeInfo, data []byte, value interface{}) error {
-	return unmarshalIntlike(info, int64(decTiny(data)), data, value)
+func unmarshalTinyInt(data []byte, value interface{}) error {
+	if err := tinyint.Unmarshal(data, value); err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
 }
 
 func unmarshalVarint(info TypeInfo, data []byte, value interface{}) error {
@@ -2734,6 +2675,14 @@ func marshalErrorf(format string, args ...interface{}) MarshalError {
 	return MarshalError{msg: fmt.Sprintf(format, args...)}
 }
 
+func wrapMarshalError(err error, msg string) MarshalError {
+	return MarshalError{msg: msg, cause: err}
+}
+
+func wrapMarshalErrorf(err error, format string, a ...interface{}) MarshalError {
+	return MarshalError{msg: fmt.Sprintf(format, a...), cause: err}
+}
+
 type UnmarshalError struct {
 	cause error
 	msg   string
@@ -2754,4 +2703,12 @@ func (m UnmarshalError) Unwrap() error {
 
 func unmarshalErrorf(format string, args ...interface{}) UnmarshalError {
 	return UnmarshalError{msg: fmt.Sprintf(format, args...)}
+}
+
+func wrapUnmarshalError(err error, msg string) UnmarshalError {
+	return UnmarshalError{msg: msg, cause: err}
+}
+
+func wrapUnmarshalErrorf(err error, format string, a ...interface{}) UnmarshalError {
+	return UnmarshalError{msg: fmt.Sprintf(format, a...), cause: err}
 }
