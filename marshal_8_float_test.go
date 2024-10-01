@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalFloat(t *testing.T) {
@@ -17,47 +17,47 @@ func TestMarshalFloat(t *testing.T) {
 		return gocql.Unmarshal(tType, bytes, i)
 	}
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   nil,
 		Values: mod.Values{(*float32)(nil)}.AddVariants(mod.CustomType),
 	}.Run("[nil]nullable", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   nil,
 		Values: mod.Values{float32(0)}.AddVariants(mod.CustomType),
 	}.Run("[nil]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   make([]byte, 0),
 		Values: mod.Values{float32(0)}.AddVariants(mod.All...),
 	}.Run("[]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x00\x00\x00\x00"),
 		Values: mod.Values{float32(0)}.AddVariants(mod.All...),
 	}.Run("zeros", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x7f\x7f\xff\xff"),
 		Values: mod.Values{float32(math.MaxFloat32)}.AddVariants(mod.All...),
 	}.Run("max", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x00\x00\x00\x01"),
 		Values: mod.Values{float32(math.SmallestNonzeroFloat32)}.AddVariants(mod.All...),
 	}.Run("smallest", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x7f\x80\x00\x00"),
 		Values: mod.Values{float32(math.Inf(1))}.AddVariants(mod.All...),
 	}.Run("inf+", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\xff\x80\x00\x00"),
 		Values: mod.Values{float32(math.Inf(-1))}.AddVariants(mod.All...),
 	}.Run("inf-", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x7f\xc0\x00\x00"),
 		Values: mod.Values{float32(math.NaN())}.AddVariants(mod.All...),
 	}.Run("nan", t, marshal, unmarshal)

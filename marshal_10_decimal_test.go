@@ -6,9 +6,8 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/gocql/gocql/internal/tests/utils"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalDecimal(t *testing.T) {
@@ -20,36 +19,36 @@ func TestMarshalDecimal(t *testing.T) {
 	}
 
 	// Unmarshal does not support deserialization of `decimal` with `nil` and `zero` `value len` 'into `inf.Dec`.
-	brokenUnmarshalTypes := utils.GetTypes(inf.Dec{}, (*inf.Dec)(nil))
+	brokenUnmarshalTypes := serialization.GetTypes(inf.Dec{}, (*inf.Dec)(nil))
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   nil,
 		Values: mod.Values{(*inf.Dec)(nil)},
 	}.Run("[nil]nullable", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:                 nil,
 		Values:               mod.Values{inf.Dec{}},
 		BrokenUnmarshalTypes: brokenUnmarshalTypes,
 	}.Run("[nil]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:                 make([]byte, 0),
 		Values:               mod.Values{*inf.NewDec(0, 0)}.AddVariants(mod.Reference),
 		BrokenUnmarshalTypes: brokenUnmarshalTypes,
 	}.Run("[]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x00\x00\x00\x00\x00"),
 		Values: mod.Values{*inf.NewDec(0, 0)}.AddVariants(mod.Reference),
 	}.Run("zeros", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x7f\xff\xff\xff\x7f\xff\xff\xff\xff\xff\xff\xff"),
 		Values: mod.Values{*inf.NewDec(int64(math.MaxInt64), inf.Scale(int32(math.MaxInt32)))}.AddVariants(mod.Reference),
 	}.Run("max_ints", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data:   []byte("\x80\x00\x00\x00\x80\x00\x00\x00\x00\x00\x00\x00"),
 		Values: mod.Values{*inf.NewDec(int64(math.MinInt64), inf.Scale(int32(math.MinInt32)))}.AddVariants(mod.Reference),
 	}.Run("min_ints", t, marshal, unmarshal)

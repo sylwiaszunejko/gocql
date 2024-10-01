@@ -1,15 +1,15 @@
-package utils
+package serialization
 
 import (
 	"reflect"
 )
 
-func NewRef(in interface{}) interface{} {
+func newRef(in interface{}) interface{} {
 	out := reflect.New(reflect.TypeOf(in)).Interface()
 	return out
 }
 
-func NewRefToZero(in interface{}) interface{} {
+func newRefToZero(in interface{}) interface{} {
 	rv := reflect.ValueOf(in)
 	nw := reflect.New(rv.Type().Elem())
 	out := reflect.New(rv.Type())

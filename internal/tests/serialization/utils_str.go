@@ -1,4 +1,4 @@
-package utils
+package serialization
 
 import (
 	"fmt"
@@ -9,16 +9,25 @@ import (
 	"time"
 )
 
-// StringValue returns (value_type)(value) in the human-readable format.
-func StringValue(in interface{}) string {
-	valStr := stringValue(in)
+const printLimit = 100
+
+// stringValue returns (value_type)(value) in the human-readable format.
+func stringValue(in interface{}) string {
+	valStr := stringVal(in)
 	if len(valStr) > printLimit {
 		valStr = valStr[:printLimit]
 	}
 	return fmt.Sprintf("(%T)(%s)", in, valStr)
 }
 
-func stringValue(in interface{}) string {
+func stringData(p []byte) string {
+	if len(p) > printLimit {
+		p = p[:printLimit]
+	}
+	return fmt.Sprintf("[%x]", p)
+}
+
+func stringVal(in interface{}) string {
 	switch i := in.(type) {
 	case string:
 		return i
@@ -40,7 +49,7 @@ func stringValue(in interface{}) string {
 		if rv.IsNil() {
 			return "*nil"
 		}
-		return fmt.Sprintf("*%s", stringValue(rv.Elem().Interface()))
+		return fmt.Sprintf("*%s", stringVal(rv.Elem().Interface()))
 	case reflect.Slice:
 		if rv.IsNil() {
 			return "[nil]"

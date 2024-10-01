@@ -5,9 +5,8 @@ import (
 	"testing"
 
 	"github.com/gocql/gocql"
-	"github.com/gocql/gocql/internal/tests/utils"
-	"github.com/gocql/gocql/marshal/tests/mod"
-	"github.com/gocql/gocql/marshal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func TestMarshalVarInt(t *testing.T) {
@@ -19,19 +18,19 @@ func TestMarshalVarInt(t *testing.T) {
 	}
 
 	// unmarshal `custom string` unsupported
-	brokenCustomStrings := utils.GetTypes(mod.String(""), (*mod.String)(nil))
+	brokenCustomStrings := serialization.GetTypes(mod.String(""), (*mod.String)(nil))
 
 	// marshal "" (empty string) unsupported
 	// unmarshal nil value into (string)("0")
-	brokenEmptyStrings := utils.GetTypes(string(""), mod.String(""))
+	brokenEmptyStrings := serialization.GetTypes(string(""), mod.String(""))
 
 	// marshal data, which equal math.MaxUint64, into uint and uit64 leads to an error
-	brokenUints := utils.GetTypes(uint(0), mod.Uint64(0), mod.Uint(0), (*uint)(nil), (*mod.Uint64)(nil), (*mod.Uint)(nil))
+	brokenUints := serialization.GetTypes(uint(0), mod.Uint64(0), mod.Uint(0), (*uint)(nil), (*mod.Uint64)(nil), (*mod.Uint)(nil))
 
 	// marshal and unmarshal all strings with data or value which out of range of int64 unsupported
-	brokenBigStrings := utils.GetTypes(string(""), (*string)(nil), mod.String(""), (*mod.String)(nil))
+	brokenBigStrings := serialization.GetTypes(string(""), (*string)(nil), mod.String(""), (*mod.String)(nil))
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: nil,
 		Values: mod.Values{
 			(*int8)(nil), (*int16)(nil), (*int32)(nil), (*int64)(nil), (*int)(nil),
@@ -42,7 +41,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenEmptyStrings,
 	}.Run("[nil]nullable", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: nil,
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
@@ -52,7 +51,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("[nil]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: make([]byte, 0),
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
@@ -62,7 +61,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("[]unmarshal", t, nil, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00"),
 		Values: mod.Values{
 			int8(0), int16(0), int32(0), int64(0), int(0),
@@ -73,7 +72,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("zeros", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x7f\xff\xff\xff\xff\xff\xff\xff"),
 		Values: mod.Values{
 			int64(9223372036854775807), int(9223372036854775807),
@@ -83,7 +82,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("maxInt64", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x80\x00\x00\x00\x00\x00\x00\x00"),
 		Values: mod.Values{
 			int64(-9223372036854775808), int(-9223372036854775808),
@@ -93,7 +92,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("minInt64", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x7f\xff\xff\xff"),
 		Values: mod.Values{
 			int32(2147483647), int64(2147483647), int(2147483647),
@@ -103,7 +102,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("2147483647", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x80\x00\x00\x00"),
 		Values: mod.Values{
 			int32(-2147483648), int64(-2147483648), int(-2147483648),
@@ -113,7 +112,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("-2147483648", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x7f\xff"),
 		Values: mod.Values{
 			int16(32767), int32(32767), int64(32767), int(32767),
@@ -123,7 +122,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("32767", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x80\x00"),
 		Values: mod.Values{
 			int16(-32768), int32(-32768), int64(-32768), int(-32768),
@@ -133,7 +132,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("-32768", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x7f"),
 		Values: mod.Values{
 			int8(127), int16(127), int32(127), int64(127), int(127),
@@ -143,7 +142,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("127", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x80"),
 		Values: mod.Values{
 			int8(-128), int16(-128), int32(-128), int64(-128), int(-128),
@@ -153,28 +152,28 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenCustomStrings,
 	}.Run("-128", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00\xff"),
 		Values: mod.Values{
 			uint8(255), uint16(255), uint32(255), uint64(255), uint(255),
 		}.AddVariants(mod.All...),
 	}.Run("255", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00\xff\xff"),
 		Values: mod.Values{
 			uint16(65535), uint32(65535), uint64(65535), uint(65535),
 		}.AddVariants(mod.All...),
 	}.Run("65535", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00\xff\xff\xff\xff"),
 		Values: mod.Values{
 			uint32(4294967295), uint64(4294967295), uint(4294967295),
 		}.AddVariants(mod.All...),
 	}.Run("4294967295", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00\xff\xff\xff\xff\xff\xff\xff\xff"),
 		Values: mod.Values{
 			uint64(18446744073709551615), uint(18446744073709551615),
@@ -183,7 +182,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenUints,
 	}.Run("max_uint", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\x00\x80\x00\x00\x00\x00\x00\x00\x00"),
 		Values: mod.Values{
 			"9223372036854775808", *big.NewInt(0).Add(big.NewInt(1), big.NewInt(9223372036854775807)),
@@ -192,7 +191,7 @@ func TestMarshalVarInt(t *testing.T) {
 		BrokenUnmarshalTypes: brokenBigStrings,
 	}.Run("maxInt64+1", t, marshal, unmarshal)
 
-	serialization.Set{
+	serialization.PositiveSet{
 		Data: []byte("\xff\x7f\xff\xff\xff\xff\xff\xff\xff"),
 		Values: mod.Values{
 			"-9223372036854775809", *big.NewInt(0).Add(big.NewInt(-1), big.NewInt(-9223372036854775808)),

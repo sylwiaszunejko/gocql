@@ -1,24 +1,23 @@
-package utils
+package serialization
 
 import (
 	"bytes"
 	"fmt"
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 	"gopkg.in/inf.v0"
 	"math/big"
 	"reflect"
 	"unsafe"
-
-	"github.com/gocql/gocql/marshal/tests/mod"
 )
 
-func EqualData(in1, in2 []byte) bool {
+func equalData(in1, in2 []byte) bool {
 	if in1 == nil || in2 == nil {
 		return in1 == nil && in2 == nil
 	}
 	return bytes.Equal(in1, in2)
 }
 
-func EqualVals(in1, in2 interface{}) bool {
+func equalVals(in1, in2 interface{}) bool {
 	rin1 := reflect.ValueOf(in1)
 	rin2 := reflect.ValueOf(in2)
 	if rin1.Kind() != rin2.Kind() {
