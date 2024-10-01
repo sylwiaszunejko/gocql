@@ -24,6 +24,9 @@ func stringData(p []byte) string {
 	if len(p) > printLimit {
 		p = p[:printLimit]
 	}
+	if p == nil {
+		return "[nil]"
+	}
 	return fmt.Sprintf("[%x]", p)
 }
 
