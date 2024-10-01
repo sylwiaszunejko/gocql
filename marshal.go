@@ -20,6 +20,7 @@ import (
 
 	"gopkg.in/inf.v0"
 
+	"github.com/gocql/gocql/marshal/smallint"
 	"github.com/gocql/gocql/marshal/tinyint"
 )
 
@@ -138,7 +139,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeTinyInt:
 		return marshalTinyInt(value)
 	case TypeSmallInt:
-		return marshalSmallInt(info, value)
+		return marshalSmallInt(value)
 	case TypeInt:
 		return marshalInt(info, value)
 	case TypeBigInt, TypeCounter:
@@ -244,7 +245,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeVarint:
 		return unmarshalVarint(info, data, value)
 	case TypeSmallInt:
-		return unmarshalSmallInt(info, data, value)
+		return unmarshalSmallInt(data, value)
 	case TypeTinyInt:
 		return unmarshalTinyInt(data, value)
 	case TypeFloat:
@@ -381,82 +382,12 @@ func unmarshalVarchar(info TypeInfo, data []byte, value interface{}) error {
 	return unmarshalErrorf("can not unmarshal %s into %T", info, value)
 }
 
-func marshalSmallInt(info TypeInfo, value interface{}) ([]byte, error) {
-	switch v := value.(type) {
-	case Marshaler:
-		return v.MarshalCQL(info)
-	case unsetColumn:
-		return nil, nil
-	case int16:
-		return encShort(v), nil
-	case uint16:
-		return encShort(int16(v)), nil
-	case int8:
-		return encShort(int16(v)), nil
-	case uint8:
-		return encShort(int16(v)), nil
-	case int:
-		if v > math.MaxInt16 || v < math.MinInt16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case int32:
-		if v > math.MaxInt16 || v < math.MinInt16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case int64:
-		if v > math.MaxInt16 || v < math.MinInt16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case uint:
-		if v > math.MaxUint16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case uint32:
-		if v > math.MaxUint16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case uint64:
-		if v > math.MaxUint16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case string:
-		n, err := strconv.ParseInt(v, 10, 16)
-		if err != nil {
-			return nil, marshalErrorf("can not marshal %T into %s: %v", value, info, err)
-		}
-		return encShort(int16(n)), nil
+func marshalSmallInt(value interface{}) ([]byte, error) {
+	data, err := smallint.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	switch rv := reflect.ValueOf(value); rv.Type().Kind() {
-	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		v := rv.Int()
-		if v > math.MaxInt16 || v < math.MinInt16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		v := rv.Uint()
-		if v > math.MaxUint16 {
-			return nil, marshalErrorf("marshal smallint: value %d out of range", v)
-		}
-		return encShort(int16(v)), nil
-	case reflect.Ptr:
-		if rv.IsNil() {
-			return nil, nil
-		}
-	}
-
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
+	return data, nil
 }
 
 func marshalTinyInt(value interface{}) ([]byte, error) {
@@ -649,8 +580,12 @@ func unmarshalInt(info TypeInfo, data []byte, value interface{}) error {
 	return unmarshalIntlike(info, int64(decInt(data)), data, value)
 }
 
-func unmarshalSmallInt(info TypeInfo, data []byte, value interface{}) error {
-	return unmarshalIntlike(info, int64(decShort(data)), data, value)
+func unmarshalSmallInt(data []byte, value interface{}) error {
+	err := smallint.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
 }
 
 func unmarshalTinyInt(data []byte, value interface{}) error {
