@@ -21,8 +21,12 @@ type (
 	String string
 
 	Bytes   []byte
+	Bytes3  [3]byte
 	Bytes4  [4]byte
+	Bytes5  [5]byte
+	Bytes15 [15]byte
 	Bytes16 [16]byte
+	Bytes17 [17]byte
 
 	SliceInt16   []int16
 	SliceInt16R  []*int16
@@ -90,10 +94,18 @@ func customType(i interface{}) interface{} {
 		return String(v)
 	case []byte:
 		return Bytes(v)
+	case [3]byte:
+		return Bytes3(v)
 	case [4]byte:
 		return Bytes4(v)
+	case [5]byte:
+		return Bytes5(v)
+	case [15]byte:
+		return Bytes15(v)
 	case [16]byte:
 		return Bytes16(v)
+	case [17]byte:
+		return Bytes17(v)
 	case []int16:
 		return SliceInt16(v)
 	case []*int16:
