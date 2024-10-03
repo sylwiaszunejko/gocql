@@ -24,7 +24,7 @@ func TestMurmur3Partitioner(t *testing.T) {
 
 	// at least verify that the partitioner
 	// doesn't return nil
-	pk, _ := marshalInt(nil, 1)
+	pk, _ := marshalInt(1)
 	token = murmur3Partitioner{}.Hash(pk)
 	if token == nil {
 		t.Fatal("token was nil")
@@ -49,7 +49,7 @@ func TestOrderedPartitioner(t *testing.T) {
 	// at least verify that the partitioner
 	// doesn't return nil
 	p := orderedPartitioner{}
-	pk, _ := marshalInt(nil, 1)
+	pk, _ := marshalInt(1)
 	token := p.Hash(pk)
 	if token == nil {
 		t.Fatal("token was nil")
@@ -85,7 +85,7 @@ func TestRandomPartitioner(t *testing.T) {
 	// at least verify that the partitioner
 	// doesn't return nil
 	p := randomPartitioner{}
-	pk, _ := marshalInt(nil, 1)
+	pk, _ := marshalInt(1)
 	token := p.Hash(pk)
 	if token == nil {
 		t.Fatal("token was nil")
