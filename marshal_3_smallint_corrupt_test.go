@@ -95,7 +95,7 @@ func TestMarshalSmallintCorrupt(t *testing.T) {
 
 			serialization.NegativeUnmarshalSet{
 				Data:   []byte("\x01\x00"),
-				Values: mod.Values{int8(0)}.AddVariants(mod.All...),
+				Values: mod.Values{uint8(0)}.AddVariants(mod.All...),
 			}.Run("small_type_uint_256", t, unmarshal)
 
 			serialization.NegativeUnmarshalSet{
