@@ -20,6 +20,7 @@ import (
 
 	"gopkg.in/inf.v0"
 
+	"github.com/gocql/gocql/marshal/bigint"
 	"github.com/gocql/gocql/marshal/cqlint"
 	"github.com/gocql/gocql/marshal/smallint"
 	"github.com/gocql/gocql/marshal/tinyint"
@@ -143,8 +144,10 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 		return marshalSmallInt(value)
 	case TypeInt:
 		return marshalInt(value)
-	case TypeBigInt, TypeCounter:
-		return marshalBigInt(info, value)
+	case TypeBigInt:
+		return marshalBigInt(value)
+	case TypeCounter:
+		return marshalBigIntOld(info, value)
 	case TypeFloat:
 		return marshalFloat(info, value)
 	case TypeDouble:
@@ -241,8 +244,10 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 		return unmarshalBool(info, data, value)
 	case TypeInt:
 		return unmarshalInt(data, value)
-	case TypeBigInt, TypeCounter:
-		return unmarshalBigInt(info, data, value)
+	case TypeBigInt:
+		return unmarshalBigInt(data, value)
+	case TypeCounter:
+		return unmarshalCounter(info, data, value)
 	case TypeVarint:
 		return unmarshalVarint(info, data, value)
 	case TypeSmallInt:
@@ -418,7 +423,16 @@ func decInt(x []byte) int32 {
 	return int32(x[0])<<24 | int32(x[1])<<16 | int32(x[2])<<8 | int32(x[3])
 }
 
-func marshalBigInt(info TypeInfo, value interface{}) ([]byte, error) {
+func marshalBigInt(value interface{}) ([]byte, error) {
+	data, err := bigint.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
+	}
+	return data, nil
+
+}
+
+func marshalBigIntOld(info TypeInfo, value interface{}) ([]byte, error) {
 	switch v := value.(type) {
 	case Marshaler:
 		return v.MarshalCQL(info)
@@ -495,12 +509,20 @@ func bytesToUint64(data []byte) (ret uint64) {
 	return ret
 }
 
-func unmarshalBigInt(info TypeInfo, data []byte, value interface{}) error {
+func unmarshalCounter(info TypeInfo, data []byte, value interface{}) error {
 	return unmarshalIntlike(info, decBigInt(data), data, value)
 }
 
 func unmarshalInt(data []byte, value interface{}) error {
 	err := cqlint.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
+}
+
+func unmarshalBigInt(data []byte, value interface{}) error {
+	err := bigint.Unmarshal(data, value)
 	if err != nil {
 		return wrapUnmarshalError(err, "unmarshal error")
 	}
@@ -562,7 +584,7 @@ func marshalVarint(info TypeInfo, value interface{}) ([]byte, error) {
 			binary.BigEndian.PutUint64(retBytes, v)
 		}
 	default:
-		retBytes, err = marshalBigInt(info, value)
+		retBytes, err = marshalBigIntOld(info, value)
 	}
 
 	if err == nil {
