@@ -10,6 +10,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/gocql/gocql/debounce"
 )
 
 // interface to implement to receive the host information
@@ -203,7 +205,7 @@ func (p *policyConnPool) addHost(host *HostInfo) {
 	}
 	p.mu.Unlock()
 
-	pool.fill()
+	pool.fill_debounce()
 }
 
 func (p *policyConnPool) removeHost(hostID string) {
@@ -232,6 +234,7 @@ type hostConnPool struct {
 	connPicker ConnPicker
 	closed     bool
 	filling    bool
+	debouncer  *debounce.SimpleDebouncer
 
 	logger StdLogger
 }
@@ -256,6 +259,7 @@ func newHostConnPool(session *Session, host *HostInfo, port, size int,
 		filling:    false,
 		closed:     false,
 		logger:     session.logger,
+		debouncer:  debounce.NewSimpleDebouncer(),
 	}
 
 	// the pool is not filled or connected
@@ -274,7 +278,7 @@ func (pool *hostConnPool) Pick(token Token, qry ExecutableQuery) *Conn {
 	size, missing := pool.connPicker.Size()
 	if missing > 0 {
 		// try to fill the pool
-		go pool.fill()
+		go pool.fill_debounce()
 
 		if size == 0 {
 			return nil
@@ -383,6 +387,10 @@ func (pool *hostConnPool) fill() {
 			go pool.session.handleNodeConnected(pool.host)
 		}
 	}()
+}
+
+func (pool *hostConnPool) fill_debounce() {
+	pool.debouncer.Debounce(pool.fill)
 }
 
 func (pool *hostConnPool) logConnectErr(err error) {
@@ -551,5 +559,5 @@ func (pool *hostConnPool) HandleError(conn *Conn, err error, closed bool) {
 	}
 
 	pool.connPicker.Remove(conn)
-	go pool.fill()
+	go pool.fill_debounce()
 }
