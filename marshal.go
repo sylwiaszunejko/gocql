@@ -21,6 +21,7 @@ import (
 	"gopkg.in/inf.v0"
 
 	"github.com/gocql/gocql/marshal/bigint"
+	"github.com/gocql/gocql/marshal/counter"
 	"github.com/gocql/gocql/marshal/cqlint"
 	"github.com/gocql/gocql/marshal/smallint"
 	"github.com/gocql/gocql/marshal/tinyint"
@@ -147,7 +148,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeBigInt:
 		return marshalBigInt(value)
 	case TypeCounter:
-		return marshalBigIntOld(info, value)
+		return marshalCounter(value)
 	case TypeFloat:
 		return marshalFloat(info, value)
 	case TypeDouble:
@@ -247,7 +248,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeBigInt:
 		return unmarshalBigInt(data, value)
 	case TypeCounter:
-		return unmarshalCounter(info, data, value)
+		return unmarshalCounter(data, value)
 	case TypeVarint:
 		return unmarshalVarint(info, data, value)
 	case TypeSmallInt:
@@ -429,6 +430,14 @@ func marshalBigInt(value interface{}) ([]byte, error) {
 		return nil, wrapMarshalError(err, "marshal error")
 	}
 	return data, nil
+}
+
+func marshalCounter(value interface{}) ([]byte, error) {
+	data, err := counter.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
+	}
+	return data, nil
 
 }
 
@@ -509,8 +518,12 @@ func bytesToUint64(data []byte) (ret uint64) {
 	return ret
 }
 
-func unmarshalCounter(info TypeInfo, data []byte, value interface{}) error {
-	return unmarshalIntlike(info, decBigInt(data), data, value)
+func unmarshalCounter(data []byte, value interface{}) error {
+	err := counter.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
 }
 
 func unmarshalInt(data []byte, value interface{}) error {
