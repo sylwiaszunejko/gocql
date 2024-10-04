@@ -105,7 +105,7 @@ func (s PositiveSet) runUnmarshalTest(name string, t *testing.T, f func([]byte, 
 				err = errors.Join(unmarshalErr, err)
 			}
 		} else if !equalVals(expected, deReference(result)) {
-			err = unequalError{Expected: stringValue(expected), Got: stringValue(result)}
+			err = unequalError{Expected: stringValue(expected), Got: stringValue(deReference(result))}
 		} else {
 			err = expectedPtr.Valid(result)
 		}
