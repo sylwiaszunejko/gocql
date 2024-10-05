@@ -181,13 +181,34 @@ func EncStringR(v *string) ([]byte, error) {
 }
 
 func EncReflect(v reflect.Value) ([]byte, error) {
-	switch v.Type().Kind() {
-	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		return EncInt64(v.Int())
-	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		return EncUint64(v.Uint())
+	switch v.Kind() {
+	case reflect.Int8:
+		return []byte{byte(v.Int())}, nil
+	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16:
+		val := v.Int()
+		if val > math.MaxInt8 || val < math.MinInt8 {
+			return nil, fmt.Errorf("failed to marshal tinyint: value %#v out of range", v.Interface())
+		}
+		return []byte{byte(val)}, nil
+	case reflect.Uint8:
+		return []byte{byte(v.Uint())}, nil
+	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16:
+		val := v.Uint()
+		if val > math.MaxUint8 {
+			return nil, fmt.Errorf("failed to marshal tinyint: value %#v out of range", v.Interface())
+		}
+		return []byte{byte(val)}, nil
 	case reflect.String:
-		return EncString(v.String())
+		val := v.String()
+		if val == "" {
+			return nil, nil
+		}
+
+		n, err := strconv.ParseInt(val, 10, 8)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal tinyint: can not marshal %#v %s", v.Interface(), err)
+		}
+		return []byte{byte(n)}, nil
 	default:
 		return nil, fmt.Errorf("failed to marshal tinyint: unsupported value type (%T)(%#[1]v)", v.Interface())
 	}
