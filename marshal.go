@@ -20,6 +20,7 @@ import (
 
 	"gopkg.in/inf.v0"
 
+	"github.com/gocql/gocql/marshal/cqlint"
 	"github.com/gocql/gocql/marshal/smallint"
 	"github.com/gocql/gocql/marshal/tinyint"
 )
@@ -141,7 +142,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeSmallInt:
 		return marshalSmallInt(value)
 	case TypeInt:
-		return marshalInt(info, value)
+		return marshalInt(value)
 	case TypeBigInt, TypeCounter:
 		return marshalBigInt(info, value)
 	case TypeFloat:
@@ -239,7 +240,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeBoolean:
 		return unmarshalBool(info, data, value)
 	case TypeInt:
-		return unmarshalInt(info, data, value)
+		return unmarshalInt(data, value)
 	case TypeBigInt, TypeCounter:
 		return unmarshalBigInt(info, data, value)
 	case TypeVarint:
@@ -398,76 +399,12 @@ func marshalTinyInt(value interface{}) ([]byte, error) {
 	return data, nil
 }
 
-func marshalInt(info TypeInfo, value interface{}) ([]byte, error) {
-	switch v := value.(type) {
-	case Marshaler:
-		return v.MarshalCQL(info)
-	case unsetColumn:
-		return nil, nil
-	case int:
-		if v > math.MaxInt32 || v < math.MinInt32 {
-			return nil, marshalErrorf("marshal int: value %d out of range", v)
-		}
-		return encInt(int32(v)), nil
-	case uint:
-		if v > math.MaxUint32 {
-			return nil, marshalErrorf("marshal int: value %d out of range", v)
-		}
-		return encInt(int32(v)), nil
-	case int64:
-		if v > math.MaxInt32 || v < math.MinInt32 {
-			return nil, marshalErrorf("marshal int: value %d out of range", v)
-		}
-		return encInt(int32(v)), nil
-	case uint64:
-		if v > math.MaxUint32 {
-			return nil, marshalErrorf("marshal int: value %d out of range", v)
-		}
-		return encInt(int32(v)), nil
-	case int32:
-		return encInt(v), nil
-	case uint32:
-		return encInt(int32(v)), nil
-	case int16:
-		return encInt(int32(v)), nil
-	case uint16:
-		return encInt(int32(v)), nil
-	case int8:
-		return encInt(int32(v)), nil
-	case uint8:
-		return encInt(int32(v)), nil
-	case string:
-		i, err := strconv.ParseInt(v, 10, 32)
-		if err != nil {
-			return nil, marshalErrorf("can not marshal string to int: %s", err)
-		}
-		return encInt(int32(i)), nil
+func marshalInt(value interface{}) ([]byte, error) {
+	data, err := cqlint.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	switch rv := reflect.ValueOf(value); rv.Type().Kind() {
-	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		v := rv.Int()
-		if v > math.MaxInt32 || v < math.MinInt32 {
-			return nil, marshalErrorf("marshal int: value %d out of range", v)
-		}
-		return encInt(int32(v)), nil
-	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		v := rv.Uint()
-		if v > math.MaxInt32 {
-			return nil, marshalErrorf("marshal int: value %d out of range", v)
-		}
-		return encInt(int32(v)), nil
-	case reflect.Ptr:
-		if rv.IsNil() {
-			return nil, nil
-		}
-	}
-
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
+	return data, nil
 }
 
 func encInt(x int32) []byte {
@@ -479,20 +416,6 @@ func decInt(x []byte) int32 {
 		return 0
 	}
 	return int32(x[0])<<24 | int32(x[1])<<16 | int32(x[2])<<8 | int32(x[3])
-}
-
-func encShort(x int16) []byte {
-	p := make([]byte, 2)
-	p[0] = byte(x >> 8)
-	p[1] = byte(x)
-	return p
-}
-
-func decShort(p []byte) int16 {
-	if len(p) != 2 {
-		return 0
-	}
-	return int16(p[0])<<8 | int16(p[1])
 }
 
 func marshalBigInt(info TypeInfo, value interface{}) ([]byte, error) {
@@ -576,8 +499,12 @@ func unmarshalBigInt(info TypeInfo, data []byte, value interface{}) error {
 	return unmarshalIntlike(info, decBigInt(data), data, value)
 }
 
-func unmarshalInt(info TypeInfo, data []byte, value interface{}) error {
-	return unmarshalIntlike(info, int64(decInt(data)), data, value)
+func unmarshalInt(data []byte, value interface{}) error {
+	err := cqlint.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
 }
 
 func unmarshalSmallInt(data []byte, value interface{}) error {

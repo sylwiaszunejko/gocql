@@ -105,69 +105,6 @@ var marshalTests = []struct {
 		nil,
 	},
 	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x00\x00\x00\x00"),
-		0,
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x01\x02\x03\x04"),
-		int(16909060),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x01\x02\x03\x04"),
-		AliasInt(16909060),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x80\x00\x00\x00"),
-		int32(math.MinInt32),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x7f\xff\xff\xff"),
-		int32(math.MaxInt32),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x00\x00\x00\x00"),
-		"0",
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x01\x02\x03\x04"),
-		"16909060",
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x80\x00\x00\x00"),
-		"-2147483648", // math.MinInt32
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x7f\xff\xff\xff"),
-		"2147483647", // math.MaxInt32
-		nil,
-		nil,
-	},
-	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\x00\x00\x00\x00\x00\x00\x00\x00"),
 		0,
@@ -587,13 +524,6 @@ var marshalTests = []struct {
 		nil,
 	},
 	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte(nil),
-		nil,
-		nil,
-		unmarshalErrorf("can not unmarshal into non-pointer <nil>"),
-	},
-	{
 		NativeType{proto: 2, typ: TypeVarchar},
 		[]byte("nullable string"),
 		func() *string {
@@ -607,23 +537,6 @@ var marshalTests = []struct {
 		NativeType{proto: 2, typ: TypeVarchar},
 		[]byte(nil),
 		(*string)(nil),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x7f\xff\xff\xff"),
-		func() *int {
-			var value int = math.MaxInt32
-			return &value
-		}(),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte(nil),
-		(*int)(nil),
 		nil,
 		nil,
 	},
@@ -941,20 +854,6 @@ var marshalTests = []struct {
 		nil,
 	},
 	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\xff\xff\xff\xff"),
-		uint32(math.MaxUint32),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\xff\xff\xff\xff"),
-		uint64(math.MaxUint32),
-		nil,
-		nil,
-	},
-	{
 		NativeType{proto: 2, typ: TypeBlob},
 		[]byte(nil),
 		([]byte)(nil),
@@ -986,30 +885,6 @@ var unmarshalTests = []struct {
 	Value          interface{}
 	UnmarshalError error
 }{
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\xff\xff\xff\xff"),
-		uint8(0),
-		unmarshalErrorf("unmarshal int: value -1 out of range for uint8"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x00\x00\x01\x00"),
-		uint8(0),
-		unmarshalErrorf("unmarshal int: value 256 out of range for uint8"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\xff\xff\xff\xff"),
-		uint16(0),
-		unmarshalErrorf("unmarshal int: value -1 out of range for uint16"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x00\x01\x00\x00"),
-		uint16(0),
-		unmarshalErrorf("unmarshal int: value 65536 out of range for uint16"),
-	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
 		[]byte("\xff\xff\xff\xff\xff\xff\xff\xff"),
@@ -1057,30 +932,6 @@ var unmarshalTests = []struct {
 		[]byte("\x00\x00\x00\x01\x00\x00\x00\x00"),
 		uint32(0),
 		unmarshalErrorf("unmarshal int: value 4294967296 out of range for uint32"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\xff\xff\xff\xff"),
-		AliasUint8(0),
-		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint8"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x00\x00\x01\x00"),
-		AliasUint8(0),
-		unmarshalErrorf("unmarshal int: value 256 out of range for gocql.AliasUint8"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\xff\xff\xff\xff"),
-		AliasUint16(0),
-		unmarshalErrorf("unmarshal int: value -1 out of range for gocql.AliasUint16"),
-	},
-	{
-		NativeType{proto: 2, typ: TypeInt},
-		[]byte("\x00\x01\x00\x00"),
-		AliasUint16(0),
-		unmarshalErrorf("unmarshal int: value 65536 out of range for gocql.AliasUint16"),
 	},
 	{
 		NativeType{proto: 2, typ: TypeBigInt},
