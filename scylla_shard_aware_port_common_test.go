@@ -240,7 +240,7 @@ func triggerPoolsRefill(sess *Session) {
 	hosts := sess.ring.allHosts()
 	for _, host := range hosts {
 		hostPool, _ := sess.pool.getPool(host)
-		go hostPool.fill()
+		go hostPool.fill_debounce()
 	}
 }
 
