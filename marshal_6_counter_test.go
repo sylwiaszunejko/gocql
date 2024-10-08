@@ -203,7 +203,7 @@ func TestMarshalCounter(t *testing.T) {
 					uint64(9223372036854775807), uint(9223372036854775807),
 					"9223372036854775807", *big.NewInt(9223372036854775807),
 				}.AddVariants(mod.All...),
-			}.Run("max", t, marshal, unmarshal)
+			}.Run("maxInt64", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte("\x80\x00\x00\x00\x00\x00\x00\x00"),
@@ -211,7 +211,7 @@ func TestMarshalCounter(t *testing.T) {
 					int64(-9223372036854775808), int(-9223372036854775808),
 					"-9223372036854775808", *big.NewInt(-9223372036854775808),
 				}.AddVariants(mod.All...),
-			}.Run("min", t, marshal, unmarshal)
+			}.Run("minInt64", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte("\x00\x00\x00\x00\x00\x00\x00\xff"),
