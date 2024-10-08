@@ -10,7 +10,14 @@ import (
 
 var errWrongDataLen = fmt.Errorf("failed to unmarshal tinyint: the length of the data should less or equal then 1")
 
+func errNilReference(v interface{}) error {
+	return fmt.Errorf("failed to unmarshal tinyint: can not unmarshal into nil reference %#v)", v)
+}
+
 func DecInt8(p []byte, v *int8) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -23,6 +30,9 @@ func DecInt8(p []byte, v *int8) error {
 }
 
 func DecInt8R(p []byte, v **int8) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -40,6 +50,9 @@ func DecInt8R(p []byte, v **int8) error {
 }
 
 func DecInt16(p []byte, v *int16) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -52,6 +65,9 @@ func DecInt16(p []byte, v *int16) error {
 }
 
 func DecInt16R(p []byte, v **int16) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -69,6 +85,9 @@ func DecInt16R(p []byte, v **int16) error {
 }
 
 func DecInt32(p []byte, v *int32) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -81,6 +100,9 @@ func DecInt32(p []byte, v *int32) error {
 }
 
 func DecInt32R(p []byte, v **int32) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -98,6 +120,9 @@ func DecInt32R(p []byte, v **int32) error {
 }
 
 func DecInt64(p []byte, v *int64) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -110,6 +135,9 @@ func DecInt64(p []byte, v *int64) error {
 }
 
 func DecInt64R(p []byte, v **int64) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -127,6 +155,9 @@ func DecInt64R(p []byte, v **int64) error {
 }
 
 func DecInt(p []byte, v *int) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -139,6 +170,9 @@ func DecInt(p []byte, v *int) error {
 }
 
 func DecIntR(p []byte, v **int) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -156,6 +190,9 @@ func DecIntR(p []byte, v **int) error {
 }
 
 func DecUint8(p []byte, v *uint8) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -168,6 +205,9 @@ func DecUint8(p []byte, v *uint8) error {
 }
 
 func DecUint8R(p []byte, v **uint8) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -185,6 +225,9 @@ func DecUint8R(p []byte, v **uint8) error {
 }
 
 func DecUint16(p []byte, v *uint16) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -197,6 +240,9 @@ func DecUint16(p []byte, v *uint16) error {
 }
 
 func DecUint16R(p []byte, v **uint16) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -214,6 +260,9 @@ func DecUint16R(p []byte, v **uint16) error {
 }
 
 func DecUint32(p []byte, v *uint32) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -226,6 +275,9 @@ func DecUint32(p []byte, v *uint32) error {
 }
 
 func DecUint32R(p []byte, v **uint32) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -243,6 +295,9 @@ func DecUint32R(p []byte, v **uint32) error {
 }
 
 func DecUint64(p []byte, v *uint64) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -255,6 +310,9 @@ func DecUint64(p []byte, v *uint64) error {
 }
 
 func DecUint64R(p []byte, v **uint64) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -272,6 +330,9 @@ func DecUint64R(p []byte, v **uint64) error {
 }
 
 func DecUint(p []byte, v *uint) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		*v = 0
@@ -284,6 +345,9 @@ func DecUint(p []byte, v *uint) error {
 }
 
 func DecUintR(p []byte, v **uint) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -301,6 +365,9 @@ func DecUintR(p []byte, v **uint) error {
 }
 
 func DecString(p []byte, v *string) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -317,6 +384,9 @@ func DecString(p []byte, v *string) error {
 }
 
 func DecStringR(p []byte, v **string) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -335,6 +405,9 @@ func DecStringR(p []byte, v **string) error {
 }
 
 func DecBigInt(p []byte, v *big.Int) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		v.SetInt64(0)
@@ -347,6 +420,9 @@ func DecBigInt(p []byte, v *big.Int) error {
 }
 
 func DecBigIntR(p []byte, v **big.Int) error {
+	if v == nil {
+		return errNilReference(v)
+	}
 	switch len(p) {
 	case 0:
 		if p == nil {
@@ -364,7 +440,7 @@ func DecBigIntR(p []byte, v **big.Int) error {
 
 func DecReflect(p []byte, v reflect.Value) error {
 	if v.IsNil() {
-		return fmt.Errorf("failed to unmarshal tinyint: can not unmarshal into nil reference (%T)(%#[1]v)", v.Interface())
+		return errNilReference(v)
 	}
 
 	switch v = v.Elem(); v.Kind() {
@@ -375,13 +451,13 @@ func DecReflect(p []byte, v reflect.Value) error {
 	case reflect.String:
 		return decReflectString(p, v)
 	default:
-		return fmt.Errorf("failed to unmarshal tinyint: unsupported value type (%T)(%#[1]v)", v.Interface())
+		return fmt.Errorf("failed to unmarshal tinyint: unsupported value type %#v)", v.Interface())
 	}
 }
 
 func DecReflectR(p []byte, v reflect.Value) error {
 	if v.IsNil() {
-		return fmt.Errorf("failed to unmarshal tinyint: can not unmarshal into nil reference (%T)(%#[1]v)", v.Interface())
+		return errNilReference(v)
 	}
 
 	switch v.Type().Elem().Elem().Kind() {
