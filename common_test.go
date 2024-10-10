@@ -28,6 +28,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -50,6 +51,10 @@ var (
 	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by comma")
 	flagCassVersion   cassVersion
 )
+
+var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+const randCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func init() {
 	flag.Var(&flagCassVersion, "gocql.cversion", "the cassandra version being tested against")
@@ -381,7 +386,7 @@ func createFunctions(t *testing.T, session *Session) {
 		CALLED ON NULL INPUT
 		RETURNS double
 		LANGUAGE java AS
-		$$double r = 0; if (state.getInt(0) == 0) return null; r = state.getLong(1); r/= state.getInt(0); return Double.valueOf(r);$$ 
+		$$double r = 0; if (state.getInt(0) == 0) return null; r = state.getLong(1); r/= state.getInt(0); return Double.valueOf(r);$$
 	`).Exec(); err != nil {
 		t.Fatalf("failed to create function with err: %v", err)
 	}
@@ -413,4 +418,12 @@ func staticAddressTranslator(newAddr net.IP, newPort int) AddressTranslator {
 	return AddressTranslatorFunc(func(addr net.IP, port int) (net.IP, int) {
 		return newAddr, newPort
 	})
+}
+
+func randomText(size int) string {
+	result := make([]byte, size)
+	for i := range result {
+		result[i] = randCharset[rand.Intn(len(randCharset))]
+	}
+	return string(result)
 }
