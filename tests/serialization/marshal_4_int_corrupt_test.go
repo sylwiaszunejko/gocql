@@ -1,4 +1,4 @@
-package gocql_test
+package serialization_test
 
 import (
 	"math/big"
