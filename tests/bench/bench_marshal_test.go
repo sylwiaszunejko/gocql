@@ -2,35 +2,58 @@ package bench
 
 import (
 	"encoding/json"
+	"io"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/gocql/gocql"
 )
 
 func generateRandomBinaryData(size int) []byte {
-	data := make([]byte, size)
-	rand.Read(data)
-	return data
+	rnd := rand.New(rand.NewSource(100))
+	randomBuffer := make([]byte, size)
+	io.ReadAtLeast(rnd, randomBuffer, size)
+	return randomBuffer
+}
+
+type RandomData struct {
+	ID        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	City      string `json:"city"`
+	State     string `json:"state"`
+	Zip       string `json:"zip"`
+	Phone     string `json:"phone"`
 }
 
 func generateRandomJSON(size int) string {
-	data := make(map[string]interface{})
-	for i := 0; i < size/10; i++ {
-		data[generateRandomString(5)] = generateRandomString(10)
-	}
-	jsonData, _ := json.Marshal(data)
-	return string(jsonData)
-}
+	gofakeit.Seed(100)
+	var jsonData []byte
+	var randomData []RandomData
+	currentLength := 0
 
-func generateRandomString(length int) string {
-	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	result := make([]rune, length)
-	for i := range result {
-		result[i] = letters[rand.Intn(len(letters))]
+	for currentLength < size {
+		data := RandomData{
+			ID:        gofakeit.UUID(),
+			FirstName: gofakeit.FirstName(),
+			LastName:  gofakeit.LastName(),
+			Email:     gofakeit.Email(),
+			City:      gofakeit.City(),
+			State:     gofakeit.State(),
+			Zip:       gofakeit.Zip(),
+			Phone:     gofakeit.Phone(),
+		}
+		randomData = append(randomData, data)
+
+		tempData, _ := json.Marshal(randomData)
+		currentLength = len(tempData)
+		jsonData = tempData
 	}
-	return string(result)
+
+	return string(jsonData)
 }
 
 func BenchmarkSerialization(b *testing.B) {
@@ -68,7 +91,6 @@ func BenchmarkSerialization(b *testing.B) {
 			{"Small-100b", 100},
 			{"Medium-1kb", 1024},
 			{"Big-1M", 1024 * 1024},
-			{"Huge-10M", 10 * 1024 * 1024},
 		}
 
 		for _, c := range cases {
@@ -155,7 +177,7 @@ func BenchmarkSerialization(b *testing.B) {
 
 		b.Run("Duration", func(b *testing.B) {
 			tType := gocql.NewNativeType(4, gocql.TypeDuration, "")
-			val := time.Duration(5 * time.Minute)
+			val := gocql.Duration{Nanoseconds: 300000000000}
 			b.Run("Marshal", func(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					_, err := gocql.Marshal(tType, val)
@@ -268,7 +290,7 @@ func BenchmarkSerialization(b *testing.B) {
 
 		b.Run("Set", func(b *testing.B) {
 			tType := gocql.CollectionType{
-				NativeType: gocql.NewNativeType(4, gocql.TypeList, ""),
+				NativeType: gocql.NewNativeType(4, gocql.TypeSet, ""),
 				Elem:       gocql.NewNativeType(4, gocql.TypeInt, ""),
 			}
 			val := map[int]struct{}{1: {}, 2: {}}
