@@ -1273,7 +1273,7 @@ func marshalDuration(info TypeInfo, value interface{}) ([]byte, error) {
 	rv := reflect.ValueOf(value)
 	switch rv.Type().Kind() {
 	case reflect.Int64:
-		return encBigInt(rv.Int()), nil
+		return encVints(0, 0, rv.Int()), nil
 	}
 	return nil, marshalErrorf("can not marshal %T into %s", value, info)
 }
