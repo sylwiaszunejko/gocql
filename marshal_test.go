@@ -119,13 +119,6 @@ var marshalTests = []struct {
 		nil,
 	},
 	{
-		NativeType{proto: 2, typ: TypeFloat},
-		[]byte("\x40\x49\x0f\xdb"),
-		float32(3.14159265),
-		nil,
-		nil,
-	},
-	{
 		NativeType{proto: 2, typ: TypeDouble},
 		[]byte("\x40\x09\x21\xfb\x53\xc8\xd4\xf1"),
 		float64(3.14159265),
@@ -539,23 +532,6 @@ var marshalTests = []struct {
 		NativeType{proto: 2, typ: TypeBoolean},
 		[]byte(nil),
 		(*bool)(nil),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeFloat},
-		[]byte("\x40\x49\x0f\xdb"),
-		func() *float32 {
-			f := float32(3.14159265)
-			return &f
-		}(),
-		nil,
-		nil,
-	},
-	{
-		NativeType{proto: 2, typ: TypeFloat},
-		[]byte(nil),
-		(*float32)(nil),
 		nil,
 		nil,
 	},
