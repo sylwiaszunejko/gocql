@@ -38,13 +38,21 @@ jobs:
           DOCKER_IMAGE_TAG="scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.sha }}" DOCKER_IMAGE_LABELS="com.scylladb.gocql-version=${{ github.event.pull_request.head.sha }}" make build-sct-docker-image
           docker push "scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.sha }}"
 
+      - name: Install get-version CLI
+        run: |
+          git clone https://github.com/scylladb-actions/get-version.git
+          cd get-version
+          go mod tidy
+          go build -o get-version
+
       - name: Get scylla version
         id: scylla-version
         run: |
+          cd get-version
           if [[ "${{ matrix.scylla-version }}" == "ENTERPRISE-RELEASE" ]]; then
-            echo "value=$(python3 gocql/ci/version_fetch.py --version-index 1 scylla-enterprise-stable:1 | tr -d '\"')" | tee -a $GITHUB_OUTPUT
+            echo "value=$(./get-version --source dockerhub-imagetag --repo scylladb/scylla-enterprise -filters "2024.1.LAST" | tr -d '\"')" | tee -a $GITHUB_OUTPUT
           elif [[ "${{ matrix.scylla-version }}" == "OSS-RELEASE" ]]; then
-            echo "value=$(python3 gocql/ci/version_fetch.py --version-index 1 scylla-oss-stable:1 | tr -d '\"')" | tee -a $GITHUB_OUTPUT
+            echo "value=$(./get-version --source dockerhub-imagetag --repo scylladb/scylla -filters "6.1.LAST" | tr -d '\"')" | tee -a $GITHUB_OUTPUT
           elif echo "${{ matrix.scylla-version }}" | grep -P '^[0-9\.]+'; then # If you want to run specific version do just that
             echo "value=${{ matrix.scylla-version }}" | tee -a $GITHUB_OUTPUT
           else
