@@ -32,18 +32,35 @@ type (
 	SliceInt16R  []*int16
 	SliceInt16C  []Int16
 	SliceInt16CR []*Int16
-	SliceAny     []interface{}
+
+	SliceInt32   []int32
+	SliceInt32R  []*int32
+	SliceInt32C  []Int32
+	SliceInt32CR []*Int32
+
+	SliceAny []interface{}
 
 	Arr1Int16   [1]int16
 	Arr1Int16R  [1]*int16
 	Arr1Int16C  [1]Int16
 	Arr1Int16CR [1]*Int16
-	ArrAny      [1]interface{}
+
+	Arr1Int32   [1]int32
+	Arr1Int32R  [1]*int32
+	Arr1Int32C  [1]Int32
+	Arr1Int32CR [1]*Int32
+
+	ArrAny [1]interface{}
 
 	MapInt16   map[int16]int16
 	MapInt16R  map[int16]*int16
 	MapInt16C  map[Int16]Int16
 	MapInt16CR map[Int16]*Int16
+
+	MapInt32   map[int32]int32
+	MapInt32R  map[int32]*int32
+	MapInt32C  map[Int32]Int32
+	MapInt32CR map[Int32]*Int32
 
 	MapUDT map[string]interface{}
 )
@@ -114,6 +131,14 @@ func customType(i interface{}) interface{} {
 		return SliceInt16C(v)
 	case []*Int16:
 		return SliceInt16CR(v)
+	case []int32:
+		return SliceInt32(v)
+	case []*int32:
+		return SliceInt32R(v)
+	case []Int32:
+		return SliceInt32C(v)
+	case []*Int32:
+		return SliceInt32CR(v)
 	case [1]int16:
 		return Arr1Int16(v)
 	case [1]*int16:
@@ -122,6 +147,14 @@ func customType(i interface{}) interface{} {
 		return Arr1Int16C(v)
 	case [1]*Int16:
 		return Arr1Int16CR(v)
+	case [1]int32:
+		return Arr1Int32(v)
+	case [1]*int32:
+		return Arr1Int32R(v)
+	case [1]Int32:
+		return Arr1Int32C(v)
+	case [1]*Int32:
+		return Arr1Int32CR(v)
 	case map[int16]int16:
 		return MapInt16(v)
 	case map[int16]*int16:
@@ -130,6 +163,14 @@ func customType(i interface{}) interface{} {
 		return MapInt16C(v)
 	case map[Int16]*Int16:
 		return MapInt16CR(v)
+	case map[int32]int32:
+		return MapInt32(v)
+	case map[int32]*int32:
+		return MapInt32R(v)
+	case map[Int32]Int32:
+		return MapInt32C(v)
+	case map[Int32]*Int32:
+		return MapInt32CR(v)
 	case map[string]interface{}:
 		return MapUDT(v)
 	case []interface{}:
@@ -185,6 +226,14 @@ func intoCustomR(i interface{}) interface{} {
 		return (*SliceInt16C)(v)
 	case *[]*Int16:
 		return (*SliceInt16CR)(v)
+	case *[]int32:
+		return (*SliceInt32)(v)
+	case *[]*int32:
+		return (*SliceInt32R)(v)
+	case *[]Int32:
+		return (*SliceInt32C)(v)
+	case *[]*Int32:
+		return (*SliceInt32CR)(v)
 	case *[1]int16:
 		return (*Arr1Int16)(v)
 	case *[1]*int16:
@@ -193,6 +242,14 @@ func intoCustomR(i interface{}) interface{} {
 		return (*Arr1Int16C)(v)
 	case *[1]*Int16:
 		return (*Arr1Int16CR)(v)
+	case *[1]int32:
+		return (*Arr1Int32)(v)
+	case *[1]*int32:
+		return (*Arr1Int32R)(v)
+	case *[1]Int32:
+		return (*Arr1Int32C)(v)
+	case *[1]*Int32:
+		return (*Arr1Int32CR)(v)
 	case *map[int16]int16:
 		return (*MapInt16)(v)
 	case *map[int16]*int16:
@@ -201,6 +258,14 @@ func intoCustomR(i interface{}) interface{} {
 		return (*MapInt16C)(v)
 	case *map[Int16]*Int16:
 		return (*MapInt16CR)(v)
+	case *map[int32]int32:
+		return (*MapInt32)(v)
+	case *map[int32]*int32:
+		return (*MapInt32R)(v)
+	case *map[Int32]Int32:
+		return (*MapInt32C)(v)
+	case *map[Int32]*Int32:
+		return (*MapInt32CR)(v)
 	case *map[string]interface{}:
 		return (*MapUDT)(v)
 	case *[]interface{}:
