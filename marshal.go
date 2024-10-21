@@ -2314,6 +2314,14 @@ func (s NativeType) String() string {
 	}
 }
 
+func NewCollectionType(m NativeType, key, elem TypeInfo) CollectionType {
+	return CollectionType{
+		NativeType: m,
+		Key:        key,
+		Elem:       elem,
+	}
+}
+
 type CollectionType struct {
 	NativeType
 	Key  TypeInfo // only used for TypeMap
