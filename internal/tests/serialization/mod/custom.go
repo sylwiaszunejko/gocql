@@ -57,6 +57,11 @@ type (
 	MapInt16C  map[Int16]Int16
 	MapInt16CR map[Int16]*Int16
 
+	MapInt32   map[int32]int32
+	MapInt32R  map[int32]*int32
+	MapInt32C  map[Int32]Int32
+	MapInt32CR map[Int32]*Int32
+
 	MapUDT map[string]interface{}
 )
 
@@ -158,6 +163,14 @@ func customType(i interface{}) interface{} {
 		return MapInt16C(v)
 	case map[Int16]*Int16:
 		return MapInt16CR(v)
+	case map[int32]int32:
+		return MapInt32(v)
+	case map[int32]*int32:
+		return MapInt32R(v)
+	case map[Int32]Int32:
+		return MapInt32C(v)
+	case map[Int32]*Int32:
+		return MapInt32CR(v)
 	case map[string]interface{}:
 		return MapUDT(v)
 	case []interface{}:
@@ -245,6 +258,14 @@ func intoCustomR(i interface{}) interface{} {
 		return (*MapInt16C)(v)
 	case *map[Int16]*Int16:
 		return (*MapInt16CR)(v)
+	case *map[int32]int32:
+		return (*MapInt32)(v)
+	case *map[int32]*int32:
+		return (*MapInt32R)(v)
+	case *map[Int32]Int32:
+		return (*MapInt32C)(v)
+	case *map[Int32]*Int32:
+		return (*MapInt32CR)(v)
 	case *map[string]interface{}:
 		return (*MapUDT)(v)
 	case *[]interface{}:

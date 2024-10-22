@@ -15,7 +15,7 @@ const printLimit = 100
 func stringValue(in interface{}) string {
 	valStr := stringVal(in)
 	if len(valStr) > printLimit {
-		valStr = valStr[:printLimit]
+		return fmt.Sprintf("(%T)", in)
 	}
 	return fmt.Sprintf("(%T)(%s)", in, valStr)
 }
