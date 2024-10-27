@@ -20,6 +20,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/gocql/gocql/serialization/ascii"
 	"github.com/gocql/gocql/serialization/bigint"
 	"github.com/gocql/gocql/serialization/blob"
 	"github.com/gocql/gocql/serialization/counter"
@@ -149,7 +150,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeBlob:
 		return marshalBlob(value)
 	case TypeAscii:
-		return marshalVarcharOld(info, value)
+		return marshalAscii(value)
 	case TypeBoolean:
 		return marshalBool(info, value)
 	case TypeTinyInt:
@@ -261,7 +262,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeBlob:
 		return unmarshalBlob(data, value)
 	case TypeAscii:
-		return unmarshalVarcharOld(info, data, value)
+		return unmarshalAscii(data, value)
 	case TypeBoolean:
 		return unmarshalBool(info, data, value)
 	case TypeInt:
@@ -345,6 +346,7 @@ func marshalVarchar(value interface{}) ([]byte, error) {
 	}
 	return data, nil
 }
+
 func marshalText(value interface{}) ([]byte, error) {
 	data, err := text.Marshal(value)
 	if err != nil {
@@ -355,6 +357,14 @@ func marshalText(value interface{}) ([]byte, error) {
 
 func marshalBlob(value interface{}) ([]byte, error) {
 	data, err := blob.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
+	}
+	return data, nil
+}
+
+func marshalAscii(value interface{}) ([]byte, error) {
+	data, err := ascii.Marshal(value)
 	if err != nil {
 		return nil, wrapMarshalError(err, "marshal error")
 	}
@@ -385,76 +395,12 @@ func unmarshalBlob(data []byte, value interface{}) error {
 	return nil
 }
 
-func marshalVarcharOld(info TypeInfo, value interface{}) ([]byte, error) {
-	switch v := value.(type) {
-	case Marshaler:
-		return v.MarshalCQL(info)
-	case unsetColumn:
-		return nil, nil
-	case string:
-		return []byte(v), nil
-	case []byte:
-		return v, nil
+func unmarshalAscii(data []byte, value interface{}) error {
+	err := ascii.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	rv := reflect.ValueOf(value)
-	t := rv.Type()
-	k := t.Kind()
-	switch {
-	case k == reflect.String:
-		return []byte(rv.String()), nil
-	case k == reflect.Slice && t.Elem().Kind() == reflect.Uint8:
-		return rv.Bytes(), nil
-	}
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
-}
-
-func unmarshalVarcharOld(info TypeInfo, data []byte, value interface{}) error {
-	switch v := value.(type) {
-	case Unmarshaler:
-		return v.UnmarshalCQL(info, data)
-	case *string:
-		*v = string(data)
-		return nil
-	case *[]byte:
-		if data != nil {
-			*v = append((*v)[:0], data...)
-		} else {
-			*v = nil
-		}
-		return nil
-	}
-
-	rv := reflect.ValueOf(value)
-	if rv.Kind() != reflect.Ptr {
-		return unmarshalErrorf("can not unmarshal into non-pointer %T", value)
-	}
-	rv = rv.Elem()
-	t := rv.Type()
-	k := t.Kind()
-	switch {
-	case k == reflect.String:
-		rv.SetString(string(data))
-		return nil
-	case k == reflect.Slice && t.Elem().Kind() == reflect.Uint8, k == reflect.Interface:
-		var dataCopy []byte
-		if data != nil {
-			dataCopy = make([]byte, len(data))
-			copy(dataCopy, data)
-		}
-		if k == reflect.Slice {
-			rv.SetBytes(dataCopy)
-		} else {
-			rv.Set(reflect.ValueOf(dataCopy))
-		}
-		return nil
-	}
-
-	return unmarshalErrorf("can not unmarshal %s into %T", info, value)
+	return nil
 }
 
 func marshalSmallInt(value interface{}) ([]byte, error) {
