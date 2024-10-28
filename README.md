@@ -33,10 +33,12 @@ It also provides support for shard aware ports, a faster way to connect to all s
 
 - [1. Sunsetting Model](#1-sunsetting-model)
 - [2. Installation](#2-installation)
-- [3. Configuration](#3-configuration)
-  - [3.1 Shard-aware port](#31-shard-aware-port)
-  - [3.2 Iterator](#32-iterator)
-- [4. Contributing](#4-contributing)
+- [3. Quick Start](#3-quick-start)
+- [4. Data Types](#4-data-types)
+- [5. Configuration](#5-configuration)
+  - [5.1 Shard-aware port](#51-shard-aware-port)
+  - [5.2 Iterator](#52-iterator)
+- [6. Contributing](#6-contributing)
 
 ## 1. Sunsetting Model
 
@@ -63,7 +65,79 @@ to evaluate `latest` to a concrete tag.
 
 Your project now uses the Scylla driver fork, make sure you are using the `TokenAwareHostPolicy` to enable the shard-awareness, continue reading for details.
 
-## 3. Configuration
+## 3. Quick Start  
+
+Spawn a ScyllaDB Instance using Docker Run command:
+
+```sh
+docker run --name node1 --network ws-scylla -p "9042:9042" -d scylladb/scylla:6.1.2 \
+	--overprovisioned 1 \
+	--smp 1
+```
+
+Then, create a new connection using ScyllaDB GoCQL following the example below:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/gocql/gocql"
+)
+
+func main() {
+    var cluster = gocql.NewCluster("localhost:9042")
+
+    var session, err = cluster.CreateSession()
+    if err != nil {
+        panic("Failed to connect to cluster")
+    }
+
+    defer session.Close()
+
+    var query = session.Query("SELECT * FROM system.clients")
+
+    if rows, err := query.Iter().SliceMap(); err == nil {
+        for _, row := range rows {
+            fmt.Printf("%v\n", row)
+        }
+    } else {
+        panic("Query error: " + err.Error())
+    }
+}
+```
+
+## 4. Data Types
+
+Here's an list of all ScyllaDB Types reflected in the GoCQL environment: 
+
+| ScyllaDB Type    | Go Type            |
+| ---------------- | ------------------ |
+| `ascii`          | `string`           |
+| `bigint`         | `int64`            |
+| `blob`           | `[]byte`           |
+| `boolean`        | `bool`             |
+| `date`           | `time.Time`        |
+| `decimal`        | `inf.Dec`          |
+| `double`         | `float64`          |
+| `duration`       | `gocql.Duration`   |
+| `float`          | `float32`          |
+| `uuid`           | `gocql.UUID`       |
+| `int`            | `int32`            |
+| `inet`           | `string`           |
+| `list<int>`      | `[]int32`          |
+| `map<int, text>` | `map[int32]string` |
+| `set<int>`       | `[]int32`          |
+| `smallint`       | `int16`            |
+| `text`           | `string`           |
+| `time`           | `time.Duration`    |
+| `timestamp`      | `time.Time`        |
+| `timeuuid`       | `gocql.UUID`       |
+| `tinyint`        | `int8`             |
+| `varchar`        | `string`           |
+| `varint`         | `int64`            |
+
+## 5. Configuration
 
 In order to make shard-awareness work, token aware host selection policy has to be enabled.
 Please make sure that the gocql configuration has `PoolConfig.HostSelectionPolicy` properly set like in the example below.
@@ -89,7 +163,7 @@ if localDC != "" {
 // c.NumConns = 4
 ```
 
-### 3.1 Shard-aware port
+### 5.1 Shard-aware port
 
 This version of gocql supports a more robust method of establishing connection for each shard by using _shard aware port_ for native transport.
 It greatly reduces time and the number of connections needed to establish a connection per shard in some cases - ex. when many clients connect at once, or when there are non-shard-aware clients connected to the same cluster.
@@ -136,7 +210,7 @@ Issues with shard-aware port not being reachable are not reported in non-debug m
 
 If you suspect that this feature is causing you problems, you can completely disable it by setting the `ClusterConfig.DisableShardAwarePort` flag to true.
 
-### 3.2 Iterator
+### 5.2 Iterator
 
 Paging is a way to parse large result sets in smaller chunks.
 The driver provides an iterator to simplify this process.
@@ -163,6 +237,6 @@ In case of range and `ALLOW FILTERING` queries server can send empty responses f
 That is why you should never consider empty response as the end of the result set.
 Always check `iter.Scan()` result to know if there are more results, or `Iter.LastPage()` to know if the last page was reached.
 
-## 4. Contributing
+## 6. Contributing
 
 If you have any interest to be contributing in this GoCQL Fork, please read the [CONTRIBUTING.md](CONTRIBUTING.md) before initialize any Issue or Pull Request.
