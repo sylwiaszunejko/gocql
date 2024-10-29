@@ -70,7 +70,7 @@ Your project now uses the Scylla driver fork, make sure you are using the `Token
 Spawn a ScyllaDB Instance using Docker Run command:
 
 ```sh
-docker run --name node1 --network ws-scylla -p "9042:9042" -d scylladb/scylla:6.1.2 \
+docker run --name node1 --network your-network -p "9042:9042" -d scylladb/scylla:6.1.2 \
 	--overprovisioned 1 \
 	--smp 1
 ```
