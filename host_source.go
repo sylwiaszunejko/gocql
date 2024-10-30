@@ -848,6 +848,8 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 			r.session.logger.Printf("Found invalid peer '%s' "+
 				"Likely due to a gossip or snitch issue, this host will be ignored", host)
 			continue
+		} else if isZeroToken(host) {
+			continue
 		}
 
 		peers = append(peers, host)
@@ -861,8 +863,11 @@ func isValidPeer(host *HostInfo) bool {
 	return !(len(host.RPCAddress()) == 0 ||
 		host.hostId == "" ||
 		host.dataCenter == "" ||
-		host.rack == "" ||
-		len(host.tokens) == 0)
+		host.rack == "")
+}
+
+func isZeroToken(host *HostInfo) bool {
+	return len(host.tokens) == 0
 }
 
 // GetHosts returns a list of hosts found via queries to system.local and system.peers
