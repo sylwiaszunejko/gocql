@@ -1860,6 +1860,8 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 			if !isValidPeer(host) || host.schemaVersion == "" {
 				c.logger.Printf("invalid peer or peer with empty schema_version: peer=%q", host)
 				continue
+			} else if isZeroToken(host) {
+				continue
 			}
 
 			versions[host.schemaVersion] = struct{}{}
