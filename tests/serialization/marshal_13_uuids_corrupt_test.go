@@ -6,6 +6,8 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/internal/tests/serialization"
 	"github.com/gocql/gocql/internal/tests/serialization/mod"
+	"github.com/gocql/gocql/serialization/timeuuid"
+	"github.com/gocql/gocql/serialization/uuid"
 )
 
 func TestMarshalUUIDsMustFail(t *testing.T) {
@@ -14,13 +16,44 @@ func TestMarshalUUIDsMustFail(t *testing.T) {
 		gocql.NewNativeType(4, gocql.TypeTimeUUID, ""),
 	}
 
-	for _, tType := range tTypes {
-		marshal := func(i interface{}) ([]byte, error) { return gocql.Marshal(tType, i) }
-		unmarshal := func(bytes []byte, i interface{}) error {
-			return gocql.Unmarshal(tType, bytes, i)
-		}
+	type testSuite struct {
+		name      string
+		marshal   func(interface{}) ([]byte, error)
+		unmarshal func(bytes []byte, i interface{}) error
+	}
 
-		t.Run(tType.String(), func(t *testing.T) {
+	testSuites := [4]testSuite{
+		{
+			name:      "serialization.uuid",
+			marshal:   uuid.Marshal,
+			unmarshal: uuid.Unmarshal,
+		},
+		{
+			name: "glob.uuid",
+			marshal: func(i interface{}) ([]byte, error) {
+				return gocql.Marshal(tTypes[0], i)
+			},
+			unmarshal: func(bytes []byte, i interface{}) error {
+				return gocql.Unmarshal(tTypes[0], bytes, i)
+			},
+		},
+		{
+			name:      "serialization.timeuuid",
+			marshal:   timeuuid.Marshal,
+			unmarshal: timeuuid.Unmarshal,
+		},
+		{
+			name:      "glob.timeuuid",
+			marshal:   func(i interface{}) ([]byte, error) { return gocql.Marshal(tTypes[1], i) },
+			unmarshal: func(bytes []byte, i interface{}) error { return gocql.Unmarshal(tTypes[1], bytes, i) },
+		},
+	}
+
+	for _, tSuite := range testSuites {
+		marshal := tSuite.marshal
+		unmarshal := tSuite.unmarshal
+
+		t.Run(tSuite.name, func(t *testing.T) {
 			serialization.NegativeMarshalSet{
 				Values: mod.Values{
 					"b6b77c23-c776-40ff-828d-a385f3e8a2aff",
