@@ -28,16 +28,23 @@ func TestSimpleDebouncer(t *testing.T) {
 			t.Errorf("Expected function to be executed only once, but got %d executions", executions)
 		}
 	})
+
 	atomic.StoreInt32(&executions, 0)
 	t.Run("Case 2", func(t *testing.T) {
 		// Case 2: Debounce the function multiple times at row when body is started
 		go d.Debounce(fn)
 		startedCh <- struct{}{}
+		// Wait until first call execution started
+		waitTillChannelIsEmpty(startedCh)
+		// Call function twice, due to debounce only one should be executed
 		go d.Debounce(fn)
 		go d.Debounce(fn)
+		// Let first call to complete
 		doneCh <- struct{}{}
+		// Let second call to complete
 		startedCh <- struct{}{}
 		doneCh <- struct{}{}
+		// Make sure second call is completed
 		waitTillChannelIsEmpty(doneCh)
 		// We expect that the function has only executed once due to debouncing
 		if atomic.LoadInt32(&executions) != 2 {
