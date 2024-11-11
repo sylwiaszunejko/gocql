@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"gopkg.in/inf.v0"
 	"math"
 	"math/big"
 	"math/bits"
@@ -17,8 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"gopkg.in/inf.v0"
+	"unsafe"
 
 	"github.com/gocql/gocql/serialization/bigint"
 	"github.com/gocql/gocql/serialization/blob"
@@ -28,7 +28,9 @@ import (
 	"github.com/gocql/gocql/serialization/float"
 	"github.com/gocql/gocql/serialization/smallint"
 	"github.com/gocql/gocql/serialization/text"
+	"github.com/gocql/gocql/serialization/timeuuid"
 	"github.com/gocql/gocql/serialization/tinyint"
+	"github.com/gocql/gocql/serialization/uuid"
 	"github.com/gocql/gocql/serialization/varchar"
 )
 
@@ -174,8 +176,10 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 		return marshalList(info, value)
 	case TypeMap:
 		return marshalMap(info, value)
-	case TypeUUID, TypeTimeUUID:
-		return marshalUUID(info, value)
+	case TypeUUID:
+		return marshalUUID(value)
+	case TypeTimeUUID:
+		return marshalTimeUUID(value)
 	case TypeVarint:
 		return marshalVarint(info, value)
 	case TypeInet:
@@ -287,9 +291,9 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeMap:
 		return unmarshalMap(info, data, value)
 	case TypeTimeUUID:
-		return unmarshalTimeUUID(info, data, value)
+		return unmarshalTimeUUID(data, value)
 	case TypeUUID:
-		return unmarshalUUID(info, data, value)
+		return unmarshalUUID(data, value)
 	case TypeInet:
 		return unmarshalInet(info, data, value)
 	case TypeTuple:
@@ -1679,97 +1683,68 @@ func unmarshalMap(info TypeInfo, data []byte, value interface{}) error {
 	return nil
 }
 
-func marshalUUID(info TypeInfo, value interface{}) ([]byte, error) {
-	switch val := value.(type) {
-	case unsetColumn:
-		return nil, nil
+func marshalUUID(value interface{}) ([]byte, error) {
+	switch uv := value.(type) {
 	case UUID:
-		return val.Bytes(), nil
-	case [16]byte:
-		return val[:], nil
-	case []byte:
-		if len(val) != 16 {
-			return nil, marshalErrorf("can not marshal []byte %d bytes long into %s, must be exactly 16 bytes long", len(val), info)
-		}
-		return val, nil
-	case string:
-		b, err := ParseUUID(val)
-		if err != nil {
-			return nil, err
-		}
-		return b[:], nil
-	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
-}
-
-func unmarshalUUID(info TypeInfo, data []byte, value interface{}) error {
-	if len(data) == 0 {
-		switch v := value.(type) {
-		case *string:
-			*v = ""
-		case *[]byte:
-			*v = nil
-		case *[16]byte:
-			*v = [16]byte{}
-		case *UUID:
-			*v = UUID{}
-		default:
-			return unmarshalErrorf("can not unmarshal X %s into %T", info, value)
-		}
-
-		return nil
-	}
-
-	if len(data) != 16 {
-		return unmarshalErrorf("unable to parse UUID: UUIDs must be exactly 16 bytes long")
-	}
-
-	switch v := value.(type) {
-	case *[16]byte:
-		copy((*v)[:], data)
-		return nil
+		value = [16]byte(uv)
 	case *UUID:
-		copy((*v)[:], data)
-		return nil
+		value = (*[16]byte)(uv)
 	}
-
-	u, err := UUIDFromBytes(data)
+	data, err := uuid.Marshal(value)
 	if err != nil {
-		return unmarshalErrorf("unable to parse UUID: %s", err)
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	switch v := value.(type) {
-	case *string:
-		*v = u.String()
-		return nil
-	case *[]byte:
-		*v = u[:]
-		return nil
-	}
-	return unmarshalErrorf("can not unmarshal X %s into %T", info, value)
+	return data, nil
 }
 
-func unmarshalTimeUUID(info TypeInfo, data []byte, value interface{}) error {
-	switch v := value.(type) {
-	case Unmarshaler:
-		return v.UnmarshalCQL(info, data)
-	case *time.Time:
-		id, err := UUIDFromBytes(data)
-		if err != nil {
-			return err
-		} else if id.Version() != 1 {
-			return unmarshalErrorf("invalid timeuuid")
+func unmarshalUUID(data []byte, value interface{}) error {
+	switch uv := value.(type) {
+	case *UUID:
+		value = (*[16]byte)(uv)
+	case **UUID:
+		if uv == nil {
+			value = (**[16]byte)(nil)
+		} else {
+			value = (**[16]byte)(unsafe.Pointer(uv))
 		}
-		*v = id.Time()
-		return nil
-	default:
-		return unmarshalUUID(info, data, value)
 	}
+	err := uuid.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
+}
+
+func marshalTimeUUID(value interface{}) ([]byte, error) {
+	switch uv := value.(type) {
+	case UUID:
+		value = [16]byte(uv)
+	case *UUID:
+		value = (*[16]byte)(uv)
+	}
+	data, err := timeuuid.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
+	}
+	return data, nil
+}
+
+func unmarshalTimeUUID(data []byte, value interface{}) error {
+	switch uv := value.(type) {
+	case *UUID:
+		value = (*[16]byte)(uv)
+	case **UUID:
+		if uv == nil {
+			value = (**[16]byte)(nil)
+		} else {
+			value = (**[16]byte)(unsafe.Pointer(uv))
+		}
+	}
+	err := timeuuid.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
+	}
+	return nil
 }
 
 func marshalInet(info TypeInfo, value interface{}) ([]byte, error) {
