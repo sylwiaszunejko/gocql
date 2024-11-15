@@ -65,6 +65,11 @@ func EncReflect(v reflect.Value) ([]byte, error) {
 		return encReflectBytes(v)
 	case reflect.String:
 		return encReflectString(v)
+	case reflect.Struct:
+		if v.Type().String() == "gocql.unsetColumn" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to marshal timeuuid: timeuuid value type (%T)(%[1]v)", v.Interface())
 	default:
 		return nil, fmt.Errorf("failed to marshal timeuuid: unsupported value type (%T)(%[1]v)", v.Interface())
 	}
