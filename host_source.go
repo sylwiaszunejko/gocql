@@ -885,7 +885,12 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 		return r.prevHosts, r.prevPartitioner, err
 	}
 
-	hosts := append([]*HostInfo{localHost}, peerHosts...)
+	var hosts []*HostInfo
+	if !isZeroToken(localHost) {
+		hosts = []*HostInfo{localHost}
+	}
+	hosts = append(hosts, peerHosts...)
+
 	var partitioner string
 	if len(hosts) > 0 {
 		partitioner = hosts[0].Partitioner()

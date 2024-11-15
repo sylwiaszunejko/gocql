@@ -73,6 +73,25 @@ func TestIsValidPeer(t *testing.T) {
 	}
 }
 
+func TestIsZeroToken(t *testing.T) {
+	host := &HostInfo{
+		rpcAddress: net.ParseIP("0.0.0.0"),
+		rack:       "myRack",
+		hostId:     "0",
+		dataCenter: "datacenter",
+		tokens:     []string{"0", "1"},
+	}
+
+	if isZeroToken(host) {
+		t.Errorf("expected %+v to NOT be a zero-token host", host)
+	}
+
+	host.tokens = []string{}
+	if !isZeroToken(host) {
+		t.Errorf("expected %+v to be a zero-token host", host)
+	}
+}
+
 func TestHostInfo_ConnectAddress(t *testing.T) {
 	var localhost = net.IPv4(127, 0, 0, 1)
 	tests := []struct {
