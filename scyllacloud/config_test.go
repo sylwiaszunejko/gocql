@@ -1,5 +1,8 @@
 // Copyright (C) 2021 ScyllaDB
 
+//go:build all || unit
+// +build all unit
+
 package scyllacloud
 
 import (

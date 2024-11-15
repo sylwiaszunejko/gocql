@@ -1,5 +1,5 @@
-//go:build !cassandra
-// +build !cassandra
+//go:build !cassandra && unit
+// +build !cassandra,unit
 
 // Copyright (c) 2015 The gocql Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style

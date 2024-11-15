@@ -1,4 +1,5 @@
-// +build ccm
+//go:build all || ccm
+// +build all ccm
 
 package ccm
 

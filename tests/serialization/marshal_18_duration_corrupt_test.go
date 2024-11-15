@@ -1,4 +1,7 @@
-package serialization
+//go:build all || unit
+// +build all unit
+
+package serialization_test
 
 import (
 	"testing"
