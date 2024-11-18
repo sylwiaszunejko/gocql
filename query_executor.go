@@ -149,7 +149,8 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 
 		// Exit if the query was successful
 		// or no retry policy defined
-		if iter.err == nil || rt == nil {
+		// or query is not marked as idempotent
+		if iter.err == nil || rt == nil || !qry.IsIdempotent() {
 			return iter
 		}
 
