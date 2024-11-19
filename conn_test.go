@@ -14,7 +14,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -25,6 +24,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/gocql/gocql/internal/streams"
 )
@@ -1393,4 +1395,95 @@ func (srv *TestServer) readFrame(conn net.Conn) (*framer, error) {
 	}
 
 	return framer, nil
+}
+
+func TestGetSchemaAgreement(t *testing.T) {
+	host_id1, _ := ParseUUID("b2035fd9-e0ca-4857-8c45-e63c00fb7c43")
+	host_id2, _ := ParseUUID("4b21ee4c-acea-4267-8e20-aaed5361a0dd")
+	host_id3, _ := ParseUUID("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3")
+
+	schema_version1, _ := ParseUUID("af810386-a694-11ef-81fa-3aea73156247")
+	schema_version2, _ := ParseUUID("875a938a-a695-11ef-4314-85c8ef0ebaa2")
+
+	peersRows := []map[string]interface{}{
+		{
+			"data_center":     "datacenter1",
+			"host_id":         host_id1,
+			"peer":            "127.0.0.3",
+			"preferred_ip":    "127.0.0.3",
+			"rack":            "rack1",
+			"release_version": "3.0.8",
+			"rpc_address":     "127.0.0.3",
+			"schema_version":  schema_version1,
+			"tokens":          []string{"-1296227678594315580994457470329811265"},
+		},
+		{
+			"data_center":     "datacenter1",
+			"host_id":         host_id2,
+			"peer":            "127.0.0.2",
+			"preferred_ip":    "127.0.0.2",
+			"rack":            "rack1",
+			"release_version": "3.0.8",
+			"rpc_address":     "127.0.0.2",
+			"schema_version":  schema_version1,
+			"tokens":          []string{"-1129762924682054333"},
+		},
+		{
+			"data_center":     "datacenter2",
+			"host_id":         host_id3,
+			"peer":            "127.0.0.5",
+			"preferred_ip":    "127.0.0.5",
+			"rack":            "rack1",
+			"release_version": "3.0.8",
+			"rpc_address":     "127.0.0.5",
+			"schema_version":  schema_version2,
+			"tokens":          []string{},
+		},
+	}
+
+	translateAddressPort := func(addr net.IP, port int) (net.IP, int) {
+		return addr, port
+	}
+
+	var logger StdLogger
+
+	t.Run("SchemaNotConsistent", func(t *testing.T) {
+		err := getSchemaAgreement(
+			[]string{"875a938a-a695-11ef-4314-85c8ef0ebaa2"},
+			peersRows,
+			net.ParseIP("127.0.0.1"),
+			9042,
+			translateAddressPort,
+			logger,
+		)
+
+		assert.Error(t, err, "error expected when local schema is different then others")
+	})
+
+	t.Run("ZeroTokenNodeSchemaNotConsistent", func(t *testing.T) {
+		err := getSchemaAgreement(
+			[]string{"af810386-a694-11ef-81fa-3aea73156247"},
+			peersRows,
+			net.ParseIP("127.0.0.1"),
+			9042,
+			translateAddressPort,
+			logger,
+		)
+
+		assert.NoError(t, err, "expected no error when zero-token node has different schema because it is ommitted")
+	})
+
+	t.Run("SchemaConsistent", func(t *testing.T) {
+		peersRows[2]["schema_version"] = schema_version1
+		err := getSchemaAgreement(
+			[]string{"af810386-a694-11ef-81fa-3aea73156247"},
+			peersRows,
+			net.ParseIP("127.0.0.1"),
+			9042,
+			translateAddressPort,
+			logger,
+		)
+
+		assert.NoError(t, err, "expected no error when all nodes have the same schema")
+	})
 }
