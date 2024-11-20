@@ -72,7 +72,7 @@ func TestSessionAPI(t *testing.T) {
 		t.Fatalf("expected itr.err to be '%v', got '%v'", ErrSessionNotReady, itr.err)
 	}
 
-	testBatch := s.NewBatch(LoggedBatch)
+	testBatch := s.Batch(LoggedBatch)
 	testBatch.Query("test")
 	err := s.ExecuteBatch(testBatch)
 
@@ -205,7 +205,7 @@ func TestBatchBasicAPI(t *testing.T) {
 	s.pool = cfg.PoolConfig.buildPool(s)
 
 	// Test UnloggedBatch
-	b := s.NewBatch(UnloggedBatch)
+	b := s.Batch(UnloggedBatch)
 	if b.Type != UnloggedBatch {
 		t.Fatalf("expceted batch.Type to be '%v', got '%v'", UnloggedBatch, b.Type)
 	} else if b.rt != cfg.RetryPolicy {
@@ -213,7 +213,7 @@ func TestBatchBasicAPI(t *testing.T) {
 	}
 
 	// Test LoggedBatch
-	b = s.NewBatch(LoggedBatch)
+	b = s.Batch(LoggedBatch)
 	if b.Type != LoggedBatch {
 		t.Fatalf("expected batch.Type to be '%v', got '%v'", LoggedBatch, b.Type)
 	}

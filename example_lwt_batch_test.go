@@ -3,8 +3,9 @@ package gocql_test
 import (
 	"context"
 	"fmt"
-	"github.com/gocql/gocql"
 	"log"
+
+	"github.com/gocql/gocql"
 )
 
 // ExampleSession_MapExecuteBatchCAS demonstrates how to execute a batch lightweight transaction.
@@ -37,7 +38,7 @@ func ExampleSession_MapExecuteBatchCAS() {
 	}
 
 	executeBatch := func(ck2Version int) {
-		b := session.NewBatch(gocql.LoggedBatch)
+		b := session.Batch(gocql.LoggedBatch)
 		b.Entries = append(b.Entries, gocql.BatchEntry{
 			Stmt: "UPDATE my_lwt_batch_table SET value=? WHERE pk=? AND ck=? IF version=?",
 			Args: []interface{}{"b", "pk1", "ck1", 1},
