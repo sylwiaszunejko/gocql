@@ -9,6 +9,8 @@ import (
 	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/internal/tests/serialization"
 	"github.com/gocql/gocql/internal/tests/serialization/mod"
+	"github.com/gocql/gocql/serialization/timeuuid"
+	"github.com/gocql/gocql/serialization/uuid"
 )
 
 func TestMarshalUUIDs(t *testing.T) {
@@ -17,62 +19,81 @@ func TestMarshalUUIDs(t *testing.T) {
 		gocql.NewNativeType(4, gocql.TypeTimeUUID, ""),
 	}
 
-	// marshal and unmarshal `custom string` and `custom []byte` unsupported in `nil` data case
-	brokenCustomTypes := serialization.GetTypes(mod.Bytes{}, mod.String(""), mod.Bytes16{})
+	type testSuite struct {
+		name      string
+		marshal   func(interface{}) ([]byte, error)
+		unmarshal func(bytes []byte, i interface{}) error
+	}
 
-	// marshal and unmarshal `custom types` unsupported in not `nil` data cases
-	brokenCustomTypesFull := serialization.GetTypes(mod.Values{mod.Bytes{}, mod.String(""), mod.Bytes16{}}.AddVariants(mod.Reference)...)
+	testSuites := [4]testSuite{
+		{
+			name:      "serialization.uuid",
+			marshal:   uuid.Marshal,
+			unmarshal: uuid.Unmarshal,
+		},
+		{
+			name: "glob.uuid",
+			marshal: func(i interface{}) ([]byte, error) {
+				return gocql.Marshal(tTypes[0], i)
+			},
+			unmarshal: func(bytes []byte, i interface{}) error {
+				return gocql.Unmarshal(tTypes[0], bytes, i)
+			},
+		},
+		{
+			name:      "serialization.timeuuid",
+			marshal:   timeuuid.Marshal,
+			unmarshal: timeuuid.Unmarshal,
+		},
+		{
+			name:      "glob.timeuuid",
+			marshal:   func(i interface{}) ([]byte, error) { return gocql.Marshal(tTypes[1], i) },
+			unmarshal: func(bytes []byte, i interface{}) error { return gocql.Unmarshal(tTypes[1], bytes, i) },
+		},
+	}
 
-	// marshal (string)("") and ([]byte)(nil) unsupported
-	brokenNullableTypes := serialization.GetTypes("", []byte{})
+	for _, tSuite := range testSuites {
+		marshal := tSuite.marshal
+		unmarshal := tSuite.unmarshal
 
-	// unmarshal `zero` data into ([]byte)(nil), (*[]byte)(*[nil])
-	brokenZeroSlices := serialization.GetTypes(make([]byte, 0), (*[]byte)(nil))
+		t.Run(tSuite.name, func(t *testing.T) {
 
-	for _, tType := range tTypes {
-		marshal := func(i interface{}) ([]byte, error) { return gocql.Marshal(tType, i) }
-		unmarshal := func(bytes []byte, i interface{}) error {
-			return gocql.Unmarshal(tType, bytes, i)
-		}
-
-		t.Run(tType.String(), func(t *testing.T) {
 			serialization.PositiveSet{
 				Data: nil,
 				Values: mod.Values{
 					([]byte)(nil), (*[]byte)(nil),
 					"", (*string)(nil),
 					(*[16]byte)(nil),
+					(*gocql.UUID)(nil),
 				}.AddVariants(mod.CustomType),
-				BrokenUnmarshalTypes: brokenCustomTypes,
-				BrokenMarshalTypes:   append(brokenNullableTypes, brokenCustomTypes...),
 			}.Run("[nil]nullable", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: nil,
 				Values: mod.Values{
 					[16]byte{},
+					gocql.UUID{},
 				}.AddVariants(mod.CustomType),
-				BrokenUnmarshalTypes: brokenCustomTypes,
 			}.Run("[nil]unmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
 				Data: make([]byte, 0),
 				Values: mod.Values{
-					make([]byte, 0), [16]byte{}, "", gocql.UUID{},
+					"00000000-0000-0000-0000-000000000000",
+					make([]byte, 0),
+					[16]byte{},
+					gocql.UUID{},
 				}.AddVariants(mod.All...),
-				BrokenUnmarshalTypes: append(brokenCustomTypesFull, brokenZeroSlices...),
 			}.Run("[]unmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
-				Data: []byte("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"),
+				Data: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				Values: mod.Values{
 					"00000000-0000-0000-0000-000000000000",
 					[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 					[16]byte{},
 					gocql.UUID{},
 				}.AddVariants(mod.All...),
-				BrokenMarshalTypes:   brokenCustomTypesFull,
-				BrokenUnmarshalTypes: brokenCustomTypesFull,
 			}.Run("zeros", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
@@ -83,8 +104,6 @@ func TestMarshalUUIDs(t *testing.T) {
 					[16]byte{182, 183, 124, 35, 199, 118, 64, 255, 130, 141, 163, 133, 243, 232, 162, 175},
 					gocql.UUID{182, 183, 124, 35, 199, 118, 64, 255, 130, 141, 163, 133, 243, 232, 162, 175},
 				}.AddVariants(mod.All...),
-				BrokenMarshalTypes:   brokenCustomTypesFull,
-				BrokenUnmarshalTypes: brokenCustomTypesFull,
 			}.Run("uuid", t, marshal, unmarshal)
 		})
 	}
