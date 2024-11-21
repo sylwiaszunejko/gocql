@@ -823,7 +823,6 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 		return nil, errNoControl
 	}
 
-	var peers []*HostInfo
 	iter := r.session.control.withConnHost(func(ch *connHost) *Iter {
 		return ch.conn.querySystemPeers(context.TODO(), localHost.version)
 	})
@@ -838,14 +837,20 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 		return nil, fmt.Errorf("unable to fetch peer host info: %s", err)
 	}
 
-	for _, row := range rows {
+	return getPeersFromQuerySystemPeers(rows, r.session.cfg.Port, r.session.cfg.translateAddressPort, r.session.logger)
+}
+
+func getPeersFromQuerySystemPeers(querySystemPeerRows []map[string]interface{}, port int, translateAddressPort func(addr net.IP, port int) (net.IP, int), logger StdLogger) ([]*HostInfo, error) {
+	var peers []*HostInfo
+
+	for _, row := range querySystemPeerRows {
 		// extract all available info about the peer
-		host, err := hostInfoFromMap(row, &HostInfo{port: r.session.cfg.Port}, r.session.cfg.translateAddressPort)
+		host, err := hostInfoFromMap(row, &HostInfo{port: port}, translateAddressPort)
 		if err != nil {
 			return nil, err
 		} else if !isValidPeer(host) {
 			// If it's not a valid peer
-			r.session.logger.Printf("Found invalid peer '%s' "+
+			logger.Printf("Found invalid peer '%s' "+
 				"Likely due to a gossip or snitch issue, this host will be ignored", host)
 			continue
 		} else if isZeroToken(host) {
