@@ -1827,8 +1827,6 @@ func getSchemaAgreement(queryLocalSchemasRows []string, querySystemPeersRows []m
 		if !isValidPeer(host) || host.schemaVersion == "" {
 			logger.Printf("invalid peer or peer with empty schema_version: peer=%q", host)
 			continue
-		} else if isZeroToken(host) {
-			continue
 		}
 
 		versions[host.schemaVersion] = struct{}{}

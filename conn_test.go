@@ -1470,7 +1470,7 @@ func TestGetSchemaAgreement(t *testing.T) {
 			logger,
 		)
 
-		assert.NoError(t, err, "expected no error when zero-token node has different schema because it is ommitted")
+		assert.Error(t, err, "expected error when zero-token node has different schema")
 	})
 
 	t.Run("SchemaConsistent", func(t *testing.T) {
