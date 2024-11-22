@@ -337,3 +337,33 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 	assertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-8611686018427387905, -7917529027641081857},
 		{-5011686018427387905, -2987529027641081857}}))
 }
+
+func TestRemoveTabletsWithHost(t *testing.T) {
+	removed_host_id := TimeUUID()
+
+	tablets := []*TabletInfo{{
+		"test_ks",
+		"test_tb",
+		-8611686018427387905,
+		-7917529027641081857,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}, {
+		"test_ks",
+		"test_tb",
+		-6917529027641081857,
+		-4611686018427387905,
+		[]ReplicaInfo{{removed_host_id, 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}, {
+		"test_ks",
+		"test_tb",
+		-4611686018427387905,
+		-2305843009213693953,
+		[]ReplicaInfo{{TimeUUID(), 9}, {removed_host_id, 8}, {TimeUUID(), 3}},
+	}}
+
+	tablets = removeTabletsWithHostFromTabletsList(tablets, &HostInfo{
+		hostId: removed_host_id.String(),
+	})
+
+	assertEqual(t, "TabletsList length", 1, len(tablets))
+}

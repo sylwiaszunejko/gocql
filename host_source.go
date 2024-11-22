@@ -611,6 +611,27 @@ func addTabletToTabletsList(tablets []*TabletInfo, tablet *TabletInfo) []*Tablet
 	return updated_tablets2
 }
 
+// Remove all tablets that have given host as a replica
+func removeTabletsWithHostFromTabletsList(tablets []*TabletInfo, host *HostInfo) []*TabletInfo {
+	filteredTablets := make([]*TabletInfo, 0, len(tablets)) // Preallocate for efficiency
+
+	for _, tablet := range tablets {
+		// Check if any replica matches the given host ID
+		shouldExclude := false
+		for _, replica := range tablet.replicas {
+			if replica.hostId.String() == host.HostID() {
+				shouldExclude = true
+				break
+			}
+		}
+		if !shouldExclude {
+			filteredTablets = append(filteredTablets, tablet)
+		}
+	}
+
+	return filteredTablets
+}
+
 // Search for place in tablets table for token starting from index l to index r
 func findTabletForToken(tablets []*TabletInfo, token Token, l int, r int) *TabletInfo {
 	for l < r {
@@ -1000,6 +1021,7 @@ func refreshRing(r *ringDescriber) error {
 	}
 
 	for _, host := range prevHosts {
+		removeTabletsWithHost(r, host)
 		r.session.removeHost(host)
 	}
 
@@ -1016,6 +1038,21 @@ func addTablet(r *ringDescriber, tablet *TabletInfo) error {
 
 	tablets := r.session.getTablets()
 	tablets = addTabletToTabletsList(tablets, tablet)
+
+	r.session.ring.setTablets(tablets)
+	r.session.policy.SetTablets(tablets)
+
+	r.session.schemaDescriber.refreshTabletsSchema()
+
+	return nil
+}
+
+func removeTabletsWithHost(r *ringDescriber, host *HostInfo) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	tablets := r.session.getTablets()
+	tablets = removeTabletsWithHostFromTabletsList(tablets, host)
 
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)
