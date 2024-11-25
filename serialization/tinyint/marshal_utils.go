@@ -209,6 +209,11 @@ func EncReflect(v reflect.Value) ([]byte, error) {
 			return nil, fmt.Errorf("failed to marshal tinyint: can not marshal (%T)(%[1]v) %s", v.Interface(), err)
 		}
 		return []byte{byte(n)}, nil
+	case reflect.Struct:
+		if v.Type().String() == "gocql.unsetColumn" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to marshal tinyint: unsupported value type (%T)(%[1]v)", v.Interface())
 	default:
 		return nil, fmt.Errorf("failed to marshal tinyint: unsupported value type (%T)(%[1]v)", v.Interface())
 	}

@@ -2370,6 +2370,13 @@ func (c CollectionType) String() string {
 	}
 }
 
+func NewTupleType(n NativeType, elems ...TypeInfo) TupleTypeInfo {
+	return TupleTypeInfo{
+		NativeType: n,
+		Elems:      elems,
+	}
+}
+
 type TupleTypeInfo struct {
 	NativeType
 	Elems []TypeInfo
@@ -2405,6 +2412,15 @@ func (t TupleTypeInfo) New() interface{} {
 type UDTField struct {
 	Name string
 	Type TypeInfo
+}
+
+func NewUDTType(proto byte, name, keySpace string, elems ...UDTField) UDTTypeInfo {
+	return UDTTypeInfo{
+		NativeType: NativeType{proto, TypeUDT, ""},
+		Name:       name,
+		KeySpace:   keySpace,
+		Elements:   elems,
+	}
 }
 
 type UDTTypeInfo struct {
