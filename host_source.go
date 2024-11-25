@@ -1046,7 +1046,7 @@ func refreshRing(r *ringDescriber) error {
 	}
 
 	for _, host := range prevHosts {
-		removeTabletsWithHost(r, host)
+		r.session.removeTabletsWithHost(host)
 		r.session.removeHost(host)
 	}
 
@@ -1056,62 +1056,50 @@ func refreshRing(r *ringDescriber) error {
 	return nil
 }
 
-func addTablet(r *ringDescriber, tablet *TabletInfo) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	tablets := r.session.getTablets()
+func (s *Session) addTablet(tablet *TabletInfo) error {
+	tablets := s.getTablets()
 	tablets = tablets.addTabletToTabletsList(tablet)
 
-	r.session.ring.setTablets(tablets)
-	r.session.policy.SetTablets(tablets)
+	s.ring.setTablets(tablets)
+	s.policy.SetTablets(tablets)
 
-	r.session.schemaDescriber.refreshTabletsSchema()
+	s.schemaDescriber.refreshTabletsSchema()
 
 	return nil
 }
 
-func removeTabletsWithHost(r *ringDescriber, host *HostInfo) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	tablets := r.session.getTablets()
+func (s *Session) removeTabletsWithHost(host *HostInfo) error {
+	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
 
-	r.session.ring.setTablets(tablets)
-	r.session.policy.SetTablets(tablets)
+	s.ring.setTablets(tablets)
+	s.policy.SetTablets(tablets)
 
-	r.session.schemaDescriber.refreshTabletsSchema()
+	s.schemaDescriber.refreshTabletsSchema()
 
 	return nil
 }
 
-func removeTabletsWithKeyspace(r *ringDescriber, keyspace string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	tablets := r.session.getTablets()
+func (s *Session) removeTabletsWithKeyspace(keyspace string) error {
+	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
 
-	r.session.ring.setTablets(tablets)
-	r.session.policy.SetTablets(tablets)
+	s.ring.setTablets(tablets)
+	s.policy.SetTablets(tablets)
 
-	r.session.schemaDescriber.refreshTabletsSchema()
+	s.schemaDescriber.refreshTabletsSchema()
 
 	return nil
 }
 
-func removeTabletsWithTable(r *ringDescriber, keyspace string, table string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	tablets := r.session.getTablets()
+func (s *Session) removeTabletsWithTable(keyspace string, table string) error {
+	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
 
-	r.session.ring.setTablets(tablets)
-	r.session.policy.SetTablets(tablets)
+	s.ring.setTablets(tablets)
+	s.policy.SetTablets(tablets)
 
-	r.session.schemaDescriber.refreshTabletsSchema()
+	s.schemaDescriber.refreshTabletsSchema()
 
 	return nil
 }
