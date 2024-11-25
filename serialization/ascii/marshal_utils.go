@@ -36,6 +36,11 @@ func EncReflect(v reflect.Value) ([]byte, error) {
 			return nil, fmt.Errorf("failed to marshal ascii: unsupported value type (%T)(%[1]v)", v.Interface())
 		}
 		return EncBytes(v.Bytes())
+	case reflect.Struct:
+		if v.Type().String() == "gocql.unsetColumn" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to marshal ascii: unsupported value type (%T)(%[1]v)", v.Interface())
 	default:
 		return nil, fmt.Errorf("failed to marshal ascii: unsupported value type (%T)(%[1]v)", v.Interface())
 	}
