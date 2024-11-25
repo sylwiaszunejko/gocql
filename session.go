@@ -608,7 +608,6 @@ func (s *Session) KeyspaceMetadata(keyspace string) (*KeyspaceMetadata, error) {
 }
 
 // TabletsMetadata returns the metadata about tablets
-// Experimental, this interface and use may change
 func (s *Session) TabletsMetadata() (*TabletsMetadata, error) {
 	// fail fast
 	if s.Closed() {
@@ -638,7 +637,6 @@ func (s *Session) getConn() *Conn {
 	return nil
 }
 
-// Experimental, this interface and use may change
 func (s *Session) getTablets() []*TabletInfo {
 	s.ring.mu.Lock()
 	defer s.ring.mu.Unlock()
@@ -2288,8 +2286,6 @@ type ObservedQuery struct {
 }
 
 // QueryObserver is the interface implemented by query observers / stat collectors.
-//
-// Experimental, this interface and use may change
 type QueryObserver interface {
 	// ObserveQuery gets called on every query to cassandra, including all queries in an iterator when paging is enabled.
 	// It doesn't get called if there is no query because the session is closed or there are no connections available.

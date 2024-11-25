@@ -504,13 +504,11 @@ func (h *HostInfo) ScyllaShardAwarePortTLS() uint16 {
 	return h.scyllaShardAwarePortTLS
 }
 
-// Experimental, this interface and use may change
 type ReplicaInfo struct {
 	hostId  UUID
 	shardId int
 }
 
-// Experimental, this interface and use may change
 type TabletInfo struct {
 	keyspaceName string
 	tableName    string
@@ -681,8 +679,6 @@ type ringDescriber struct {
 	mu              sync.Mutex
 	prevHosts       []*HostInfo
 	prevPartitioner string
-	// Experimental, this interface and use may change
-	prevTablets []*TabletInfo
 }
 
 // Returns true if we are using system_schema.keyspaces instead of system.schema_keyspaces
@@ -1055,7 +1051,6 @@ func refreshRing(r *ringDescriber) error {
 	return nil
 }
 
-// Experimental, this interface and use may change
 func addTablet(r *ringDescriber, tablet *TabletInfo) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

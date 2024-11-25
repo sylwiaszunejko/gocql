@@ -25,7 +25,6 @@ type SetPartitioner interface {
 }
 
 // interface to implement to receive the tablets value
-// Experimental, this interface and use may change
 type SetTablets interface {
 	SetTablets(tablets []*TabletInfo)
 }

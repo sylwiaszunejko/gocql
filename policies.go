@@ -95,7 +95,6 @@ func (c *cowHostList) remove(host *HostInfo) bool {
 }
 
 // cowTabletList implements a copy on write tablet list, its equivalent type is []*TabletInfo
-// Experimental, this interface and use may change
 type cowTabletList struct {
 	list atomic.Value
 	mu   sync.Mutex
@@ -338,7 +337,6 @@ type HostTierer interface {
 type HostSelectionPolicy interface {
 	HostStateNotifier
 	SetPartitioner
-	// Experimental, this interface and use may change
 	SetTablets
 	KeyspaceChanged(KeyspaceUpdateEvent)
 	Init(*Session)
@@ -399,7 +397,6 @@ func (r *roundRobinHostPolicy) Init(*Session)                       {}
 func (r *roundRobinHostPolicy) Reset()                              {}
 func (r *roundRobinHostPolicy) IsOperational(*Session) error        { return nil }
 
-// Experimental, this interface and use may change
 func (r *roundRobinHostPolicy) SetTablets(tablets []*TabletInfo) {}
 
 func (r *roundRobinHostPolicy) Pick(qry ExecutableQuery) NextHost {
@@ -492,7 +489,6 @@ type tokenAwareHostPolicy struct {
 
 	logger StdLogger
 
-	// Experimental, this interface and use may change
 	tablets cowTabletList
 
 	avoidSlowReplicas bool
@@ -579,7 +575,6 @@ func (t *tokenAwareHostPolicy) SetPartitioner(partitioner string) {
 	}
 }
 
-// Experimental, this interface and use may change
 func (t *tokenAwareHostPolicy) SetTablets(tablets []*TabletInfo) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -867,7 +862,6 @@ func (r *hostPoolHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *hostPoolHostPolicy) SetPartitioner(string)               {}
 func (r *hostPoolHostPolicy) IsLocal(*HostInfo) bool              { return true }
 
-// Experimental, this interface and use may change
 func (r *hostPoolHostPolicy) SetTablets(tablets []*TabletInfo) {}
 
 func (r *hostPoolHostPolicy) SetHosts(hosts []*HostInfo) {
@@ -1049,7 +1043,6 @@ func (d *dcAwareRR) IsLocal(host *HostInfo) bool {
 	return host.DataCenter() == d.local
 }
 
-// Experimental, this interface and use may change
 func (d *dcAwareRR) SetTablets(tablets []*TabletInfo) {}
 
 func (d *dcAwareRR) AddHost(host *HostInfo) {
@@ -1176,7 +1169,6 @@ func (d *rackAwareRR) setDCFailoverDisabled() {
 	d.disableDCFailover = true
 }
 
-// Experimental, this interface and use may change
 func (d *rackAwareRR) SetTablets(tablets []*TabletInfo) {}
 
 func (d *rackAwareRR) HostTier(host *HostInfo) uint {
