@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var tablets = []*TabletInfo{
+var tablets = TabletInfoList{
 	{
 		"test1",
 		"table1",
@@ -123,31 +123,31 @@ var tablets = []*TabletInfo{
 }
 
 func TestFindTablets(t *testing.T) {
-	id, id2 := findTablets(tablets, "test1", "table1")
+	id, id2 := tablets.findTablets("test1", "table1")
 	assertEqual(t, "id", 0, id)
 	assertEqual(t, "id2", 7, id2)
 
-	id, id2 = findTablets(tablets, "test2", "table1")
+	id, id2 = tablets.findTablets("test2", "table1")
 	assertEqual(t, "id", 8, id)
 	assertEqual(t, "id2", 15, id2)
 
-	id, id2 = findTablets(tablets, "test3", "table1")
+	id, id2 = tablets.findTablets("test3", "table1")
 	assertEqual(t, "id", -1, id)
 	assertEqual(t, "id2", -1, id2)
 }
 
 func TestFindTabletForToken(t *testing.T) {
-	tablet := findTabletForToken(tablets, parseInt64Token("0"), 0, 7)
+	tablet := tablets.findTabletForToken(parseInt64Token("0"), 0, 7)
 	assertTrue(t, "tablet.lastToken == 2305843009213693951", tablet.lastToken == 2305843009213693951)
 
-	tablet = findTabletForToken(tablets, parseInt64Token("9223372036854775807"), 0, 7)
+	tablet = tablets.findTabletForToken(parseInt64Token("9223372036854775807"), 0, 7)
 	assertTrue(t, "tablet.lastToken == 9223372036854775807", tablet.lastToken == 9223372036854775807)
 
-	tablet = findTabletForToken(tablets, parseInt64Token("-4611686018427387904"), 0, 7)
+	tablet = tablets.findTabletForToken(parseInt64Token("-4611686018427387904"), 0, 7)
 	assertTrue(t, "tablet.lastToken == -2305843009213693953", tablet.lastToken == -2305843009213693953)
 }
 
-func CompareRanges(tablets []*TabletInfo, ranges [][]int64) bool {
+func CompareRanges(tablets TabletInfoList, ranges [][]int64) bool {
 	if len(tablets) != len(ranges) {
 		return false
 	}
@@ -160,9 +160,9 @@ func CompareRanges(tablets []*TabletInfo, ranges [][]int64) bool {
 	return true
 }
 func TestAddTabletToEmptyTablets(t *testing.T) {
-	tablets := []*TabletInfo{}
+	tablets := TabletInfoList{}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -174,7 +174,7 @@ func TestAddTabletToEmptyTablets(t *testing.T) {
 }
 
 func TestAddTabletAtTheBeggining(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -182,7 +182,7 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -195,7 +195,7 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 }
 
 func TestAddTabletAtTheEnd(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -203,7 +203,7 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-1,
@@ -216,7 +216,7 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 }
 
 func TestAddTabletInTheMiddle(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -230,7 +230,7 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-4611686018427387905,
@@ -244,7 +244,7 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 }
 
 func TestAddTabletIntersecting(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -270,7 +270,7 @@ func TestAddTabletIntersecting(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-3611686018427387905,
@@ -285,7 +285,7 @@ func TestAddTabletIntersecting(t *testing.T) {
 }
 
 func TestAddTabletIntersectingWithFirst(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -299,7 +299,7 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-8011686018427387905,
@@ -312,7 +312,7 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 }
 
 func TestAddTabletIntersectingWithLast(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -326,7 +326,7 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = addTabletToTabletsList(tablets, &TabletInfo{
+	tablets = tablets.addTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-5011686018427387905,
@@ -341,7 +341,7 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 func TestRemoveTabletsWithHost(t *testing.T) {
 	removed_host_id := TimeUUID()
 
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -361,7 +361,7 @@ func TestRemoveTabletsWithHost(t *testing.T) {
 		[]ReplicaInfo{{TimeUUID(), 9}, {removed_host_id, 8}, {TimeUUID(), 3}},
 	}}
 
-	tablets = removeTabletsWithHostFromTabletsList(tablets, &HostInfo{
+	tablets = tablets.removeTabletsWithHostFromTabletsList(&HostInfo{
 		hostId: removed_host_id.String(),
 	})
 
@@ -369,7 +369,7 @@ func TestRemoveTabletsWithHost(t *testing.T) {
 }
 
 func TestRemoveTabletsWithKeyspace(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"removed_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -389,13 +389,13 @@ func TestRemoveTabletsWithKeyspace(t *testing.T) {
 		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
 	}}
 
-	tablets = removeTabletsWithKeyspaceFromTabletsList(tablets, "removed_ks")
+	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList("removed_ks")
 
 	assertEqual(t, "TabletsList length", 1, len(tablets))
 }
 
 func TestRemoveTabletsWithTable(t *testing.T) {
-	tablets := []*TabletInfo{{
+	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -415,7 +415,7 @@ func TestRemoveTabletsWithTable(t *testing.T) {
 		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
 	}}
 
-	tablets = removeTabletsWithTableFromTabletsList(tablets, "test_ks", "removed_tb")
+	tablets = tablets.removeTabletsWithTableFromTabletsList("test_ks", "removed_tb")
 
 	assertEqual(t, "TabletsList length", 2, len(tablets))
 }

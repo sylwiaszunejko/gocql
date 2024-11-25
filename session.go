@@ -276,7 +276,7 @@ func (s *Session) init() error {
 			hosts = filteredHosts
 
 			if s.tabletsRoutingV1 {
-				tablets := []*TabletInfo{}
+				tablets := TabletInfoList{}
 				s.ring.setTablets(tablets)
 				s.policy.SetTablets(tablets)
 			}
@@ -637,7 +637,7 @@ func (s *Session) getConn() *Conn {
 	return nil
 }
 
-func (s *Session) getTablets() []*TabletInfo {
+func (s *Session) getTablets() TabletInfoList {
 	s.ring.mu.Lock()
 	defer s.ring.mu.Unlock()
 

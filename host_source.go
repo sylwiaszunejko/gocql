@@ -537,12 +537,14 @@ func (t *TabletInfo) Replicas() []ReplicaInfo {
 	return t.replicas
 }
 
+type TabletInfoList []*TabletInfo
+
 // Search for place in tablets table with specific Keyspace and Table name
-func findTablets(tablets []*TabletInfo, k string, t string) (int, int) {
+func (t TabletInfoList) findTablets(keyspace string, table string) (int, int) {
 	l := -1
 	r := -1
-	for i, tablet := range tablets {
-		if tablet.KeyspaceName() == k && tablet.TableName() == t {
+	for i, tablet := range t {
+		if tablet.KeyspaceName() == keyspace && tablet.TableName() == table {
 			if l == -1 {
 				l = i
 			}
@@ -555,8 +557,8 @@ func findTablets(tablets []*TabletInfo, k string, t string) (int, int) {
 	return l, r
 }
 
-func addTabletToTabletsList(tablets []*TabletInfo, tablet *TabletInfo) []*TabletInfo {
-	l, r := findTablets(tablets, tablet.keyspaceName, tablet.tableName)
+func (t TabletInfoList) addTabletToTabletsList(tablet *TabletInfo) TabletInfoList {
+	l, r := t.findTablets(tablet.keyspaceName, tablet.tableName)
 	if l == -1 && r == -1 {
 		l = 0
 		r = 0
@@ -570,7 +572,7 @@ func addTabletToTabletsList(tablets []*TabletInfo, tablet *TabletInfo) []*Tablet
 	// find first overlaping range
 	for l1 < r1 {
 		mid := (l1 + r1) / 2
-		if tablets[mid].FirstToken() < tablet.FirstToken() {
+		if t[mid].FirstToken() < tablet.FirstToken() {
 			l1 = mid + 1
 		} else {
 			r1 = mid
@@ -578,42 +580,42 @@ func addTabletToTabletsList(tablets []*TabletInfo, tablet *TabletInfo) []*Tablet
 	}
 	start := l1
 
-	if start > l && tablets[start-1].LastToken() > tablet.FirstToken() {
+	if start > l && t[start-1].LastToken() > tablet.FirstToken() {
 		start = start - 1
 	}
 
 	// find last overlaping range
 	for l2 < r2 {
 		mid := (l2 + r2) / 2
-		if tablets[mid].LastToken() < tablet.LastToken() {
+		if t[mid].LastToken() < tablet.LastToken() {
 			l2 = mid + 1
 		} else {
 			r2 = mid
 		}
 	}
 	end := l2
-	if end < r && tablets[end].FirstToken() >= tablet.LastToken() {
+	if end < r && t[end].FirstToken() >= tablet.LastToken() {
 		end = end - 1
 	}
-	if end == len(tablets) {
+	if end == len(t) {
 		end = end - 1
 	}
 
-	updated_tablets := tablets
+	updated_tablets := t
 	if start <= end {
 		// Delete elements from index start to end
-		updated_tablets = append(tablets[:start], tablets[end+1:]...)
+		updated_tablets = append(t[:start], t[end+1:]...)
 	}
 	// Insert tablet element at index start
-	updated_tablets2 := append(updated_tablets[:start], append([]*TabletInfo{tablet}, updated_tablets[start:]...)...)
-	return updated_tablets2
+	t = append(updated_tablets[:start], append([]*TabletInfo{tablet}, updated_tablets[start:]...)...)
+	return t
 }
 
 // Remove all tablets that have given host as a replica
-func removeTabletsWithHostFromTabletsList(tablets []*TabletInfo, host *HostInfo) []*TabletInfo {
-	filteredTablets := make([]*TabletInfo, 0, len(tablets)) // Preallocate for efficiency
+func (t TabletInfoList) removeTabletsWithHostFromTabletsList(host *HostInfo) TabletInfoList {
+	filteredTablets := make([]*TabletInfo, 0, len(t)) // Preallocate for efficiency
 
-	for _, tablet := range tablets {
+	for _, tablet := range t {
 		// Check if any replica matches the given host ID
 		shouldExclude := false
 		for _, replica := range tablet.replicas {
@@ -627,35 +629,38 @@ func removeTabletsWithHostFromTabletsList(tablets []*TabletInfo, host *HostInfo)
 		}
 	}
 
-	return filteredTablets
+	t = filteredTablets
+	return t
 }
 
-func removeTabletsWithKeyspaceFromTabletsList(tablets []*TabletInfo, keyspace string) []*TabletInfo {
-	filteredTablets := make([]*TabletInfo, 0, len(tablets))
+func (t TabletInfoList) removeTabletsWithKeyspaceFromTabletsList(keyspace string) TabletInfoList {
+	filteredTablets := make([]*TabletInfo, 0, len(t))
 
-	for _, tablet := range tablets {
+	for _, tablet := range t {
 		if tablet.keyspaceName != keyspace {
 			filteredTablets = append(filteredTablets, tablet)
 		}
 	}
 
-	return filteredTablets
+	t = filteredTablets
+	return t
 }
 
-func removeTabletsWithTableFromTabletsList(tablets []*TabletInfo, keyspace string, table string) []*TabletInfo {
-	filteredTablets := make([]*TabletInfo, 0, len(tablets))
+func (t TabletInfoList) removeTabletsWithTableFromTabletsList(keyspace string, table string) TabletInfoList {
+	filteredTablets := make([]*TabletInfo, 0, len(t))
 
-	for _, tablet := range tablets {
+	for _, tablet := range t {
 		if !(tablet.keyspaceName == keyspace && tablet.tableName == table) {
 			filteredTablets = append(filteredTablets, tablet)
 		}
 	}
 
-	return filteredTablets
+	t = filteredTablets
+	return t
 }
 
 // Search for place in tablets table for token starting from index l to index r
-func findTabletForToken(tablets []*TabletInfo, token Token, l int, r int) *TabletInfo {
+func (t TabletInfoList) findTabletForToken(token Token, l int, r int) *TabletInfo {
 	for l < r {
 		var m int
 		if r*l > 0 {
@@ -663,14 +668,14 @@ func findTabletForToken(tablets []*TabletInfo, token Token, l int, r int) *Table
 		} else {
 			m = (r + l) / 2
 		}
-		if int64Token(tablets[m].LastToken()).Less(token) {
+		if int64Token(t[m].LastToken()).Less(token) {
 			l = m + 1
 		} else {
 			r = m
 		}
 	}
 
-	return tablets[l]
+	return t[l]
 }
 
 // Polls system.peers at a specific interval to find new hosts
@@ -1056,7 +1061,7 @@ func addTablet(r *ringDescriber, tablet *TabletInfo) error {
 	defer r.mu.Unlock()
 
 	tablets := r.session.getTablets()
-	tablets = addTabletToTabletsList(tablets, tablet)
+	tablets = tablets.addTabletToTabletsList(tablet)
 
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)
@@ -1071,7 +1076,7 @@ func removeTabletsWithHost(r *ringDescriber, host *HostInfo) error {
 	defer r.mu.Unlock()
 
 	tablets := r.session.getTablets()
-	tablets = removeTabletsWithHostFromTabletsList(tablets, host)
+	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
 
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)
@@ -1086,7 +1091,7 @@ func removeTabletsWithKeyspace(r *ringDescriber, keyspace string) error {
 	defer r.mu.Unlock()
 
 	tablets := r.session.getTablets()
-	tablets = removeTabletsWithKeyspaceFromTabletsList(tablets, keyspace)
+	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
 
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)
@@ -1101,7 +1106,7 @@ func removeTabletsWithTable(r *ringDescriber, keyspace string, table string) err
 	defer r.mu.Unlock()
 
 	tablets := r.session.getTablets()
-	tablets = removeTabletsWithTableFromTabletsList(tablets, keyspace, table)
+	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
 
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)
