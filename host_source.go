@@ -632,6 +632,30 @@ func removeTabletsWithHostFromTabletsList(tablets []*TabletInfo, host *HostInfo)
 	return filteredTablets
 }
 
+func removeTabletsWithKeyspaceFromTabletsList(tablets []*TabletInfo, keyspace string) []*TabletInfo {
+	filteredTablets := make([]*TabletInfo, 0, len(tablets))
+
+	for _, tablet := range tablets {
+		if tablet.keyspaceName != keyspace {
+			filteredTablets = append(filteredTablets, tablet)
+		}
+	}
+
+	return filteredTablets
+}
+
+func removeTabletsWithTableFromTabletsList(tablets []*TabletInfo, keyspace string, table string) []*TabletInfo {
+	filteredTablets := make([]*TabletInfo, 0, len(tablets))
+
+	for _, tablet := range tablets {
+		if !(tablet.keyspaceName == keyspace && tablet.tableName == table) {
+			filteredTablets = append(filteredTablets, tablet)
+		}
+	}
+
+	return filteredTablets
+}
+
 // Search for place in tablets table for token starting from index l to index r
 func findTabletForToken(tablets []*TabletInfo, token Token, l int, r int) *TabletInfo {
 	for l < r {
@@ -1053,6 +1077,36 @@ func removeTabletsWithHost(r *ringDescriber, host *HostInfo) error {
 
 	tablets := r.session.getTablets()
 	tablets = removeTabletsWithHostFromTabletsList(tablets, host)
+
+	r.session.ring.setTablets(tablets)
+	r.session.policy.SetTablets(tablets)
+
+	r.session.schemaDescriber.refreshTabletsSchema()
+
+	return nil
+}
+
+func removeTabletsWithKeyspace(r *ringDescriber, keyspace string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	tablets := r.session.getTablets()
+	tablets = removeTabletsWithKeyspaceFromTabletsList(tablets, keyspace)
+
+	r.session.ring.setTablets(tablets)
+	r.session.policy.SetTablets(tablets)
+
+	r.session.schemaDescriber.refreshTabletsSchema()
+
+	return nil
+}
+
+func removeTabletsWithTable(r *ringDescriber, keyspace string, table string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	tablets := r.session.getTablets()
+	tablets = removeTabletsWithTableFromTabletsList(tablets, keyspace, table)
 
 	r.session.ring.setTablets(tablets)
 	r.session.policy.SetTablets(tablets)

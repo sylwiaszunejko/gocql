@@ -367,3 +367,55 @@ func TestRemoveTabletsWithHost(t *testing.T) {
 
 	assertEqual(t, "TabletsList length", 1, len(tablets))
 }
+
+func TestRemoveTabletsWithKeyspace(t *testing.T) {
+	tablets := []*TabletInfo{{
+		"removed_ks",
+		"test_tb",
+		-8611686018427387905,
+		-7917529027641081857,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}, {
+		"removed_ks",
+		"test_tb",
+		-6917529027641081857,
+		-4611686018427387905,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}, {
+		"test_ks",
+		"test_tb",
+		-4611686018427387905,
+		-2305843009213693953,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}}
+
+	tablets = removeTabletsWithKeyspaceFromTabletsList(tablets, "removed_ks")
+
+	assertEqual(t, "TabletsList length", 1, len(tablets))
+}
+
+func TestRemoveTabletsWithTable(t *testing.T) {
+	tablets := []*TabletInfo{{
+		"test_ks",
+		"test_tb",
+		-8611686018427387905,
+		-7917529027641081857,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}, {
+		"test_ks",
+		"test_tb",
+		-6917529027641081857,
+		-4611686018427387905,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}, {
+		"test_ks",
+		"removed_tb",
+		-4611686018427387905,
+		-2305843009213693953,
+		[]ReplicaInfo{{TimeUUID(), 9}, {TimeUUID(), 8}, {TimeUUID(), 3}},
+	}}
+
+	tablets = removeTabletsWithTableFromTabletsList(tablets, "test_ks", "removed_tb")
+
+	assertEqual(t, "TabletsList length", 2, len(tablets))
+}
