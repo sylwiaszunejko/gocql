@@ -134,26 +134,6 @@ type IndexMetadata struct {
 	Options      map[string]string
 }
 
-// TabletsMetadata holds metadata for tablet list
-type TabletsMetadata struct {
-	Tablets []*TabletMetadata
-}
-
-// TabletMetadata holds metadata for single tablet
-type TabletMetadata struct {
-	KeyspaceName string
-	TableName    string
-	FirstToken   int64
-	LastToken    int64
-	Replicas     []ReplicaMetadata
-}
-
-// TabletMetadata holds metadata for single replica
-type ReplicaMetadata struct {
-	HostId  UUID
-	ShardId int
-}
-
 const (
 	IndexKindCustom = "CUSTOM"
 )
@@ -249,18 +229,15 @@ type schemaDescriber struct {
 	metadata *Metadata
 
 	cache map[string]*KeyspaceMetadata
-
-	tabletsCache *TabletsMetadata
 }
 
 // creates a session bound schema describer which will query and cache
 // keyspace metadata and tablets metadata
 func newSchemaDescriber(session *Session) *schemaDescriber {
 	return &schemaDescriber{
-		session:      session,
-		metadata:     &Metadata{},
-		cache:        map[string]*KeyspaceMetadata{},
-		tabletsCache: &TabletsMetadata{},
+		session:  session,
+		metadata: &Metadata{},
+		cache:    map[string]*KeyspaceMetadata{},
 	}
 }
 
@@ -282,34 +259,6 @@ func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, err
 	}
 
 	return metadata, nil
-}
-
-func (s *schemaDescriber) getTabletsSchema() *TabletsMetadata {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	metadata := s.tabletsCache
-
-	return metadata
-}
-
-func (s *schemaDescriber) refreshTabletsSchema() {
-	tablets := s.session.getTablets()
-	s.tabletsCache.Tablets = []*TabletMetadata{}
-
-	for _, tablet := range tablets {
-		t := &TabletMetadata{}
-		t.KeyspaceName = tablet.KeyspaceName()
-		t.TableName = tablet.TableName()
-		t.FirstToken = tablet.FirstToken()
-		t.LastToken = tablet.LastToken()
-		t.Replicas = []ReplicaMetadata{}
-		for _, replica := range tablet.Replicas() {
-			t.Replicas = append(t.Replicas, ReplicaMetadata{replica.hostId, replica.shardId})
-		}
-
-		s.tabletsCache.Tablets = append(s.tabletsCache.Tablets, t)
-	}
 }
 
 func (s *schemaDescriber) setTablets(tablets TabletInfoList) {

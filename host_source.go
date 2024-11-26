@@ -1067,8 +1067,6 @@ func (s *Session) addTablet(tablet *TabletInfo) error {
 
 	s.schemaDescriber.setTablets(tablets)
 
-	s.schemaDescriber.refreshTabletsSchema()
-
 	return nil
 }
 
@@ -1077,8 +1075,6 @@ func (s *Session) removeTabletsWithHost(host *HostInfo) error {
 	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
 
 	s.schemaDescriber.setTablets(tablets)
-
-	s.schemaDescriber.refreshTabletsSchema()
 
 	return nil
 }
@@ -1089,8 +1085,6 @@ func (s *Session) removeTabletsWithKeyspace(keyspace string) error {
 
 	s.schemaDescriber.setTablets(tablets)
 
-	s.schemaDescriber.refreshTabletsSchema()
-
 	return nil
 }
 
@@ -1099,8 +1093,6 @@ func (s *Session) removeTabletsWithTable(keyspace string, table string) error {
 	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
 
 	s.schemaDescriber.setTablets(tablets)
-
-	s.schemaDescriber.refreshTabletsSchema()
 
 	return nil
 }
