@@ -16,5 +16,9 @@ func TestSchemaQueries(t *testing.T) {
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	assertTrue(t, "keyspace present in schemaDescriber", session.schemaDescriber.cache["gocql_test"].Name == "gocql_test")
+	keyspaceMetadata, err := session.schemaDescriber.getSchema("gocql_test")
+	if err != nil {
+		t.Fatal("unable to get keyspace metadata for keyspace: ", err)
+	}
+	assertTrue(t, "keyspace present in schemaDescriber", keyspaceMetadata.Name == "gocql_test")
 }
