@@ -1,25 +1,34 @@
 package debounce
 
-// SimpleDebouncer debounce function call with simple logc:
-// 1. If call is currently pending, function call should go through
-// 2. If call is scheduled, but not pending, function call should be voided
+import (
+	"sync"
+	"sync/atomic"
+)
+
+// SimpleDebouncer is are tool for queuing immutable functions calls. It provides:
+// 1. Blocking simultaneous calls
+// 2. If there is no running call and no waiting call, then the current call go through
+// 3. If there is running call and no waiting call, then the current call go waiting
+// 4. If there is running call and waiting call, then the current call are voided
 type SimpleDebouncer struct {
-	channel chan struct{}
+	m     sync.Mutex
+	count atomic.Int32
 }
 
-// NewDebouncer creates a new Debouncer with a buffered channel of size 1
+// NewSimpleDebouncer creates a new SimpleDebouncer.
 func NewSimpleDebouncer() *SimpleDebouncer {
-	return &SimpleDebouncer{
-		channel: make(chan struct{}, 1),
-	}
+	return &SimpleDebouncer{}
 }
 
-// Debounce attempts to execute the function if the channel allows it
-func (d *SimpleDebouncer) Debounce(fn func()) {
-	select {
-	case d.channel <- struct{}{}:
-		fn()
-		<-d.channel
-	default:
+// Debounce attempts to execute the function if the logic of the SimpleDebouncer allows it.
+func (d *SimpleDebouncer) Debounce(fn func()) bool {
+	if d.count.Add(1) > 2 {
+		d.count.Add(-1)
+		return false
 	}
+	d.m.Lock()
+	fn()
+	d.count.Add(-1)
+	d.m.Unlock()
+	return true
 }
