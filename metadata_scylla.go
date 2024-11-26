@@ -237,10 +237,16 @@ func columnKindFromSchema(kind string) (ColumnKind, error) {
 	}
 }
 
+type Metadata struct {
+	tabletsMetadata cowTabletList
+}
+
 // queries the cluster for schema information for a specific keyspace and for tablets
 type schemaDescriber struct {
 	session *Session
 	mu      sync.Mutex
+
+	metadata *Metadata
 
 	cache map[string]*KeyspaceMetadata
 
@@ -252,6 +258,7 @@ type schemaDescriber struct {
 func newSchemaDescriber(session *Session) *schemaDescriber {
 	return &schemaDescriber{
 		session:      session,
+		metadata:     &Metadata{},
 		cache:        map[string]*KeyspaceMetadata{},
 		tabletsCache: &TabletsMetadata{},
 	}
@@ -303,6 +310,20 @@ func (s *schemaDescriber) refreshTabletsSchema() {
 
 		s.tabletsCache.Tablets = append(s.tabletsCache.Tablets, t)
 	}
+}
+
+func (s *schemaDescriber) setTablets(tablets TabletInfoList) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.metadata.tabletsMetadata.set(tablets)
+}
+
+func (s *schemaDescriber) getTablets() TabletInfoList {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.metadata.tabletsMetadata.get()
 }
 
 // clears the already cached keyspace metadata

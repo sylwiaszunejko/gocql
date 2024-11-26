@@ -1065,8 +1065,7 @@ func (s *Session) addTablet(tablet *TabletInfo) error {
 	tablets := s.getTablets()
 	tablets = tablets.addTabletToTabletsList(tablet)
 
-	s.ring.setTablets(tablets)
-	s.policy.SetTablets(tablets)
+	s.schemaDescriber.setTablets(tablets)
 
 	s.schemaDescriber.refreshTabletsSchema()
 
@@ -1077,8 +1076,7 @@ func (s *Session) removeTabletsWithHost(host *HostInfo) error {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
 
-	s.ring.setTablets(tablets)
-	s.policy.SetTablets(tablets)
+	s.schemaDescriber.setTablets(tablets)
 
 	s.schemaDescriber.refreshTabletsSchema()
 
@@ -1089,8 +1087,7 @@ func (s *Session) removeTabletsWithKeyspace(keyspace string) error {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
 
-	s.ring.setTablets(tablets)
-	s.policy.SetTablets(tablets)
+	s.schemaDescriber.setTablets(tablets)
 
 	s.schemaDescriber.refreshTabletsSchema()
 
@@ -1101,8 +1098,7 @@ func (s *Session) removeTabletsWithTable(keyspace string, table string) error {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
 
-	s.ring.setTablets(tablets)
-	s.policy.SetTablets(tablets)
+	s.schemaDescriber.setTablets(tablets)
 
 	s.schemaDescriber.refreshTabletsSchema()
 

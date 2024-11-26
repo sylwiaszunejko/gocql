@@ -337,7 +337,6 @@ type HostTierer interface {
 type HostSelectionPolicy interface {
 	HostStateNotifier
 	SetPartitioner
-	SetTablets
 	KeyspaceChanged(KeyspaceUpdateEvent)
 	Init(*Session)
 	// Reset is opprotunity to reset HostSelectionPolicy if Session initilization failed and we want to
@@ -396,8 +395,6 @@ func (r *roundRobinHostPolicy) SetPartitioner(partitioner string)   {}
 func (r *roundRobinHostPolicy) Init(*Session)                       {}
 func (r *roundRobinHostPolicy) Reset()                              {}
 func (r *roundRobinHostPolicy) IsOperational(*Session) error        { return nil }
-
-func (r *roundRobinHostPolicy) SetTablets(tablets TabletInfoList) {}
 
 func (r *roundRobinHostPolicy) Pick(qry ExecutableQuery) NextHost {
 	nextStartOffset := atomic.AddUint64(&r.lastUsedHostIdx, 1)
@@ -489,8 +486,6 @@ type tokenAwareHostPolicy struct {
 
 	logger StdLogger
 
-	tablets cowTabletList
-
 	avoidSlowReplicas bool
 }
 
@@ -573,13 +568,6 @@ func (t *tokenAwareHostPolicy) SetPartitioner(partitioner string) {
 		t.updateReplicas(meta, t.getKeyspaceName())
 		t.metadata.Store(meta)
 	}
-}
-
-func (t *tokenAwareHostPolicy) SetTablets(tablets TabletInfoList) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.tablets.set(tablets)
 }
 
 func (t *tokenAwareHostPolicy) AddHost(host *HostInfo) {
@@ -701,8 +689,8 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 
 	var replicas []*HostInfo
 
-	if qry.GetSession() != nil && qry.GetSession().tabletsRoutingV1 {
-		tablets := t.tablets.get()
+	if session := qry.GetSession(); session != nil && session.tabletsRoutingV1 {
+		tablets := session.schemaDescriber.getTablets()
 
 		// Search for tablets with Keyspace and Table from the Query
 		l, r := tablets.findTablets(qry.Keyspace(), qry.Table())
@@ -861,8 +849,6 @@ func (r *hostPoolHostPolicy) IsOperational(*Session) error        { return nil }
 func (r *hostPoolHostPolicy) KeyspaceChanged(KeyspaceUpdateEvent) {}
 func (r *hostPoolHostPolicy) SetPartitioner(string)               {}
 func (r *hostPoolHostPolicy) IsLocal(*HostInfo) bool              { return true }
-
-func (r *hostPoolHostPolicy) SetTablets(tablets TabletInfoList) {}
 
 func (r *hostPoolHostPolicy) SetHosts(hosts []*HostInfo) {
 	peers := make([]string, len(hosts))
@@ -1043,8 +1029,6 @@ func (d *dcAwareRR) IsLocal(host *HostInfo) bool {
 	return host.DataCenter() == d.local
 }
 
-func (d *dcAwareRR) SetTablets(tablets TabletInfoList) {}
-
 func (d *dcAwareRR) AddHost(host *HostInfo) {
 	if d.IsLocal(host) {
 		d.localHosts.add(host)
@@ -1168,8 +1152,6 @@ func (d *rackAwareRR) MaxHostTier() uint {
 func (d *rackAwareRR) setDCFailoverDisabled() {
 	d.disableDCFailover = true
 }
-
-func (d *rackAwareRR) SetTablets(tablets TabletInfoList) {}
 
 func (d *rackAwareRR) HostTier(host *HostInfo) uint {
 	if host.DataCenter() == d.localDC {

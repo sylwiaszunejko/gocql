@@ -277,8 +277,7 @@ func (s *Session) init() error {
 
 			if s.tabletsRoutingV1 {
 				tablets := TabletInfoList{}
-				s.ring.setTablets(tablets)
-				s.policy.SetTablets(tablets)
+				s.schemaDescriber.setTablets(tablets)
 			}
 		}
 	}
@@ -638,10 +637,7 @@ func (s *Session) getConn() *Conn {
 }
 
 func (s *Session) getTablets() TabletInfoList {
-	s.ring.mu.Lock()
-	defer s.ring.mu.Unlock()
-
-	return s.ring.tabletList
+	return s.schemaDescriber.getTablets()
 }
 
 // returns routing key indexes and type info
