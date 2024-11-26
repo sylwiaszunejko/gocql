@@ -135,13 +135,11 @@ type IndexMetadata struct {
 }
 
 // TabletsMetadata holds metadata for tablet list
-// Experimental, this interface and use may change
 type TabletsMetadata struct {
 	Tablets []*TabletMetadata
 }
 
 // TabletMetadata holds metadata for single tablet
-// Experimental, this interface and use may change
 type TabletMetadata struct {
 	KeyspaceName string
 	TableName    string
@@ -151,7 +149,6 @@ type TabletMetadata struct {
 }
 
 // TabletMetadata holds metadata for single replica
-// Experimental, this interface and use may change
 type ReplicaMetadata struct {
 	HostId  UUID
 	ShardId int
@@ -247,7 +244,6 @@ type schemaDescriber struct {
 
 	cache map[string]*KeyspaceMetadata
 
-	// Experimental, this interface and use may change
 	tabletsCache *TabletsMetadata
 }
 
@@ -281,7 +277,6 @@ func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, err
 	return metadata, nil
 }
 
-// Experimental, this interface and use may change
 func (s *schemaDescriber) getTabletsSchema() *TabletsMetadata {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -291,7 +286,6 @@ func (s *schemaDescriber) getTabletsSchema() *TabletsMetadata {
 	return metadata
 }
 
-// Experimental, this interface and use may change
 func (s *schemaDescriber) refreshTabletsSchema() {
 	tablets := s.session.getTablets()
 	s.tabletsCache.Tablets = []*TabletMetadata{}

@@ -114,6 +114,7 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 			s.handleKeyspaceChange(f.keyspace, f.change)
 		case *schemaChangeTable:
 			s.schemaDescriber.clearSchema(f.keyspace)
+			s.handleTableChange(f.keyspace, f.object, f.change)
 		case *schemaChangeAggregate:
 			s.schemaDescriber.clearSchema(f.keyspace)
 		case *schemaChangeFunction:
@@ -126,7 +127,16 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 
 func (s *Session) handleKeyspaceChange(keyspace, change string) {
 	s.control.awaitSchemaAgreement()
+	if change == "DROPPED" || change == "UPDATED" {
+		s.removeTabletsWithKeyspace(keyspace)
+	}
 	s.policy.KeyspaceChanged(KeyspaceUpdateEvent{Keyspace: keyspace, Change: change})
+}
+
+func (s *Session) handleTableChange(keyspace, table, change string) {
+	if change == "DROPPED" || change == "UPDATED" {
+		s.removeTabletsWithTable(keyspace, table)
+	}
 }
 
 // handleNodeEvent handles inbound status and topology change events.
