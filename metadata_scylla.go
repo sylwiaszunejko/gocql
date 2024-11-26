@@ -275,6 +275,42 @@ func (s *schemaDescriber) getTablets() TabletInfoList {
 	return s.metadata.tabletsMetadata.get()
 }
 
+func (s *schemaDescriber) addTablet(tablet *TabletInfo) error {
+	tablets := s.getTablets()
+	tablets = tablets.addTabletToTabletsList(tablet)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
+func (s *schemaDescriber) removeTabletsWithHost(host *HostInfo) error {
+	tablets := s.getTablets()
+	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
+func (s *schemaDescriber) removeTabletsWithKeyspace(keyspace string) error {
+	tablets := s.getTablets()
+	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
+func (s *schemaDescriber) removeTabletsWithTable(keyspace string, table string) error {
+	tablets := s.getTablets()
+	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
 // clears the already cached keyspace metadata
 func (s *schemaDescriber) clearSchema(keyspaceName string) {
 	s.mu.Lock()

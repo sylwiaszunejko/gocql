@@ -877,48 +877,12 @@ func refreshRing(r *ringDescriber) error {
 	}
 
 	for _, host := range prevHosts {
-		r.session.removeTabletsWithHost(host)
+		r.session.schemaDescriber.removeTabletsWithHost(host)
 		r.session.removeHost(host)
 	}
 
 	r.session.metadata.setPartitioner(partitioner)
 	r.session.policy.SetPartitioner(partitioner)
-
-	return nil
-}
-
-func (s *Session) addTablet(tablet *TabletInfo) error {
-	tablets := s.getTablets()
-	tablets = tablets.addTabletToTabletsList(tablet)
-
-	s.schemaDescriber.setTablets(tablets)
-
-	return nil
-}
-
-func (s *Session) removeTabletsWithHost(host *HostInfo) error {
-	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
-
-	s.schemaDescriber.setTablets(tablets)
-
-	return nil
-}
-
-func (s *Session) removeTabletsWithKeyspace(keyspace string) error {
-	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
-
-	s.schemaDescriber.setTablets(tablets)
-
-	return nil
-}
-
-func (s *Session) removeTabletsWithTable(keyspace string, table string) error {
-	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
-
-	s.schemaDescriber.setTablets(tablets)
 
 	return nil
 }

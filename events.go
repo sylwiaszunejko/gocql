@@ -128,14 +128,14 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 func (s *Session) handleKeyspaceChange(keyspace, change string) {
 	s.control.awaitSchemaAgreement()
 	if change == "DROPPED" || change == "UPDATED" {
-		s.removeTabletsWithKeyspace(keyspace)
+		s.schemaDescriber.removeTabletsWithKeyspace(keyspace)
 	}
 	s.policy.KeyspaceChanged(KeyspaceUpdateEvent{Keyspace: keyspace, Change: change})
 }
 
 func (s *Session) handleTableChange(keyspace, table, change string) {
 	if change == "DROPPED" || change == "UPDATED" {
-		s.removeTabletsWithTable(keyspace, table)
+		s.schemaDescriber.removeTabletsWithTable(keyspace, table)
 	}
 }
 
