@@ -1374,7 +1374,7 @@ func TestMarshalNil(t *testing.T) {
 func TestUnmarshalInetCopyBytes(t *testing.T) {
 	data := []byte{127, 0, 0, 1}
 	var ip net.IP
-	if err := unmarshalInet(NativeType{proto: 2, typ: TypeInet}, data, &ip); err != nil {
+	if err := unmarshalInet(data, &ip); err != nil {
 		t.Fatal(err)
 	}
 
