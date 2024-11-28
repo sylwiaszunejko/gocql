@@ -2,7 +2,6 @@ package gocql
 
 import (
 	"sync"
-	"sync/atomic"
 )
 
 type ReplicaInfo struct {
@@ -181,27 +180,19 @@ func (t TabletInfoList) findTabletForToken(token Token, l int, r int) *TabletInf
 
 // cowTabletList implements a copy on write tablet list, its equivalent type is TabletInfoList
 type cowTabletList struct {
-	list atomic.Value
-	mu   sync.Mutex
+	list TabletInfoList
+	mu   sync.RWMutex
 }
 
 func (c *cowTabletList) get() TabletInfoList {
-	l, ok := c.list.Load().(TabletInfoList)
-	if !ok {
-		return nil
-	}
-	return l
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.list
 }
 
 func (c *cowTabletList) set(tablets TabletInfoList) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	n := len(tablets)
-	t := make(TabletInfoList, n)
-	for i := 0; i < n; i++ {
-		t[i] = tablets[i]
-	}
-
-	c.list.Store(t)
+	c.list = tablets
 }
