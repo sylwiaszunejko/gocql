@@ -110,17 +110,17 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 	for _, frame := range frames {
 		switch f := frame.(type) {
 		case *schemaChangeKeyspace:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 			s.handleKeyspaceChange(f.keyspace, f.change)
 		case *schemaChangeTable:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 			s.handleTableChange(f.keyspace, f.object, f.change)
 		case *schemaChangeAggregate:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 		case *schemaChangeFunction:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 		case *schemaChangeType:
-			s.schemaDescriber.clearSchema(f.keyspace)
+			s.metadataDescriber.clearSchema(f.keyspace)
 		}
 	}
 }
@@ -128,14 +128,14 @@ func (s *Session) handleSchemaEvent(frames []frame) {
 func (s *Session) handleKeyspaceChange(keyspace, change string) {
 	s.control.awaitSchemaAgreement()
 	if change == "DROPPED" || change == "UPDATED" {
-		s.removeTabletsWithKeyspace(keyspace)
+		s.metadataDescriber.removeTabletsWithKeyspace(keyspace)
 	}
 	s.policy.KeyspaceChanged(KeyspaceUpdateEvent{Keyspace: keyspace, Change: change})
 }
 
 func (s *Session) handleTableChange(keyspace, table, change string) {
 	if change == "DROPPED" || change == "UPDATED" {
-		s.removeTabletsWithTable(keyspace, table)
+		s.metadataDescriber.removeTabletsWithTable(keyspace, table)
 	}
 }
 

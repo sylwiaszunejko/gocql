@@ -143,7 +143,7 @@ func TestRecreateSchema(t *testing.T) {
 
 			// Exec dumped queries to check if they are CQL-correct
 			cleanup(t, session, test.Keyspace)
-			session.schemaDescriber.clearSchema(test.Keyspace)
+			session.metadataDescriber.clearSchema(test.Keyspace)
 
 			for _, q := range trimQueries(strings.Split(dump, ";")) {
 				qr := session.Query(q, nil)

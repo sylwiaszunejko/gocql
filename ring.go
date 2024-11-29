@@ -22,8 +22,6 @@ type ring struct {
 	hostList []*HostInfo
 	pos      uint32
 
-	tabletList TabletInfoList
-
 	// TODO: we should store the ring metadata here also.
 }
 
@@ -142,11 +140,4 @@ func (c *clusterMetadata) setPartitioner(partitioner string) {
 		// TODO: update other things now
 		c.partitioner = partitioner
 	}
-}
-
-func (r *ring) setTablets(newTablets TabletInfoList) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.tabletList = newTablets
 }

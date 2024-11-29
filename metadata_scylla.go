@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // schema metadata for a keyspace
@@ -134,24 +135,57 @@ type IndexMetadata struct {
 	Options      map[string]string
 }
 
-// TabletsMetadata holds metadata for tablet list
-type TabletsMetadata struct {
-	Tablets []*TabletMetadata
+// cowTabletList implements a copy on write keyspace metadata map, its equivalent type is map[string]*KeyspaceMetadata
+type cowKeyspaceMetadataMap struct {
+	keyspaceMap atomic.Value
+	mu          sync.Mutex
 }
 
-// TabletMetadata holds metadata for single tablet
-type TabletMetadata struct {
-	KeyspaceName string
-	TableName    string
-	FirstToken   int64
-	LastToken    int64
-	Replicas     []ReplicaMetadata
+func (c *cowKeyspaceMetadataMap) get() map[string]*KeyspaceMetadata {
+	l, ok := c.keyspaceMap.Load().(map[string]*KeyspaceMetadata)
+	if !ok {
+		return nil
+	}
+	return l
 }
 
-// TabletMetadata holds metadata for single replica
-type ReplicaMetadata struct {
-	HostId  UUID
-	ShardId int
+func (c *cowKeyspaceMetadataMap) getKeyspace(keyspaceName string) (*KeyspaceMetadata, bool) {
+	m, ok := c.keyspaceMap.Load().(map[string]*KeyspaceMetadata)
+	if !ok {
+		return nil, ok
+	}
+	val, ok := m[keyspaceName]
+	return val, ok
+}
+
+func (c *cowKeyspaceMetadataMap) set(keyspaceName string, keyspaceMetadata *KeyspaceMetadata) bool {
+	c.mu.Lock()
+	m := c.get()
+
+	newM := map[string]*KeyspaceMetadata{}
+	for name, metadata := range m {
+		newM[name] = metadata
+	}
+	newM[keyspaceName] = keyspaceMetadata
+
+	c.keyspaceMap.Store(newM)
+	c.mu.Unlock()
+	return true
+}
+
+func (c *cowKeyspaceMetadataMap) remove(keyspaceName string) {
+	c.mu.Lock()
+	m := c.get()
+
+	newM := map[string]*KeyspaceMetadata{}
+	for name, meta := range m {
+		if name != keyspaceName {
+			newM[name] = meta
+		}
+	}
+
+	c.keyspaceMap.Store(newM)
+	c.mu.Unlock()
 }
 
 const (
@@ -237,33 +271,35 @@ func columnKindFromSchema(kind string) (ColumnKind, error) {
 	}
 }
 
+type Metadata struct {
+	tabletsMetadata  cowTabletList
+	keyspaceMetadata cowKeyspaceMetadataMap
+}
+
 // queries the cluster for schema information for a specific keyspace and for tablets
-type schemaDescriber struct {
+type metadataDescriber struct {
 	session *Session
 	mu      sync.Mutex
 
-	cache map[string]*KeyspaceMetadata
-
-	tabletsCache *TabletsMetadata
+	metadata *Metadata
 }
 
 // creates a session bound schema describer which will query and cache
 // keyspace metadata and tablets metadata
-func newSchemaDescriber(session *Session) *schemaDescriber {
-	return &schemaDescriber{
-		session:      session,
-		cache:        map[string]*KeyspaceMetadata{},
-		tabletsCache: &TabletsMetadata{},
+func newMetadataDescriber(session *Session) *metadataDescriber {
+	return &metadataDescriber{
+		session:  session,
+		metadata: &Metadata{},
 	}
 }
 
 // returns the cached KeyspaceMetadata held by the describer for the named
 // keyspace.
-func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, error) {
+func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	metadata, found := s.cache[keyspaceName]
+	metadata, found := s.metadata.keyspaceMetadata.getKeyspace(keyspaceName)
 	if !found {
 		// refresh the cache for this keyspace
 		err := s.refreshSchema(keyspaceName)
@@ -271,51 +307,76 @@ func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, err
 			return nil, err
 		}
 
-		metadata = s.cache[keyspaceName]
+		metadata, found = s.metadata.keyspaceMetadata.getKeyspace(keyspaceName)
+		if !found {
+			return nil, fmt.Errorf("Metadata not found for keyspace: %s", keyspaceName)
+		}
 	}
 
 	return metadata, nil
 }
 
-func (s *schemaDescriber) getTabletsSchema() *TabletsMetadata {
+func (s *metadataDescriber) setTablets(tablets TabletInfoList) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	metadata := s.tabletsCache
-
-	return metadata
+	s.metadata.tabletsMetadata.set(tablets)
 }
 
-func (s *schemaDescriber) refreshTabletsSchema() {
-	tablets := s.session.getTablets()
-	s.tabletsCache.Tablets = []*TabletMetadata{}
+func (s *metadataDescriber) getTablets() TabletInfoList {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, tablet := range tablets {
-		t := &TabletMetadata{}
-		t.KeyspaceName = tablet.KeyspaceName()
-		t.TableName = tablet.TableName()
-		t.FirstToken = tablet.FirstToken()
-		t.LastToken = tablet.LastToken()
-		t.Replicas = []ReplicaMetadata{}
-		for _, replica := range tablet.Replicas() {
-			t.Replicas = append(t.Replicas, ReplicaMetadata{replica.hostId, replica.shardId})
-		}
+	return s.metadata.tabletsMetadata.get()
+}
 
-		s.tabletsCache.Tablets = append(s.tabletsCache.Tablets, t)
-	}
+func (s *metadataDescriber) addTablet(tablet *TabletInfo) error {
+	tablets := s.getTablets()
+	tablets = tablets.addTabletToTabletsList(tablet)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
+func (s *metadataDescriber) removeTabletsWithHost(host *HostInfo) error {
+	tablets := s.getTablets()
+	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
+func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) error {
+	tablets := s.getTablets()
+	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
+
+	s.setTablets(tablets)
+
+	return nil
+}
+
+func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) error {
+	tablets := s.getTablets()
+	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
+
+	s.setTablets(tablets)
+
+	return nil
 }
 
 // clears the already cached keyspace metadata
-func (s *schemaDescriber) clearSchema(keyspaceName string) {
+func (s *metadataDescriber) clearSchema(keyspaceName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.cache, keyspaceName)
+	s.metadata.keyspaceMetadata.remove(keyspaceName)
 }
 
 // forcibly updates the current KeyspaceMetadata held by the schema describer
 // for a given named keyspace.
-func (s *schemaDescriber) refreshSchema(keyspaceName string) error {
+func (s *metadataDescriber) refreshSchema(keyspaceName string) error {
 	var err error
 
 	// query the system keyspace for schema data
@@ -362,7 +423,7 @@ func (s *schemaDescriber) refreshSchema(keyspaceName string) error {
 	compileMetadata(keyspace, tables, columns, functions, aggregates, types, indexes, views, createStmts)
 
 	// update the cache
-	s.cache[keyspaceName] = keyspace
+	s.metadata.keyspaceMetadata.set(keyspaceName, keyspace)
 
 	return nil
 }
