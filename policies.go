@@ -663,7 +663,7 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 	var replicas []*HostInfo
 
 	if session := qry.GetSession(); session != nil && session.tabletsRoutingV1 {
-		tablets := session.schemaDescriber.getTablets()
+		tablets := session.metadataDescriber.getTablets()
 
 		// Search for tablets with Keyspace and Table from the Query
 		l, r := tablets.findTablets(qry.Keyspace(), qry.Table())

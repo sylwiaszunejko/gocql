@@ -35,7 +35,7 @@ type Session struct {
 	pageSize            int
 	prefetch            float64
 	routingKeyInfoCache routingKeyInfoLRU
-	schemaDescriber     *schemaDescriber
+	metadataDescriber   *metadataDescriber
 	trace               Tracer
 	queryObserver       QueryObserver
 	batchObserver       BatchObserver
@@ -144,7 +144,7 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 		}
 	}()
 
-	s.schemaDescriber = newSchemaDescriber(s)
+	s.metadataDescriber = newMetadataDescriber(s)
 
 	s.nodeEvents = newEventDebouncer("NodeEvents", s.handleNodeEvent, s.logger)
 	s.schemaEvents = newEventDebouncer("SchemaEvents", s.handleSchemaEvent, s.logger)
@@ -277,7 +277,7 @@ func (s *Session) init() error {
 
 			if s.tabletsRoutingV1 {
 				tablets := TabletInfoList{}
-				s.schemaDescriber.setTablets(tablets)
+				s.metadataDescriber.setTablets(tablets)
 			}
 		}
 	}
@@ -603,7 +603,7 @@ func (s *Session) KeyspaceMetadata(keyspace string) (*KeyspaceMetadata, error) {
 		return nil, ErrNoKeyspace
 	}
 
-	return s.schemaDescriber.getSchema(keyspace)
+	return s.metadataDescriber.getSchema(keyspace)
 }
 
 // TabletsMetadata returns the metadata about tablets
@@ -615,7 +615,7 @@ func (s *Session) TabletsMetadata() (TabletInfoList, error) {
 		return nil, ErrTabletsNotUsed
 	}
 
-	return s.schemaDescriber.getTablets(), nil
+	return s.metadataDescriber.getTablets(), nil
 }
 
 func (s *Session) getConn() *Conn {
@@ -637,7 +637,7 @@ func (s *Session) getConn() *Conn {
 }
 
 func (s *Session) getTablets() TabletInfoList {
-	return s.schemaDescriber.getTablets()
+	return s.metadataDescriber.getTablets()
 }
 
 // returns routing key indexes and type info

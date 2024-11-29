@@ -277,7 +277,7 @@ type Metadata struct {
 }
 
 // queries the cluster for schema information for a specific keyspace and for tablets
-type schemaDescriber struct {
+type metadataDescriber struct {
 	session *Session
 	mu      sync.Mutex
 
@@ -286,8 +286,8 @@ type schemaDescriber struct {
 
 // creates a session bound schema describer which will query and cache
 // keyspace metadata and tablets metadata
-func newSchemaDescriber(session *Session) *schemaDescriber {
-	return &schemaDescriber{
+func newMetadataDescriber(session *Session) *metadataDescriber {
+	return &metadataDescriber{
 		session:  session,
 		metadata: &Metadata{},
 	}
@@ -295,7 +295,7 @@ func newSchemaDescriber(session *Session) *schemaDescriber {
 
 // returns the cached KeyspaceMetadata held by the describer for the named
 // keyspace.
-func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, error) {
+func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -316,21 +316,21 @@ func (s *schemaDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, err
 	return metadata, nil
 }
 
-func (s *schemaDescriber) setTablets(tablets TabletInfoList) {
+func (s *metadataDescriber) setTablets(tablets TabletInfoList) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.metadata.tabletsMetadata.set(tablets)
 }
 
-func (s *schemaDescriber) getTablets() TabletInfoList {
+func (s *metadataDescriber) getTablets() TabletInfoList {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	return s.metadata.tabletsMetadata.get()
 }
 
-func (s *schemaDescriber) addTablet(tablet *TabletInfo) error {
+func (s *metadataDescriber) addTablet(tablet *TabletInfo) error {
 	tablets := s.getTablets()
 	tablets = tablets.addTabletToTabletsList(tablet)
 
@@ -339,7 +339,7 @@ func (s *schemaDescriber) addTablet(tablet *TabletInfo) error {
 	return nil
 }
 
-func (s *schemaDescriber) removeTabletsWithHost(host *HostInfo) error {
+func (s *metadataDescriber) removeTabletsWithHost(host *HostInfo) error {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
 
@@ -348,7 +348,7 @@ func (s *schemaDescriber) removeTabletsWithHost(host *HostInfo) error {
 	return nil
 }
 
-func (s *schemaDescriber) removeTabletsWithKeyspace(keyspace string) error {
+func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) error {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
 
@@ -357,7 +357,7 @@ func (s *schemaDescriber) removeTabletsWithKeyspace(keyspace string) error {
 	return nil
 }
 
-func (s *schemaDescriber) removeTabletsWithTable(keyspace string, table string) error {
+func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) error {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
 
@@ -367,7 +367,7 @@ func (s *schemaDescriber) removeTabletsWithTable(keyspace string, table string) 
 }
 
 // clears the already cached keyspace metadata
-func (s *schemaDescriber) clearSchema(keyspaceName string) {
+func (s *metadataDescriber) clearSchema(keyspaceName string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -376,7 +376,7 @@ func (s *schemaDescriber) clearSchema(keyspaceName string) {
 
 // forcibly updates the current KeyspaceMetadata held by the schema describer
 // for a given named keyspace.
-func (s *schemaDescriber) refreshSchema(keyspaceName string) error {
+func (s *metadataDescriber) refreshSchema(keyspaceName string) error {
 	var err error
 
 	// query the system keyspace for schema data

@@ -877,7 +877,7 @@ func refreshRing(r *ringDescriber) error {
 	}
 
 	for _, host := range prevHosts {
-		r.session.schemaDescriber.removeTabletsWithHost(host)
+		r.session.metadataDescriber.removeTabletsWithHost(host)
 		r.session.removeHost(host)
 	}
 
