@@ -363,6 +363,11 @@ func (c *controlConn) reconnect() {
 	if err != nil {
 		c.session.logger.Printf("gocql: unable to refresh ring: %v\n", err)
 	}
+
+	err = c.session.metadataDescriber.refreshAllSchema()
+	if err != nil {
+		c.session.logger.Printf("gocql: unable to refresh the schema: %v\n", err)
+	}
 }
 
 func (c *controlConn) attemptReconnect() (*Conn, error) {
