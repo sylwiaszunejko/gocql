@@ -374,6 +374,56 @@ func (s *metadataDescriber) clearSchema(keyspaceName string) {
 	s.metadata.keyspaceMetadata.remove(keyspaceName)
 }
 
+func (s *metadataDescriber) refreshAllSchema() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	copiedMap := make(map[string]*KeyspaceMetadata)
+
+	for key, value := range s.metadata.keyspaceMetadata.get() {
+		if value != nil {
+			copiedMap[key] = &KeyspaceMetadata{
+				Name:            value.Name,
+				DurableWrites:   value.DurableWrites,
+				StrategyClass:   value.StrategyClass,
+				StrategyOptions: value.StrategyOptions,
+				Tables:          value.Tables,
+				Functions:       value.Functions,
+				Aggregates:      value.Aggregates,
+				Types:           value.Types,
+				Indexes:         value.Indexes,
+				Views:           value.Views,
+				CreateStmts:     value.CreateStmts,
+			}
+		} else {
+			copiedMap[key] = nil
+		}
+	}
+
+	for keyspaceName, metadata := range copiedMap {
+		// refresh the cache for this keyspace
+		err := s.refreshSchema(keyspaceName)
+		if err == ErrKeyspaceDoesNotExist {
+			s.clearSchema(keyspaceName)
+			s.removeTabletsWithKeyspace(keyspaceName)
+		} else if err != nil {
+			return err
+		}
+
+		updatedMetadata, err := s.getSchema(keyspaceName)
+		if err != nil {
+			return err
+		}
+
+		for tableName := range metadata.Tables {
+			if _, ok := updatedMetadata.Tables[tableName]; !ok {
+				s.removeTabletsWithTable(keyspaceName, tableName)
+			}
+		}
+	}
+	return nil
+}
+
 // forcibly updates the current KeyspaceMetadata held by the schema describer
 // for a given named keyspace.
 func (s *metadataDescriber) refreshSchema(keyspaceName string) error {
