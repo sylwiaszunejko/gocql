@@ -31,9 +31,8 @@ func (r *ringDescriber) getLocalHostInfo() (*HostInfo, error) {
 		return nil, errNoControl
 	}
 
-	iter := r.control.withConnHost(func(ch *connHost) *Iter {
-		return ch.conn.querySystem(context.TODO(), qrySystemLocal)
-	})
+	ch := r.control.getConn()
+	iter := ch.conn.querySystem(context.TODO(), qrySystemLocal)
 
 	if iter == nil {
 		return nil, errNoControl
@@ -52,12 +51,13 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 		return nil, errNoControl
 	}
 
-	iter := r.control.withConnHost(func(ch *connHost) *Iter {
-		if ch.conn.isSchemaV2 {
-			return ch.conn.querySystem(context.TODO(), qrySystemPeersV2)
-		}
-		return ch.conn.querySystem(context.TODO(), qrySystemPeers)
-	})
+	ch := r.control.getConn()
+	var iter *Iter
+	if ch.conn.isSchemaV2 {
+		iter = ch.conn.querySystem(context.TODO(), qrySystemPeersV2)
+	} else {
+		iter = ch.conn.querySystem(context.TODO(), qrySystemPeers)
+	}
 
 	if iter == nil {
 		return nil, errNoControl
@@ -140,21 +140,22 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 	var host *HostInfo
 	for _, table := range []string{"system.peers", "system.local"} {
-		iter := r.control.withConnHost(func(ch *connHost) *Iter {
-			if ch.host.HostID() == hostID.String() {
-				host = ch.host
-				return nil
-			}
+		ch := r.control.getConn()
+		var iter *Iter
+		if ch.host.HostID() == hostID.String() {
+			host = ch.host
+			iter = nil
+		}
 
-			if table == "system.peers" {
-				if ch.conn.isSchemaV2 {
-					return ch.conn.querySystem(context.TODO(), qrySystemPeersV2)
-				}
-				return ch.conn.querySystem(context.TODO(), qrySystemPeers)
+		if table == "system.peers" {
+			if ch.conn.isSchemaV2 {
+				iter = ch.conn.querySystem(context.TODO(), qrySystemPeersV2)
 			} else {
-				return ch.conn.query(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+				iter = ch.conn.querySystem(context.TODO(), qrySystemPeers)
 			}
-		})
+		} else {
+			iter = ch.conn.query(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+		}
 
 		if iter != nil {
 			rows, err := iter.SliceMap()
