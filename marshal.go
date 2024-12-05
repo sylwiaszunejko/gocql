@@ -13,7 +13,6 @@ import (
 	"math"
 	"math/big"
 	"math/bits"
-	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"github.com/gocql/gocql/serialization/cqlint"
 	"github.com/gocql/gocql/serialization/double"
 	"github.com/gocql/gocql/serialization/float"
+	"github.com/gocql/gocql/serialization/inet"
 	"github.com/gocql/gocql/serialization/smallint"
 	"github.com/gocql/gocql/serialization/text"
 	"github.com/gocql/gocql/serialization/timeuuid"
@@ -184,7 +184,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeVarint:
 		return marshalVarint(value)
 	case TypeInet:
-		return marshalInet(info, value)
+		return marshalInet(value)
 	case TypeTuple:
 		return marshalTuple(info, value)
 	case TypeUDT:
@@ -296,7 +296,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeUUID:
 		return unmarshalUUID(data, value)
 	case TypeInet:
-		return unmarshalInet(info, data, value)
+		return unmarshalInet(data, value)
 	case TypeTuple:
 		return unmarshalTuple(info, data, value)
 	case TypeUDT:
@@ -1360,68 +1360,20 @@ func unmarshalTimeUUID(data []byte, value interface{}) error {
 	return nil
 }
 
-func marshalInet(info TypeInfo, value interface{}) ([]byte, error) {
-	// we return either the 4 or 16 byte representation of an
-	// ip address here otherwise the db value will be prefixed
-	// with the remaining byte values e.g. ::ffff:127.0.0.1 and not 127.0.0.1
-	switch val := value.(type) {
-	case unsetColumn:
-		return nil, nil
-	case net.IP:
-		t := val.To4()
-		if t == nil {
-			return val.To16(), nil
-		}
-		return t, nil
-	case string:
-		b := net.ParseIP(val)
-		if b != nil {
-			t := b.To4()
-			if t == nil {
-				return b.To16(), nil
-			}
-			return t, nil
-		}
-		return nil, marshalErrorf("cannot marshal. invalid ip string %s", val)
+func marshalInet(value interface{}) ([]byte, error) {
+	data, err := inet.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	return nil, marshalErrorf("cannot marshal %T into %s", value, info)
+	return data, nil
 }
 
-func unmarshalInet(info TypeInfo, data []byte, value interface{}) error {
-	switch v := value.(type) {
-	case Unmarshaler:
-		return v.UnmarshalCQL(info, data)
-	case *net.IP:
-		if x := len(data); !(x == 4 || x == 16) {
-			return unmarshalErrorf("cannot unmarshal %s into %T: invalid sized IP: got %d bytes not 4 or 16", info, value, x)
-		}
-		buf := copyBytes(data)
-		ip := net.IP(buf)
-		if v4 := ip.To4(); v4 != nil {
-			*v = v4
-			return nil
-		}
-		*v = ip
-		return nil
-	case *string:
-		if len(data) == 0 {
-			*v = ""
-			return nil
-		}
-		ip := net.IP(data)
-		if v4 := ip.To4(); v4 != nil {
-			*v = v4.String()
-			return nil
-		}
-		*v = ip.String()
-		return nil
+func unmarshalInet(data []byte, value interface{}) error {
+	err := inet.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
 	}
-	return unmarshalErrorf("cannot unmarshal %s into %T", info, value)
+	return nil
 }
 
 func marshalTuple(info TypeInfo, value interface{}) ([]byte, error) {
