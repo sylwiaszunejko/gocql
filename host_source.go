@@ -1,7 +1,6 @@
 package gocql
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"

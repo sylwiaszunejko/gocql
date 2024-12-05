@@ -350,6 +350,10 @@ func (c *Conn) init(ctx context.Context, dialedHost *DialedHost) error {
 		c.w = newWriteCoalescer(c.conn, c.writeTimeout, c.session.cfg.WriteCoalesceWaitTime, ctx.Done())
 	}
 
+	if c.isScyllaConn() { // ScyllaDB does not support system.peers_v2
+		c.isSchemaV2 = false
+	}
+
 	go c.serve(ctx)
 	go c.heartBeat(ctx)
 
@@ -1768,52 +1772,19 @@ func (c *Conn) query(ctx context.Context, statement string, values ...interface{
 	return c.executeQuery(ctx, q)
 }
 
-func (c *Conn) querySystemPeers(ctx context.Context, version cassVersion) *Iter {
+func (c *Conn) querySystem(ctx context.Context, query string) *Iter {
 	usingClause := ""
 	if c.session.control != nil {
 		usingClause = c.session.usingTimeoutClause
 	}
-	var (
-		peerSchema    = "SELECT * FROM system.peers" + usingClause
-		peerV2Schemas = "SELECT * FROM system.peers_v2" + usingClause
-	)
-
-	c.mu.Lock()
-	if isScyllaConn((c)) { // ScyllaDB does not support system.peers_v2
-		c.isSchemaV2 = false
-	}
-
-	isSchemaV2 := c.isSchemaV2
-	c.mu.Unlock()
-
-	if version.AtLeast(4, 0, 0) && isSchemaV2 {
-		// Try "system.peers_v2" and fallback to "system.peers" if it's not found
-		iter := c.query(ctx, peerV2Schemas)
-
-		err := iter.checkErrAndNotFound()
-		if err != nil {
-			if errFrame, ok := err.(errorFrame); ok && errFrame.code == ErrCodeInvalid { // system.peers_v2 not found, try system.peers
-				c.mu.Lock()
-				c.isSchemaV2 = false
-				c.mu.Unlock()
-				return c.query(ctx, peerSchema)
-			} else {
-				return iter
-			}
-		}
-		return iter
-	} else {
-		return c.query(ctx, peerSchema)
-	}
+	queryStmt := query + usingClause
+	return c.query(ctx, queryStmt)
 }
 
-func (c *Conn) querySystemLocal(ctx context.Context) *Iter {
-	usingClause := ""
-	if c.session.control != nil {
-		usingClause = c.session.usingTimeoutClause
-	}
-	return c.query(ctx, "SELECT * FROM system.local WHERE key='local'"+usingClause)
-}
+const qrySystemPeers = "SELECT * FROM system.peers"
+const qrySystemPeersV2 = "SELECT * FROM system.peers_2"
+
+const qrySystemLocal = "SELECT * FROM system.local WHERE key='local'"
 
 func getSchemaAgreement(queryLocalSchemasRows []string, querySystemPeersRows []map[string]interface{}, connectAddress net.IP, port int, translateAddressPort func(addr net.IP, port int) (net.IP, int), logger StdLogger) (err error) {
 	versions := make(map[string]struct{})
@@ -1850,11 +1821,7 @@ func getSchemaAgreement(queryLocalSchemasRows []string, querySystemPeersRows []m
 }
 
 func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
-	usingClause := ""
-	if c.session.control != nil {
-		usingClause = c.session.usingTimeoutClause
-	}
-	var localSchemas = "SELECT schema_version FROM system.local WHERE key='local'" + usingClause
+	var localSchemas = "SELECT schema_version FROM system.local WHERE key='local'"
 
 	var schemaVersion string
 
@@ -1874,7 +1841,12 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	}
 
 	for time.Now().Before(endDeadline) {
-		iter := c.querySystemPeers(ctx, c.host.version)
+		var iter *Iter
+		if c.isSchemaV2 {
+			iter = c.querySystem(ctx, qrySystemPeersV2)
+		} else {
+			iter = c.querySystem(ctx, qrySystemPeers)
+		}
 		var systemPeersRows []map[string]interface{}
 		systemPeersRows, err = iter.SliceMap()
 		if err != nil {
@@ -1886,7 +1858,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 
 		schemaVersions := []string{}
 
-		iter = c.query(ctx, localSchemas)
+		iter = c.querySystem(ctx, localSchemas)
 		for iter.Scan(&schemaVersion) {
 			schemaVersions = append(schemaVersions, schemaVersion)
 			schemaVersion = ""
