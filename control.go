@@ -275,7 +275,7 @@ func (c *controlConn) setupConn(conn *Conn) error {
 	if tcpAddr, ok := conn.conn.RemoteAddr().(*net.TCPAddr); ok {
 		defaultPort = tcpAddr.Port
 	}
-	host, err := c.session.hostInfoFromIter(iter, conn.host.connectAddress, defaultPort)
+	host, err := hostInfoFromIter(iter, conn.host.connectAddress, defaultPort, c.session.cfg.translateAddressPort)
 	if err != nil {
 		return err
 	}
