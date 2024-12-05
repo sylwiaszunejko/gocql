@@ -32,7 +32,7 @@ func (r *ringDescriber) getLocalHostInfo() (*HostInfo, error) {
 	}
 
 	iter := r.control.withConnHost(func(ch *connHost) *Iter {
-		return ch.conn.querySystemLocal(context.TODO())
+		return querySystemLocal(context.TODO(), ch.conn)
 	})
 
 	if iter == nil {
@@ -53,7 +53,7 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 	}
 
 	iter := r.control.withConnHost(func(ch *connHost) *Iter {
-		return ch.conn.querySystemPeers(context.TODO(), localHost.version)
+		return querySystemPeers(context.TODO(), ch.conn)
 	})
 
 	if iter == nil {
@@ -144,7 +144,7 @@ func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 			}
 
 			if table == "system.peers" {
-				return ch.conn.querySystemPeers(context.TODO(), ch.host.version)
+				return querySystemPeers(context.TODO(), ch.conn)
 			} else {
 				return ch.conn.query(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
 			}
