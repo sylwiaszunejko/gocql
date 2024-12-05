@@ -411,9 +411,8 @@ func (s *Session) AwaitSchemaAgreement(ctx context.Context) error {
 	if s.cfg.disableControlConn {
 		return errNoControl
 	}
-	return s.control.withConn(func(conn *Conn) *Iter {
-		return &Iter{err: conn.awaitSchemaAgreement(ctx)}
-	}).err
+	ch := s.control.getConn()
+	return (&Iter{err: ch.conn.awaitSchemaAgreement(ctx)}).err
 }
 
 func (s *Session) reconnectDownedHosts(intv time.Duration) {

@@ -31,9 +31,8 @@ func (r *ringDescriber) getLocalHostInfo() (*HostInfo, error) {
 		return nil, errNoControl
 	}
 
-	iter := r.control.withConnHost(func(ch *connHost) *Iter {
-		return querySystemLocal(context.TODO(), ch.conn)
-	})
+	ch := r.control.getConn()
+	iter := querySystemLocal(context.TODO(), ch.conn)
 
 	if iter == nil {
 		return nil, errNoControl
@@ -52,9 +51,8 @@ func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, er
 		return nil, errNoControl
 	}
 
-	iter := r.control.withConnHost(func(ch *connHost) *Iter {
-		return querySystemPeers(context.TODO(), ch.conn)
-	})
+	ch := r.control.getConn()
+	iter := querySystemPeers(context.TODO(), ch.conn)
 
 	if iter == nil {
 		return nil, errNoControl
@@ -137,18 +135,18 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 	var host *HostInfo
 	for _, table := range []string{"system.peers", "system.local"} {
-		iter := r.control.withConnHost(func(ch *connHost) *Iter {
-			if ch.host.HostID() == hostID.String() {
-				host = ch.host
-				return nil
-			}
+		ch := r.control.getConn()
+		var iter *Iter
+		if ch.host.HostID() == hostID.String() {
+			host = ch.host
+			iter = nil
+		}
 
-			if table == "system.peers" {
-				return querySystemPeers(context.TODO(), ch.conn)
-			} else {
-				return ch.conn.query(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
-			}
-		})
+		if table == "system.peers" {
+			iter = querySystemPeers(context.TODO(), ch.conn)
+		} else {
+			iter = ch.conn.query(context.TODO(), fmt.Sprintf("SELECT * FROM %s", table))
+		}
 
 		if iter != nil {
 			rows, err := iter.SliceMap()
