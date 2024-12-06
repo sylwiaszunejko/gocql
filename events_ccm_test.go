@@ -80,7 +80,7 @@ func TestEventNodeDownControl(t *testing.T) {
 	}
 	session.pool.mu.RUnlock()
 
-	host := session.ring.getHost(node.Addr)
+	host := session.hostSource.getHost(node.Addr)
 	if host == nil {
 		t.Fatal("node not in metadata ring")
 	} else if host.IsUp() {
@@ -122,7 +122,7 @@ func TestEventNodeDown(t *testing.T) {
 		t.Fatal("node not removed after remove event")
 	}
 
-	host := session.ring.getHost(node.Addr)
+	host := session.hostSource.getHost(node.Addr)
 	if host == nil {
 		t.Fatal("node not in metadata ring")
 	} else if host.IsUp() {
@@ -179,7 +179,7 @@ func TestEventNodeUp(t *testing.T) {
 		t.Fatal("node not added after node added event")
 	}
 
-	host := session.ring.getHost(node.Addr)
+	host := session.hostSource.getHost(node.Addr)
 	if host == nil {
 		t.Fatal("node not in metadata ring")
 	} else if !host.IsUp() {
