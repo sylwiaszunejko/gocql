@@ -162,6 +162,18 @@ func (fn connErrorHandlerFn) HandleError(conn *Conn, err error, closed bool) {
 // Deprecated.
 var TimeoutLimit int64 = 0
 
+type ConnInterface interface {
+	Close()
+	exec(ctx context.Context, req frameBuilder, tracer Tracer) (*framer, error)
+	awaitSchemaAgreement(ctx context.Context) error
+	executeQuery(ctx context.Context, qry *Query) *Iter
+	querySystem(ctx context.Context, query string) *Iter
+	getIsSchemaV2() bool
+	setSchemaV2(s bool)
+	query(ctx context.Context, statement string, values ...interface{}) (iter *Iter)
+	getScyllaSupported() scyllaSupported
+}
+
 // Conn is a single connection to a Cassandra node. It can be used to execute
 // queries, but users are usually advised to use a more reliable, higher
 // level API.
@@ -210,6 +222,18 @@ type Conn struct {
 
 	logger           StdLogger
 	tabletsRoutingV1 int32
+}
+
+func (c *Conn) getIsSchemaV2() bool {
+	return c.isSchemaV2
+}
+
+func (c *Conn) setSchemaV2(s bool) {
+	c.isSchemaV2 = s
+}
+
+func (c *Conn) getScyllaSupported() scyllaSupported {
+	return c.scyllaSupported
 }
 
 // connect establishes a connection to a Cassandra node using session's connection config.
@@ -351,7 +375,7 @@ func (c *Conn) init(ctx context.Context, dialedHost *DialedHost) error {
 	}
 
 	if isScyllaConn((c)) { // ScyllaDB does not support system.peers_v2
-		c.isSchemaV2 = false
+		c.setSchemaV2(false)
 	}
 
 	go c.serve(ctx)
@@ -1781,15 +1805,15 @@ func (c *Conn) querySystem(ctx context.Context, query string) *Iter {
 	return c.query(ctx, queryStmt)
 }
 
-func querySystemPeers(ctx context.Context, c *Conn) *Iter {
+func querySystemPeers(ctx context.Context, c ConnInterface) *Iter {
 	peerSchema := "SELECT * FROM system.peers"
-	if c.isSchemaV2 {
+	if c.getIsSchemaV2() {
 		peerSchema = peerSchema + "_v2"
 	}
 	return c.querySystem(ctx, peerSchema)
 }
 
-func querySystemLocal(ctx context.Context, c *Conn) *Iter {
+func querySystemLocal(ctx context.Context, c ConnInterface) *Iter {
 	return c.querySystem(ctx, "SELECT * FROM system.local WHERE key='local'")
 }
 

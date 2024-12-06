@@ -35,6 +35,16 @@ const (
 	controlConnClosing  = -1
 )
 
+type controlConnection interface {
+	getConn() *connHost
+	awaitSchemaAgreement() error
+	query(statement string, values ...interface{}) (iter *Iter)
+	discoverProtocol(hosts []*HostInfo) (int, error)
+	connect(hosts []*HostInfo) error
+	close()
+	getSession() *Session
+}
+
 // Ensure that the atomic variable is aligned to a 64bit boundary
 // so that atomic operations can be applied on 32bit architectures.
 type controlConn struct {
@@ -47,6 +57,10 @@ type controlConn struct {
 	retry RetryPolicy
 
 	quit chan struct{}
+}
+
+func (c *controlConn) getSession() *Session {
+	return c.session
 }
 
 func createControlConn(session *Session) *controlConn {
@@ -264,7 +278,7 @@ func (c *controlConn) connect(hosts []*HostInfo) error {
 }
 
 type connHost struct {
-	conn *Conn
+	conn ConnInterface
 	host *HostInfo
 }
 
@@ -468,7 +482,7 @@ func (c *controlConn) query(statement string, values ...interface{}) (iter *Iter
 
 	for {
 		ch := c.getConn()
-		q.conn = ch.conn
+		q.conn = ch.conn.(*Conn)
 		iter = ch.conn.executeQuery(context.TODO(), q)
 
 		if gocqlDebug && iter.err != nil {

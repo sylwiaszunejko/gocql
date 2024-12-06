@@ -10,7 +10,7 @@ import (
 
 // Polls system.peers at a specific interval to find new hosts
 type ringDescriber struct {
-	control         *controlConn
+	control         controlConnection
 	cfg             *ClusterConfig
 	logger          StdLogger
 	mu              sync.Mutex
@@ -18,7 +18,7 @@ type ringDescriber struct {
 	prevPartitioner string
 }
 
-func (r *ringDescriber) setControlConn(c *controlConn) {
+func (r *ringDescriber) setControlConn(c controlConnection) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
