@@ -26,13 +26,8 @@ func (r *ringDescriber) setControlConn(c controlConnection) {
 }
 
 // Ask the control node for the local host info
-func (r *ringDescriber) getLocalHostInfo() (*HostInfo, error) {
-	if r.control == nil {
-		return nil, errNoControl
-	}
-
-	ch := r.control.getConn()
-	iter := ch.conn.querySystem(context.TODO(), qrySystemLocal)
+func (r *ringDescriber) getLocalHostInfo(conn ConnInterface) (*HostInfo, error) {
+	iter := conn.querySystem(context.TODO(), qrySystemLocal)
 
 	if iter == nil {
 		return nil, errNoControl
@@ -46,17 +41,12 @@ func (r *ringDescriber) getLocalHostInfo() (*HostInfo, error) {
 }
 
 // Ask the control node for host info on all it's known peers
-func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo) ([]*HostInfo, error) {
-	if r.control == nil {
-		return nil, errNoControl
-	}
-
-	ch := r.control.getConn()
+func (r *ringDescriber) getClusterPeerInfo(localHost *HostInfo, c ConnInterface) ([]*HostInfo, error) {
 	var iter *Iter
-	if ch.conn.isSchemaV2 {
-		iter = ch.conn.querySystem(context.TODO(), qrySystemPeersV2)
+	if c.getIsSchemaV2() {
+		iter = c.querySystem(context.TODO(), qrySystemPeersV2)
 	} else {
-		iter = ch.conn.querySystem(context.TODO(), qrySystemPeers)
+		iter = c.querySystem(context.TODO(), qrySystemPeers)
 	}
 
 	if iter == nil {
@@ -112,12 +102,17 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	localHost, err := r.getLocalHostInfo()
+	if r.control == nil {
+		return r.prevHosts, r.prevPartitioner, errNoControl
+	}
+
+	ch := r.control.getConn()
+	localHost, err := r.getLocalHostInfo(ch.conn)
 	if err != nil {
 		return r.prevHosts, r.prevPartitioner, err
 	}
 
-	peerHosts, err := r.getClusterPeerInfo(localHost)
+	peerHosts, err := r.getClusterPeerInfo(localHost, ch.conn)
 	if err != nil {
 		return r.prevHosts, r.prevPartitioner, err
 	}
