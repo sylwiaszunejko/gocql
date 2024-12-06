@@ -10,7 +10,7 @@ import (
 
 // Polls system.peers at a specific interval to find new hosts
 type ringDescriber struct {
-	control         *controlConn
+	control         controlConnection
 	cfg             *ClusterConfig
 	logger          StdLogger
 	mu              sync.Mutex
@@ -18,7 +18,7 @@ type ringDescriber struct {
 	prevPartitioner string
 }
 
-func (r *ringDescriber) setControlConn(c *controlConn) {
+func (r *ringDescriber) setControlConn(c controlConnection) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -148,7 +148,7 @@ func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 		}
 
 		if table == "system.peers" {
-			if ch.conn.isSchemaV2 {
+			if ch.conn.getIsSchemaV2() {
 				iter = ch.conn.querySystem(context.TODO(), qrySystemPeersV2)
 			} else {
 				iter = ch.conn.querySystem(context.TODO(), qrySystemPeers)

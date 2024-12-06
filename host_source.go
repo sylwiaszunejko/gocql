@@ -504,8 +504,8 @@ func (h *HostInfo) ScyllaShardAwarePortTLS() uint16 {
 }
 
 // Returns true if we are using system_schema.keyspaces instead of system.schema_keyspaces
-func checkSystemSchema(control *controlConn) (bool, error) {
-	iter := control.query("SELECT * FROM system_schema.keyspaces" + control.session.usingTimeoutClause)
+func checkSystemSchema(control controlConnection) (bool, error) {
+	iter := control.query("SELECT * FROM system_schema.keyspaces" + control.getSession().usingTimeoutClause)
 	if err := iter.err; err != nil {
 		if errf, ok := err.(*errorFrame); ok {
 			if errf.code == ErrCodeSyntax {

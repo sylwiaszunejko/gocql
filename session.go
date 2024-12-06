@@ -57,7 +57,7 @@ type Session struct {
 
 	mu sync.RWMutex
 
-	control *controlConn
+	control controlConnection
 
 	// event handlers
 	nodeEvents   *eventDebouncer
@@ -257,7 +257,7 @@ func (s *Session) init() error {
 			return fmt.Errorf("unable to connect to the cluster, last error: %v", lastErr.Error())
 		}
 
-		conn := s.control.getConn().conn
+		conn := s.control.getConn().conn.(*Conn)
 		conn.mu.Lock()
 		s.tabletsRoutingV1 = conn.isTabletSupported()
 		if s.cfg.MetadataSchemaRequestTimeout > time.Duration(0) && isScyllaConn(conn) {
@@ -980,7 +980,7 @@ type Query struct {
 	trace                 Tracer
 	observer              QueryObserver
 	session               *Session
-	conn                  *Conn
+	conn                  ConnInterface
 	rt                    RetryPolicy
 	spec                  SpeculativeExecutionPolicy
 	binding               func(q *QueryInfo) ([]interface{}, error)
@@ -1555,7 +1555,7 @@ type Iter struct {
 	next    *nextIter
 	host    *HostInfo
 
-	framer *framer
+	framer framerInterface
 	closed int32
 }
 
@@ -1760,7 +1760,7 @@ func (iter *Iter) Scan(dest ...interface{}) bool {
 // See https://datastax.github.io/java-driver/manual/custom_payloads/
 func (iter *Iter) GetCustomPayload() map[string][]byte {
 	if iter.framer != nil {
-		return iter.framer.customPayload
+		return iter.framer.getCustomPayload()
 	}
 	return nil
 }
@@ -1770,7 +1770,7 @@ func (iter *Iter) GetCustomPayload() map[string][]byte {
 // This is only available starting with CQL Protocol v4.
 func (iter *Iter) Warnings() []string {
 	if iter.framer != nil {
-		return iter.framer.header.warnings
+		return iter.framer.getHeaderWarnings()
 	}
 	return nil
 }
