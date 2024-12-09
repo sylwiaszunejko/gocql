@@ -29,6 +29,7 @@ import (
 	"github.com/gocql/gocql/serialization/inet"
 	"github.com/gocql/gocql/serialization/smallint"
 	"github.com/gocql/gocql/serialization/text"
+	"github.com/gocql/gocql/serialization/timestamp"
 	"github.com/gocql/gocql/serialization/timeuuid"
 	"github.com/gocql/gocql/serialization/tinyint"
 	"github.com/gocql/gocql/serialization/uuid"
@@ -173,7 +174,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeTime:
 		return marshalTime(value)
 	case TypeTimestamp:
-		return marshalTimestamp(info, value)
+		return marshalTimestamp(value)
 	case TypeList, TypeSet:
 		return marshalList(info, value)
 	case TypeMap:
@@ -287,7 +288,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeTime:
 		return unmarshalTime(data, value)
 	case TypeTimestamp:
-		return unmarshalTimestamp(info, data, value)
+		return unmarshalTimestamp(data, value)
 	case TypeList, TypeSet:
 		return unmarshalList(info, data, value)
 	case TypeMap:
@@ -683,64 +684,20 @@ func unmarshalTime(data []byte, value interface{}) error {
 	return nil
 }
 
-func marshalTimestamp(info TypeInfo, value interface{}) ([]byte, error) {
-	switch v := value.(type) {
-	case Marshaler:
-		return v.MarshalCQL(info)
-	case unsetColumn:
-		return nil, nil
-	case int64:
-		return encBigInt(v), nil
-	case time.Time:
-		if v.IsZero() {
-			return []byte{}, nil
-		}
-		x := int64(v.UTC().Unix()*1e3) + int64(v.UTC().Nanosecond()/1e6)
-		return encBigInt(x), nil
+func marshalTimestamp(value interface{}) ([]byte, error) {
+	data, err := timestamp.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-
-	rv := reflect.ValueOf(value)
-	switch rv.Type().Kind() {
-	case reflect.Int64:
-		return encBigInt(rv.Int()), nil
-	}
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
+	return data, nil
 }
 
-func unmarshalTimestamp(info TypeInfo, data []byte, value interface{}) error {
-	switch v := value.(type) {
-	case Unmarshaler:
-		return v.UnmarshalCQL(info, data)
-	case *int64:
-		*v = decBigInt(data)
-		return nil
-	case *time.Time:
-		if len(data) == 0 {
-			*v = time.Time{}
-			return nil
-		}
-		x := decBigInt(data)
-		sec := x / 1000
-		nsec := (x - sec*1000) * 1000000
-		*v = time.Unix(sec, nsec).In(time.UTC)
-		return nil
+func unmarshalTimestamp(data []byte, value interface{}) error {
+	err := timestamp.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
 	}
-
-	rv := reflect.ValueOf(value)
-	if rv.Kind() != reflect.Ptr {
-		return unmarshalErrorf("can not unmarshal into non-pointer %T", value)
-	}
-	rv = rv.Elem()
-	switch rv.Type().Kind() {
-	case reflect.Int64:
-		rv.SetInt(decBigInt(data))
-		return nil
-	}
-	return unmarshalErrorf("can not unmarshal %s into %T", info, value)
+	return nil
 }
 
 const millisecondsInADay int64 = 24 * 60 * 60 * 1000
