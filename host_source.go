@@ -665,7 +665,7 @@ func (s *Session) debounceRingRefresh() {
 }
 
 // refreshRing executes a ring refresh immediately and cancels pending debounce ring refresh requests.
-func (s *Session) refreshRing() error {
+func (s *Session) refreshRingNow() error {
 	err, ok := <-s.ringRefresher.refreshNow()
 	if !ok {
 		return errors.New("could not refresh ring because stop was requested")
@@ -674,7 +674,11 @@ func (s *Session) refreshRing() error {
 	return err
 }
 
-func refreshRing(hosts []*HostInfo, partitioner string, s *Session) error {
+func (s *Session) refreshRing() error {
+	hosts, partitioner, err := s.hostSource.GetHosts()
+	if err != nil {
+		return err
+	}
 	prevHosts := s.ring.currentHosts()
 
 	for _, h := range hosts {

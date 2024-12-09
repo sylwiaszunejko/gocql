@@ -153,11 +153,7 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 
 	s.hostSource = &ringDescriber{cfg: &s.cfg, logger: s.logger}
 	s.ringRefresher = newRefreshDebouncer(ringRefreshDebounceTime, func() error {
-		hosts, partitioner, err := s.hostSource.GetHosts()
-		if err != nil {
-			return err
-		}
-		return refreshRing(hosts, partitioner, s)
+		return s.refreshRing()
 	})
 
 	if cfg.PoolConfig.HostSelectionPolicy == nil {

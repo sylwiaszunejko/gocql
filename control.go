@@ -373,7 +373,7 @@ func (c *controlConn) reconnect() {
 		return
 	}
 
-	err = c.session.refreshRing()
+	err = c.session.refreshRingNow()
 	if err != nil {
 		c.session.logger.Printf("gocql: unable to refresh ring: %v\n", err)
 	}
