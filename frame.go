@@ -345,9 +345,9 @@ type FrameHeaderObserver interface {
 }
 
 type framerInterface interface {
-	readBytesInternal() ([]byte, error)
-	getCustomPayload() map[string][]byte
-	getHeaderWarnings() []string
+	ReadBytesInternal() ([]byte, error)
+	GetCustomPayload() map[string][]byte
+	GetHeaderWarnings() []string
 }
 
 // a framer is responsible for reading, writing and parsing frames on a single stream
@@ -1872,7 +1872,7 @@ func (f *framer) readStringList() []string {
 	return l
 }
 
-func (f *framer) readBytesInternal() ([]byte, error) {
+func (f *framer) ReadBytesInternal() ([]byte, error) {
 	size := f.readInt()
 	if size < 0 {
 		return nil, nil
@@ -1889,7 +1889,7 @@ func (f *framer) readBytesInternal() ([]byte, error) {
 }
 
 func (f *framer) readBytes() []byte {
-	l, err := f.readBytesInternal()
+	l, err := f.ReadBytesInternal()
 	if err != nil {
 		panic(err)
 	}
@@ -2021,11 +2021,11 @@ func (f *framer) writeCustomPayload(customPayload *map[string][]byte) {
 	}
 }
 
-func (f *framer) getCustomPayload() map[string][]byte {
+func (f *framer) GetCustomPayload() map[string][]byte {
 	return f.customPayload
 }
 
-func (f *framer) getHeaderWarnings() []string {
+func (f *framer) GetHeaderWarnings() []string {
 	return f.header.warnings
 }
 

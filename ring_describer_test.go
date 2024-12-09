@@ -7,6 +7,8 @@ import (
 	"context"
 	"net"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests/mock"
 )
 
 func TestGetClusterPeerInfoZeroToken(t *testing.T) {
@@ -87,11 +89,6 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 	})
 }
 
-type mockFramer struct {
-	pos  int
-	data [][]byte
-}
-
 var framerLocalData = [][]byte{
 	{108, 111, 99, 97, 108},              // key
 	{67, 79, 77, 80, 76, 69, 84, 69, 68}, // bootstrapped
@@ -135,17 +132,6 @@ var framerPeersData = [][]byte{
 	{},           // supported_features
 	{0, 0, 0, 0}, // tokens
 }
-
-func (m *mockFramer) readBytesInternal() ([]byte, error) {
-	if m.pos < len(m.data) {
-		m.pos = m.pos + 1
-		return m.data[m.pos-1], nil
-	}
-	return []byte{}, nil
-}
-
-func (*mockFramer) getCustomPayload() map[string][]byte { return map[string][]byte{} }
-func (*mockFramer) getHeaderWarnings() []string         { return []string{} }
 
 type mockConnection struct{}
 
@@ -325,14 +311,14 @@ func (*mockConnection) querySystem(ctx context.Context, query string) *Iter {
 	if query == "SELECT * FROM system.local WHERE key='local'" {
 		return &Iter{
 			meta:    systemLocalResultMetadata,
-			framer:  &mockFramer{data: framerLocalData},
+			framer:  &mock.MockFramer{Data: framerLocalData},
 			numRows: 1,
 			next:    nil,
 		}
 	} else if query == "SELECT * FROM system.peers" {
 		return &Iter{
 			meta:    systemPeersResultMetadata,
-			framer:  &mockFramer{data: framerPeersData},
+			framer:  &mock.MockFramer{Data: framerPeersData},
 			numRows: 2,
 			next:    nil,
 		}
