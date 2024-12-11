@@ -1690,7 +1690,7 @@ func (iter *Iter) Scanner() Scanner {
 }
 
 func (iter *Iter) readColumn() ([]byte, error) {
-	return iter.framer.readBytesInternal()
+	return iter.framer.ReadBytesInternal()
 }
 
 // Scan consumes the next row of the iterator and copies the columns of the
@@ -1756,7 +1756,7 @@ func (iter *Iter) Scan(dest ...interface{}) bool {
 // See https://datastax.github.io/java-driver/manual/custom_payloads/
 func (iter *Iter) GetCustomPayload() map[string][]byte {
 	if iter.framer != nil {
-		return iter.framer.getCustomPayload()
+		return iter.framer.GetCustomPayload()
 	}
 	return nil
 }
@@ -1766,7 +1766,7 @@ func (iter *Iter) GetCustomPayload() map[string][]byte {
 // This is only available starting with CQL Protocol v4.
 func (iter *Iter) Warnings() []string {
 	if iter.framer != nil {
-		return iter.framer.getHeaderWarnings()
+		return iter.framer.GetHeaderWarnings()
 	}
 	return nil
 }
