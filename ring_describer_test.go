@@ -13,16 +13,12 @@ import (
 )
 
 func TestGetClusterPeerInfoZeroToken(t *testing.T) {
-	host_id1, _ := ParseUUID("b2035fd9-e0ca-4857-8c45-e63c00fb7c43")
-	host_id2, _ := ParseUUID("4b21ee4c-acea-4267-8e20-aaed5361a0dd")
-	host_id3, _ := ParseUUID("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3")
-
-	schema_version1, _ := ParseUUID("af810386-a694-11ef-81fa-3aea73156247")
+	schema_version1 := ParseUUIDMust("af810386-a694-11ef-81fa-3aea73156247")
 
 	peersRows := []map[string]interface{}{
 		{
 			"data_center":     "datacenter1",
-			"host_id":         host_id1,
+			"host_id":         ParseUUIDMust("b2035fd9-e0ca-4857-8c45-e63c00fb7c43"),
 			"peer":            "127.0.0.3",
 			"preferred_ip":    "127.0.0.3",
 			"rack":            "rack1",
@@ -33,7 +29,7 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 		},
 		{
 			"data_center":     "datacenter1",
-			"host_id":         host_id2,
+			"host_id":         ParseUUIDMust("4b21ee4c-acea-4267-8e20-aaed5361a0dd"),
 			"peer":            "127.0.0.2",
 			"preferred_ip":    "127.0.0.2",
 			"rack":            "rack1",
@@ -44,7 +40,7 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 		},
 		{
 			"data_center":     "datacenter2",
-			"host_id":         host_id3,
+			"host_id":         ParseUUIDMust("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3"),
 			"peer":            "127.0.0.5",
 			"preferred_ip":    "127.0.0.5",
 			"rack":            "rack1",
@@ -265,15 +261,9 @@ var systemPeersResultMetadata = resultMetadata{
 }
 
 func (*mockConnection) querySystem(ctx context.Context, query string) *Iter {
-	host_id, _ := ParseUUID("045859a7-6b9f-4efd-a5e7-acd64a295e13")
-	schema_version, _ := ParseUUID("daf4df2c-b708-11ef-5c25-3004361afd71")
-	localData := []interface{}{"local", "COMPLETED", net.IPv4(192, 168, 100, 12), "", "3.3.1", "datacenter1", 1733834239, host_id, net.IPv4(192, 168, 100, 12), "4", "org.apache.cassandra.dht.Murmur3Partitioner", "rack1", "3.0.8", net.IPv4(192, 168, 100, 12), schema_version, "", []string{}, map[UUID]byte{}}
-
-	host_id1, _ := ParseUUID("b953309f-6e68-41f2-baf5-0e60da317a9c")
-	host_id2, _ := ParseUUID("8269e111-ea38-44bd-a73f-9d3d12cfaf78")
-	schema_version, _ = ParseUUID("b6ed5bde-b318-11ef-8f58-aeba19e31273")
-	peerData1 := []interface{}{net.IPv4(192, 168, 100, 13), "datacenter1", host_id1, net.IP{}, "rack1", "3.0.8", net.IPv4(192, 168, 100, 13), schema_version, "", []string{"-1032311531684407545", "-1112089412567859825"}}
-	peerData2 := []interface{}{net.IPv4(192, 168, 100, 14), "datacenter1", host_id2, net.IP{}, "rack1", "3.0.8", net.IPv4(192, 168, 100, 14), schema_version, "", []string{}}
+	localData := []interface{}{"local", "COMPLETED", net.IPv4(192, 168, 100, 12), "", "3.3.1", "datacenter1", 1733834239, ParseUUIDMust("045859a7-6b9f-4efd-a5e7-acd64a295e13"), net.IPv4(192, 168, 100, 12), "4", "org.apache.cassandra.dht.Murmur3Partitioner", "rack1", "3.0.8", net.IPv4(192, 168, 100, 12), ParseUUIDMust("daf4df2c-b708-11ef-5c25-3004361afd71"), "", []string{}, map[UUID]byte{}}
+	peerData1 := []interface{}{net.IPv4(192, 168, 100, 13), "datacenter1", ParseUUIDMust("b953309f-6e68-41f2-baf5-0e60da317a9c"), net.IP{}, "rack1", "3.0.8", net.IPv4(192, 168, 100, 13), ParseUUIDMust("b6ed5bde-b318-11ef-8f58-aeba19e31273"), "", []string{"-1032311531684407545", "-1112089412567859825"}}
+	peerData2 := []interface{}{net.IPv4(192, 168, 100, 14), "datacenter1", ParseUUIDMust("8269e111-ea38-44bd-a73f-9d3d12cfaf78"), net.IP{}, "rack1", "3.0.8", net.IPv4(192, 168, 100, 14), ParseUUIDMust("b6ed5bde-b318-11ef-8f58-aeba19e31273"), "", []string{}}
 
 	if query == "SELECT * FROM system.local WHERE key='local'" {
 		return &Iter{
