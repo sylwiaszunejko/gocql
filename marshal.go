@@ -6,7 +6,6 @@ package gocql
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -23,6 +22,7 @@ import (
 	"github.com/gocql/gocql/serialization/counter"
 	"github.com/gocql/gocql/serialization/cqlint"
 	"github.com/gocql/gocql/serialization/cqltime"
+	"github.com/gocql/gocql/serialization/date"
 	"github.com/gocql/gocql/serialization/decimal"
 	"github.com/gocql/gocql/serialization/double"
 	"github.com/gocql/gocql/serialization/float"
@@ -192,7 +192,7 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 	case TypeUDT:
 		return marshalUDT(info, value)
 	case TypeDate:
-		return marshalDate(info, value)
+		return marshalDate(value)
 	case TypeDuration:
 		return marshalDuration(info, value)
 	}
@@ -304,7 +304,7 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 	case TypeUDT:
 		return unmarshalUDT(info, data, value)
 	case TypeDate:
-		return unmarshalDate(info, data, value)
+		return unmarshalDate(data, value)
 	case TypeDuration:
 		return unmarshalDuration(info, data, value)
 	}
@@ -700,78 +700,20 @@ func unmarshalTimestamp(data []byte, value interface{}) error {
 	return nil
 }
 
-const millisecondsInADay int64 = 24 * 60 * 60 * 1000
-
-func marshalDate(info TypeInfo, value interface{}) ([]byte, error) {
-	var timestamp int64
-	switch v := value.(type) {
-	case Marshaler:
-		return v.MarshalCQL(info)
-	case unsetColumn:
-		return nil, nil
-	case int64:
-		timestamp = v
-		x := timestamp/millisecondsInADay + int64(1<<31)
-		return encInt(int32(x)), nil
-	case time.Time:
-		if v.IsZero() {
-			return []byte{}, nil
-		}
-		timestamp = int64(v.UTC().Unix()*1e3) + int64(v.UTC().Nanosecond()/1e6)
-		x := timestamp/millisecondsInADay + int64(1<<31)
-		return encInt(int32(x)), nil
-	case *time.Time:
-		if v.IsZero() {
-			return []byte{}, nil
-		}
-		timestamp = int64(v.UTC().Unix()*1e3) + int64(v.UTC().Nanosecond()/1e6)
-		x := timestamp/millisecondsInADay + int64(1<<31)
-		return encInt(int32(x)), nil
-	case string:
-		if v == "" {
-			return []byte{}, nil
-		}
-		t, err := time.Parse("2006-01-02", v)
-		if err != nil {
-			return nil, marshalErrorf("can not marshal %T into %s, date layout must be '2006-01-02'", value, info)
-		}
-		timestamp = int64(t.UTC().Unix()*1e3) + int64(t.UTC().Nanosecond()/1e6)
-		x := timestamp/millisecondsInADay + int64(1<<31)
-		return encInt(int32(x)), nil
+func marshalDate(value interface{}) ([]byte, error) {
+	data, err := date.Marshal(value)
+	if err != nil {
+		return nil, wrapMarshalError(err, "marshal error")
 	}
-
-	if value == nil {
-		return nil, nil
-	}
-	return nil, marshalErrorf("can not marshal %T into %s", value, info)
+	return data, nil
 }
 
-func unmarshalDate(info TypeInfo, data []byte, value interface{}) error {
-	switch v := value.(type) {
-	case Unmarshaler:
-		return v.UnmarshalCQL(info, data)
-	case *time.Time:
-		if len(data) == 0 {
-			*v = time.Time{}
-			return nil
-		}
-		var origin uint32 = 1 << 31
-		var current uint32 = binary.BigEndian.Uint32(data)
-		timestamp := (int64(current) - int64(origin)) * millisecondsInADay
-		*v = time.UnixMilli(timestamp).In(time.UTC)
-		return nil
-	case *string:
-		if len(data) == 0 {
-			*v = ""
-			return nil
-		}
-		var origin uint32 = 1 << 31
-		var current uint32 = binary.BigEndian.Uint32(data)
-		timestamp := (int64(current) - int64(origin)) * millisecondsInADay
-		*v = time.UnixMilli(timestamp).In(time.UTC).Format("2006-01-02")
-		return nil
+func unmarshalDate(data []byte, value interface{}) error {
+	err := date.Unmarshal(data, value)
+	if err != nil {
+		return wrapUnmarshalError(err, "unmarshal error")
 	}
-	return unmarshalErrorf("can not unmarshal %s into %T", info, value)
+	return nil
 }
 
 func marshalDuration(info TypeInfo, value interface{}) ([]byte, error) {
