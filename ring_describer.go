@@ -134,6 +134,9 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 		partitioner = hosts[0].Partitioner()
 	}
 
+	r.prevHosts = hosts
+	r.prevPartitioner = partitioner
+
 	return hosts, partitioner, nil
 }
 
