@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"sync/atomic"
 )
 
 // Polls system.peers at a specific interval to find new hosts
@@ -23,9 +22,6 @@ type ringDescriber struct {
 	hosts map[string]*HostInfo
 	// hostIPToUUID maps host native address to host_id.
 	hostIPToUUID map[string]string
-
-	hostList []*HostInfo
-	pos      uint32
 }
 
 func (r *ringDescriber) setControlConn(c controlConnection) {
@@ -191,17 +187,6 @@ func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 	return host, nil
 }
 
-func (r *ringDescriber) rrHost() *HostInfo {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	if len(r.hostList) == 0 {
-		return nil
-	}
-
-	pos := int(atomic.AddUint32(&r.pos, 1) - 1)
-	return r.hostList[pos%len(r.hostList)]
-}
-
 func (r *ringDescriber) getHostByIP(ip string) (*HostInfo, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -263,7 +248,6 @@ func (r *ringDescriber) addHostIfMissing(host *HostInfo) (*HostInfo, bool) {
 		r.hosts[hostID] = host
 		r.hostIPToUUID[host.nodeToNodeAddress().String()] = hostID
 		existing = host
-		r.hostList = append(r.hostList, host)
 	}
 	r.mu.Unlock()
 	return existing, ok
@@ -280,12 +264,6 @@ func (r *ringDescriber) removeHost(hostID string) bool {
 
 	h, ok := r.hosts[hostID]
 	if ok {
-		for i, host := range r.hostList {
-			if host.HostID() == hostID {
-				r.hostList = append(r.hostList[:i], r.hostList[i+1:]...)
-				break
-			}
-		}
 		delete(r.hostIPToUUID, h.nodeToNodeAddress().String())
 	}
 	delete(r.hosts, hostID)
