@@ -1398,17 +1398,11 @@ func (srv *TestServer) readFrame(conn net.Conn) (*framer, error) {
 }
 
 func TestGetSchemaAgreement(t *testing.T) {
-	host_id1, _ := ParseUUID("b2035fd9-e0ca-4857-8c45-e63c00fb7c43")
-	host_id2, _ := ParseUUID("4b21ee4c-acea-4267-8e20-aaed5361a0dd")
-	host_id3, _ := ParseUUID("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3")
-
-	schema_version1, _ := ParseUUID("af810386-a694-11ef-81fa-3aea73156247")
-	schema_version2, _ := ParseUUID("875a938a-a695-11ef-4314-85c8ef0ebaa2")
-
+	schema_version1 := ParseUUIDMust("af810386-a694-11ef-81fa-3aea73156247")
 	peersRows := []map[string]interface{}{
 		{
 			"data_center":     "datacenter1",
-			"host_id":         host_id1,
+			"host_id":         ParseUUIDMust("b2035fd9-e0ca-4857-8c45-e63c00fb7c43"),
 			"peer":            "127.0.0.3",
 			"preferred_ip":    "127.0.0.3",
 			"rack":            "rack1",
@@ -1419,7 +1413,7 @@ func TestGetSchemaAgreement(t *testing.T) {
 		},
 		{
 			"data_center":     "datacenter1",
-			"host_id":         host_id2,
+			"host_id":         ParseUUIDMust("4b21ee4c-acea-4267-8e20-aaed5361a0dd"),
 			"peer":            "127.0.0.2",
 			"preferred_ip":    "127.0.0.2",
 			"rack":            "rack1",
@@ -1430,13 +1424,13 @@ func TestGetSchemaAgreement(t *testing.T) {
 		},
 		{
 			"data_center":     "datacenter2",
-			"host_id":         host_id3,
+			"host_id":         ParseUUIDMust("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3"),
 			"peer":            "127.0.0.5",
 			"preferred_ip":    "127.0.0.5",
 			"rack":            "rack1",
 			"release_version": "3.0.8",
 			"rpc_address":     "127.0.0.5",
-			"schema_version":  schema_version2,
+			"schema_version":  ParseUUIDMust("875a938a-a695-11ef-4314-85c8ef0ebaa2"),
 			"tokens":          []string{},
 		},
 	}
