@@ -716,8 +716,6 @@ func (s *Session) refreshRing() error {
 		s.metadataDescriber.removeTabletsWithHost(host)
 		s.removeHost(host)
 	}
-
-	s.metadata.setPartitioner(partitioner)
 	s.policy.SetPartitioner(partitioner)
 
 	return nil
