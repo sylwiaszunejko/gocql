@@ -27,9 +27,6 @@ func EncTime(v time.Time) ([]byte, error) {
 	if v.After(maxTimestamp) || v.Before(minTimestamp) {
 		return nil, fmt.Errorf("failed to marshal timestamp: the (%T)(%s) value should be in the range from -292275055-05-16T16:47:04.192Z to 292278994-08-17T07:12:55.807", v, v.Format(time.RFC3339Nano))
 	}
-	if v.IsZero() {
-		return make([]byte, 0), nil
-	}
 	ms := v.Unix()*1e3 + int64(v.Nanosecond())/1e6
 	return []byte{byte(ms >> 56), byte(ms >> 48), byte(ms >> 40), byte(ms >> 32), byte(ms >> 24), byte(ms >> 16), byte(ms >> 8), byte(ms)}, nil
 }
