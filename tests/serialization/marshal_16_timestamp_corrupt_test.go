@@ -40,9 +40,33 @@ func TestMarshalTimestampCorrupt(t *testing.T) {
 	}
 
 	for _, tSuite := range testSuites {
+		marshal := tSuite.marshal
 		unmarshal := tSuite.unmarshal
 
 		t.Run(tSuite.name, func(t *testing.T) {
+			serialization.NegativeMarshalSet{
+				Values: mod.Values{
+					time.Date(292278994, 8, 17, 7, 12, 55, 808*1000000, time.UTC),
+					time.Date(292278994, 8, 17, 7, 12, 56, 807*1000000, time.UTC),
+					time.Date(292278994, 8, 17, 7, 13, 55, 807*1000000, time.UTC),
+					time.Date(292278994, 8, 17, 8, 12, 55, 807*1000000, time.UTC),
+					time.Date(292278994, 8, 18, 7, 12, 55, 807*1000000, time.UTC),
+					time.Date(292278994, 9, 17, 7, 12, 55, 807*1000000, time.UTC),
+					time.Date(292278995, 8, 17, 7, 12, 55, 807*1000000, time.UTC),
+				}.AddVariants(mod.All...),
+			}.Run("big_vals", t, marshal)
+
+			serialization.NegativeMarshalSet{
+				Values: mod.Values{
+					time.Date(-292275055, 5, 16, 16, 47, 4, 191*1000000, time.UTC),
+					time.Date(-292275055, 5, 16, 16, 47, 3, 192*1000000, time.UTC),
+					time.Date(-292275055, 5, 16, 16, 46, 4, 192*1000000, time.UTC),
+					time.Date(-292275055, 5, 16, 15, 47, 4, 192*1000000, time.UTC),
+					time.Date(-292275055, 5, 15, 16, 47, 4, 192*1000000, time.UTC),
+					time.Date(-292275055, 4, 16, 16, 47, 4, 192*1000000, time.UTC),
+					time.Date(-292275056, 5, 16, 16, 47, 4, 192*1000000, time.UTC),
+				}.AddVariants(mod.All...),
+			}.Run("small_vals", t, marshal)
 
 			serialization.NegativeUnmarshalSet{
 				Data: []byte("\x7f\xff\xff\xff\xff\xff\xff\xff\xff"),
