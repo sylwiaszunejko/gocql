@@ -919,7 +919,7 @@ func TestReconnection(t *testing.T) {
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	h := session.hostSource.allHosts()[0]
+	h := session.hostSource.getHostsList()[0]
 	session.handleNodeDown(h.ConnectAddress(), h.Port())
 
 	if h.State() != NodeDown {
@@ -2273,7 +2273,7 @@ func TestTokenAwareConnPool(t *testing.T) {
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	expectedPoolSize := cluster.NumConns * len(session.hostSource.allHosts())
+	expectedPoolSize := cluster.NumConns * len(session.hostSource.getHostsList())
 
 	// wait for pool to fill
 	for i := 0; i < 50; i++ {

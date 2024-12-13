@@ -675,11 +675,11 @@ func (s *Session) refreshRingNow() error {
 }
 
 func (s *Session) refreshRing() error {
-	hosts, partitioner, err := s.hostSource.GetHosts()
+	hosts, partitioner, err := s.hostSource.GetHostsFromSystem()
 	if err != nil {
 		return err
 	}
-	prevHosts := s.hostSource.currentHosts()
+	prevHosts := s.hostSource.getHostsMap()
 
 	for _, h := range hosts {
 		if s.cfg.filterHost(h) {

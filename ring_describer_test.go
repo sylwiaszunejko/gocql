@@ -322,10 +322,10 @@ func marshalMetadataMust(metadata resultMetadata, data []interface{}) [][]byte {
 	return res
 }
 
-func TestGetHosts(t *testing.T) {
+func TestGetHostsFromSystem(t *testing.T) {
 	r := &ringDescriber{control: &mockControlConn{}, cfg: &ClusterConfig{}}
 
-	hosts, _, err := r.GetHosts()
+	hosts, _, err := r.GetHostsFromSystem()
 	if err != nil {
 		t.Fatalf("unable to get hosts: %v", err)
 	}

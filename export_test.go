@@ -9,5 +9,5 @@ var TestLogger = &testLogger{}
 var WaitUntilPoolsStopFilling = waitUntilPoolsStopFilling
 
 func GetRingAllHosts(sess *Session) []*HostInfo {
-	return sess.hostSource.allHosts()
+	return sess.hostSource.getHostsList()
 }

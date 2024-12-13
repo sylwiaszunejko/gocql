@@ -51,7 +51,7 @@ func testShardAwarePortNoReconnections(t *testing.T, makeCluster makeClusterTest
 				return
 			}
 
-			hosts := sess.hostSource.allHosts()
+			hosts := sess.hostSource.getHostsList()
 			for _, host := range hosts {
 				t.Logf("checking host %q hostID: %q", host.hostname, host.hostId)
 				hostPool, ok := sess.pool.getPool(host)
@@ -191,7 +191,7 @@ func testShardAwarePortUnusedIfNotEnabled(t *testing.T, makeCluster makeClusterT
 		t.Fatal(err)
 	}
 
-	hosts := sess.hostSource.allHosts()
+	hosts := sess.hostSource.getHostsList()
 	for _, host := range hosts {
 		t.Logf("checking host %s", host.hostname)
 		hostPool, _ := sess.pool.getPool(host)
@@ -237,7 +237,7 @@ func getShardAwareAddress(pool *hostConnPool, useTLS bool) string {
 }
 
 func triggerPoolsRefill(sess *Session) {
-	hosts := sess.hostSource.allHosts()
+	hosts := sess.hostSource.getHostsList()
 	for _, host := range hosts {
 		hostPool, _ := sess.pool.getPool(host)
 		go hostPool.fill_debounce()
@@ -263,7 +263,7 @@ func waitUntilPoolsStopFilling(ctx context.Context, sess *Session, timeout time.
 }
 
 func checkIfPoolsStoppedFilling(sess *Session) bool {
-	hosts := sess.hostSource.allHosts()
+	hosts := sess.hostSource.getHostsList()
 	for _, host := range hosts {
 		hostPool, _ := sess.pool.getPool(host)
 
@@ -280,7 +280,7 @@ func checkIfPoolsStoppedFilling(sess *Session) bool {
 }
 
 func checkIfPoolsAreFull(sess *Session) bool {
-	hosts := sess.hostSource.allHosts()
+	hosts := sess.hostSource.getHostsList()
 	for _, host := range hosts {
 		hostPool, _ := sess.pool.getPool(host)
 

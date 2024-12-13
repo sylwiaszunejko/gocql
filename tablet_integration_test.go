@@ -24,7 +24,7 @@ func TestTablets(t *testing.T) {
 		panic(fmt.Sprintf("unable to create table: %v", err))
 	}
 
-	hosts := session.hostSource.allHosts()
+	hosts := session.hostSource.getHostsList()
 
 	hostAddresses := []string{}
 	for _, host := range hosts {
