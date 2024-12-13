@@ -6,11 +6,10 @@ import (
 	"time"
 )
 
-const (
-	maxValInt64 int64         = 86399999999999
-	minValInt64 int64         = 0
-	maxValDur   time.Duration = 86399999999999
-	minValDur   time.Duration = 0
+var (
+	maxTimestamp  = time.Date(292278994, 8, 17, 7, 12, 55, 807*1000000, time.UTC)
+	zeroTimestamp = time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC)
+	minTimestamp  = time.Date(-292275055, 5, 16, 16, 47, 4, 192*1000000, time.UTC)
 )
 
 func EncInt64(v int64) ([]byte, error) {
@@ -25,8 +24,8 @@ func EncInt64R(v *int64) ([]byte, error) {
 }
 
 func EncTime(v time.Time) ([]byte, error) {
-	if v.IsZero() {
-		return make([]byte, 0), nil
+	if v.After(maxTimestamp) || v.Before(minTimestamp) {
+		return nil, fmt.Errorf("failed to marshal timestamp: the (%T)(%s) value should be in the range from -292275055-05-16T16:47:04.192Z to 292278994-08-17T07:12:55.807", v, v.Format(time.RFC3339Nano))
 	}
 	ms := v.Unix()*1e3 + int64(v.Nanosecond())/1e6
 	return []byte{byte(ms >> 56), byte(ms >> 48), byte(ms >> 40), byte(ms >> 32), byte(ms >> 24), byte(ms >> 16), byte(ms >> 8), byte(ms)}, nil

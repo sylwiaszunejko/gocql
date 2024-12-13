@@ -55,7 +55,7 @@ func DecTime(p []byte, v *time.Time) error {
 	}
 	switch len(p) {
 	case 0:
-		*v = time.Time{}
+		*v = zeroTimestamp
 	case 8:
 		*v = decTime(p)
 	default:
@@ -73,7 +73,8 @@ func DecTimeR(p []byte, v **time.Time) error {
 		if p == nil {
 			*v = nil
 		} else {
-			*v = new(time.Time)
+			val := zeroTimestamp
+			*v = &val
 		}
 	case 8:
 		val := decTime(p)

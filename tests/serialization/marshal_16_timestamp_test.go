@@ -40,12 +40,7 @@ func TestMarshalsTimestamp(t *testing.T) {
 		},
 	}
 
-	zeroTime := time.Unix(0, 0).UTC()
-
-	// The `time` package have a speciality - values `time.Time{}` and `time.Unix(0,0).UTC()` are different
-	// The old unmarshal function unmarshalls `nil` and `zero` data into `time.Time{}`, but data with zeros into `time.Unix(0,0).UTC()`
-	brokenTime := serialization.GetTypes(time.Time{}, &time.Time{})
-	_ = brokenTime
+	zeroTimestamp := time.Unix(0, 0).UTC()
 
 	for _, tSuite := range testSuites {
 		marshal := tSuite.marshal
@@ -62,23 +57,21 @@ func TestMarshalsTimestamp(t *testing.T) {
 			serialization.PositiveSet{
 				Data: nil,
 				Values: mod.Values{
-					int64(0), zeroTime,
+					int64(0), zeroTimestamp,
 				}.AddVariants(mod.CustomType),
-				BrokenUnmarshalTypes: brokenTime,
 			}.Run("[nil]unmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
 				Data: make([]byte, 0),
 				Values: mod.Values{
-					int64(0), zeroTime,
+					int64(0), zeroTimestamp,
 				}.AddVariants(mod.All...),
-				BrokenUnmarshalTypes: brokenTime,
 			}.Run("[]unmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte("\x00\x00\x00\x00\x00\x00\x00\x00"),
 				Values: mod.Values{
-					int64(0), zeroTime,
+					int64(0), zeroTimestamp,
 				}.AddVariants(mod.All...),
 			}.Run("zeros", t, marshal, unmarshal)
 
