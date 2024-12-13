@@ -982,10 +982,7 @@ func (d *dcAwareRR) IsOperational(session *Session) error {
 		return nil
 	}
 
-	hosts, _, err := session.hostSource.GetHosts()
-	if err != nil {
-		return fmt.Errorf("gocql: unable to check if session is operational: %v", err)
-	}
+	hosts := session.hostSource.getHostsList()
 	for _, host := range hosts {
 		if !session.cfg.filterHost(host) && host.DataCenter() == d.local {
 			// Policy can work properly only if there is at least one host from target DC
@@ -1103,10 +1100,7 @@ func (d *rackAwareRR) IsOperational(session *Session) error {
 	if session.cfg.disableInit || session.cfg.disableControlConn {
 		return nil
 	}
-	hosts, _, err := session.hostSource.GetHosts()
-	if err != nil {
-		return fmt.Errorf("gocql: unable to check if session is operational: %v", err)
-	}
+	hosts := session.hostSource.getHostsList()
 	for _, host := range hosts {
 		if !session.cfg.filterHost(host) && host.DataCenter() == d.localDC && host.Rack() == d.localRack {
 			// Policy can work properly only if there is at least one host from target DC+Rack

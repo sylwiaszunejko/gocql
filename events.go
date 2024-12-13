@@ -203,7 +203,7 @@ func (s *Session) handleNodeUp(eventIp net.IP, eventPort int) {
 		s.logger.Printf("gocql: Session.handleNodeUp: %s:%d\n", eventIp.String(), eventPort)
 	}
 
-	host, ok := s.ring.getHostByIP(eventIp.String())
+	host, ok := s.hostSource.getHostByIP(eventIp.String())
 	if !ok {
 		s.debounceRingRefresh()
 		return
@@ -242,7 +242,7 @@ func (s *Session) handleNodeDown(ip net.IP, port int) {
 		s.logger.Printf("gocql: Session.handleNodeDown: %s:%d\n", ip.String(), port)
 	}
 
-	host, ok := s.ring.getHostByIP(ip.String())
+	host, ok := s.hostSource.getHostByIP(ip.String())
 	if ok {
 		host.setState(NodeDown)
 		if s.cfg.filterHost(host) {

@@ -24,8 +24,7 @@ func TestTablets(t *testing.T) {
 		panic(fmt.Sprintf("unable to create table: %v", err))
 	}
 
-	hosts, _, err := session.hostSource.GetHosts()
-	assertTrue(t, "err == nil", err == nil)
+	hosts := session.hostSource.getHostsList()
 
 	hostAddresses := []string{}
 	for _, host := range hosts {
@@ -37,7 +36,7 @@ func TestTablets(t *testing.T) {
 	i := 0
 	for i < 50 {
 		i = i + 1
-		err = session.Query(`INSERT INTO test1.table1 (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
+		err := session.Query(`INSERT INTO test1.table1 (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,7 +51,7 @@ func TestTablets(t *testing.T) {
 		var ck int
 		var v int
 
-		err = session.Query(`SELECT pk, ck, v FROM test1.table1 WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
+		err := session.Query(`SELECT pk, ck, v FROM test1.table1 WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
 		if err != nil {
 			t.Fatal(err)
 		}

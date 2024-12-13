@@ -13,9 +13,15 @@ type ringDescriber struct {
 	control         controlConnection
 	cfg             *ClusterConfig
 	logger          StdLogger
-	mu              sync.Mutex
+	mu              sync.RWMutex
 	prevHosts       []*HostInfo
 	prevPartitioner string
+
+	// hosts are the set of all hosts in the cassandra ring that we know of.
+	// key of map is host_id.
+	hosts map[string]*HostInfo
+	// hostIPToUUID maps host native address to host_id.
+	hostIPToUUID map[string]string
 }
 
 func (r *ringDescriber) setControlConn(c controlConnection) {
@@ -97,8 +103,8 @@ func isZeroToken(host *HostInfo) bool {
 	return len(host.tokens) == 0
 }
 
-// GetHosts returns a list of hosts found via queries to system.local and system.peers
-func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
+// GetHostsFromSystem returns a list of hosts found via queries to system.local and system.peers
+func (r *ringDescriber) GetHostsFromSystem() ([]*HostInfo, string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -127,6 +133,9 @@ func (r *ringDescriber) GetHosts() ([]*HostInfo, string, error) {
 	if len(hosts) > 0 {
 		partitioner = hosts[0].Partitioner()
 	}
+
+	r.prevHosts = hosts
+	r.prevPartitioner = partitioner
 
 	return hosts, partitioner, nil
 }
@@ -179,4 +188,88 @@ func (r *ringDescriber) getHostInfo(hostID UUID) (*HostInfo, error) {
 	}
 
 	return host, nil
+}
+
+func (r *ringDescriber) getHostByIP(ip string) (*HostInfo, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	hi, ok := r.hostIPToUUID[ip]
+	return r.hosts[hi], ok
+}
+
+func (r *ringDescriber) getHost(hostID string) *HostInfo {
+	r.mu.RLock()
+	host := r.hosts[hostID]
+	r.mu.RUnlock()
+	return host
+}
+
+func (r *ringDescriber) getHostsList() []*HostInfo {
+	r.mu.RLock()
+	hosts := make([]*HostInfo, 0, len(r.hosts))
+	for _, host := range r.hosts {
+		hosts = append(hosts, host)
+	}
+	r.mu.RUnlock()
+	return hosts
+}
+
+func (r *ringDescriber) getHostsMap() map[string]*HostInfo {
+	r.mu.RLock()
+	hosts := make(map[string]*HostInfo, len(r.hosts))
+	for k, v := range r.hosts {
+		hosts[k] = v
+	}
+	r.mu.RUnlock()
+	return hosts
+}
+
+func (r *ringDescriber) addOrUpdate(host *HostInfo) *HostInfo {
+	if existingHost, ok := r.addHostIfMissing(host); ok {
+		existingHost.update(host)
+		host = existingHost
+	}
+	return host
+}
+
+func (r *ringDescriber) addHostIfMissing(host *HostInfo) (*HostInfo, bool) {
+	if host.invalidConnectAddr() {
+		panic(fmt.Sprintf("invalid host: %v", host))
+	}
+	hostID := host.HostID()
+
+	r.mu.Lock()
+	if r.hosts == nil {
+		r.hosts = make(map[string]*HostInfo)
+	}
+	if r.hostIPToUUID == nil {
+		r.hostIPToUUID = make(map[string]string)
+	}
+
+	existing, ok := r.hosts[hostID]
+	if !ok {
+		r.hosts[hostID] = host
+		r.hostIPToUUID[host.nodeToNodeAddress().String()] = hostID
+		existing = host
+	}
+	r.mu.Unlock()
+	return existing, ok
+}
+
+func (r *ringDescriber) removeHost(hostID string) bool {
+	r.mu.Lock()
+	if r.hosts == nil {
+		r.hosts = make(map[string]*HostInfo)
+	}
+	if r.hostIPToUUID == nil {
+		r.hostIPToUUID = make(map[string]string)
+	}
+
+	h, ok := r.hosts[hostID]
+	if ok {
+		delete(r.hostIPToUUID, h.nodeToNodeAddress().String())
+	}
+	delete(r.hosts, hostID)
+	r.mu.Unlock()
+	return ok
 }

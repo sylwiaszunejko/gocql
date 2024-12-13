@@ -675,18 +675,18 @@ func (s *Session) refreshRingNow() error {
 }
 
 func (s *Session) refreshRing() error {
-	hosts, partitioner, err := s.hostSource.GetHosts()
+	hosts, partitioner, err := s.hostSource.GetHostsFromSystem()
 	if err != nil {
 		return err
 	}
-	prevHosts := s.ring.currentHosts()
+	prevHosts := s.hostSource.getHostsMap()
 
 	for _, h := range hosts {
 		if s.cfg.filterHost(h) {
 			continue
 		}
 
-		if host, ok := s.ring.addHostIfMissing(h); !ok {
+		if host, ok := s.hostSource.addHostIfMissing(h); !ok {
 			s.startPoolFill(h)
 		} else {
 			// host (by hostID) already exists; determine if IP has changed
@@ -702,7 +702,7 @@ func (s *Session) refreshRing() error {
 				// host IP has changed
 				// remove old HostInfo (w/old IP)
 				s.removeHost(existing)
-				if _, alreadyExists := s.ring.addHostIfMissing(h); alreadyExists {
+				if _, alreadyExists := s.hostSource.addHostIfMissing(h); alreadyExists {
 					return fmt.Errorf("add new host=%s after removal: %w", h, ErrHostAlreadyExists)
 				}
 				// add new HostInfo (same hostID, new IP)
@@ -716,8 +716,6 @@ func (s *Session) refreshRing() error {
 		s.metadataDescriber.removeTabletsWithHost(host)
 		s.removeHost(host)
 	}
-
-	s.metadata.setPartitioner(partitioner)
 	s.policy.SetPartitioner(partitioner)
 
 	return nil

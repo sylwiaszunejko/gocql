@@ -322,10 +322,10 @@ func marshalMetadataMust(metadata resultMetadata, data []interface{}) [][]byte {
 	return res
 }
 
-func TestGetHosts(t *testing.T) {
+func TestGetHostsFromSystem(t *testing.T) {
 	r := &ringDescriber{control: &mockControlConn{}, cfg: &ClusterConfig{}}
 
-	hosts, _, err := r.GetHosts()
+	hosts, _, err := r.GetHostsFromSystem()
 	if err != nil {
 		t.Fatalf("unable to get hosts: %v", err)
 	}
@@ -333,4 +333,36 @@ func TestGetHosts(t *testing.T) {
 	// local host and one of the peers are zero token so only one peer should be returned with 2 tokens
 	assertEqual(t, "hosts length", 1, len(hosts))
 	assertEqual(t, "host token length", 2, len(hosts[0].tokens))
+}
+
+func TestRing_AddHostIfMissing_Missing(t *testing.T) {
+	ring := &ringDescriber{}
+
+	host := &HostInfo{hostId: MustRandomUUID().String(), connectAddress: net.IPv4(1, 1, 1, 1)}
+	h1, ok := ring.addHostIfMissing(host)
+	if ok {
+		t.Fatal("host was reported as already existing")
+	} else if !h1.Equal(host) {
+		t.Fatalf("hosts not equal that are returned %v != %v", h1, host)
+	} else if h1 != host {
+		t.Fatalf("returned host same pointer: %p != %p", h1, host)
+	}
+}
+
+func TestRing_AddHostIfMissing_Existing(t *testing.T) {
+	ring := &ringDescriber{}
+
+	host := &HostInfo{hostId: MustRandomUUID().String(), connectAddress: net.IPv4(1, 1, 1, 1)}
+	ring.addHostIfMissing(host)
+
+	h2 := &HostInfo{hostId: host.hostId, connectAddress: net.IPv4(2, 2, 2, 2)}
+
+	h1, ok := ring.addHostIfMissing(h2)
+	if !ok {
+		t.Fatal("host was not reported as already existing")
+	} else if !h1.Equal(host) {
+		t.Fatalf("hosts not equal that are returned %v != %v", h1, host)
+	} else if h1 != host {
+		t.Fatalf("returned host same pointer: %p != %p", h1, host)
+	}
 }
