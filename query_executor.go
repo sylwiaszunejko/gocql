@@ -2,6 +2,7 @@ package gocql
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 )
@@ -116,6 +117,7 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 	var lastErr error
 	var iter *Iter
 	var conn *Conn
+	var potentiallyExecuted bool
 	for selectedHost != nil {
 		host := selectedHost.Info()
 		if host == nil || !host.IsUp() {
@@ -144,11 +146,16 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 					iter = q.attemptQuery(ctx, qry, conn)
 					iter.host = selectedHost.Info()
 					// Update host
-					switch iter.err {
-					case context.Canceled, context.DeadlineExceeded, ErrNotFound:
+					switch {
+					case errors.Is(iter.err, context.Canceled),
+						errors.Is(iter.err, context.DeadlineExceeded),
+						errors.Is(iter.err, ErrNotFound):
 						// those errors represents logical errors, they should not count
 						// toward removing a node from the pool
 						selectedHost.Mark(nil)
+						if potentiallyExecuted && !qry.IsIdempotent() {
+							iter.err = &QueryError{err: iter.err, potentiallyExecuted: true, isIdempotent: false}
+						}
 						return iter
 					default:
 						selectedHost.Mark(iter.err)
@@ -162,8 +169,10 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 
 					lastErr = iter.err
 
-					if customErr, ok := iter.err.(*QueryError); ok && customErr.potentiallyExecuted && !qry.IsIdempotent() {
-						return iter
+					if customErr, ok := iter.err.(*QueryError); ok && customErr.PotentiallyExecuted() {
+						customErr.isIdempotent = qry.IsIdempotent()
+						lastErr = customErr
+						potentiallyExecuted = true
 					}
 				}
 			}

@@ -1930,6 +1930,14 @@ type QueryError struct {
 	isIdempotent        bool
 }
 
+func (e *QueryError) IsIdempotent() bool {
+	return e.isIdempotent
+}
+
+func (e *QueryError) PotentiallyExecuted() bool {
+	return e.potentiallyExecuted
+}
+
 func (e *QueryError) Error() string {
 	return fmt.Sprintf("%s (potentially executed: %v)", e.err.Error(), e.potentiallyExecuted)
 }
