@@ -163,7 +163,7 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 					lastErr = iter.err
 
 					if customErr, ok := iter.err.(*QueryError); ok && customErr.potentiallyExecuted && !qry.IsIdempotent() {
-						return iter
+						lastErr = &PotentiallyExecutedNotIdempotentError{err: customErr.err}
 					}
 				}
 			}

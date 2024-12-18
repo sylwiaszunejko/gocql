@@ -1936,3 +1936,15 @@ func (e *QueryError) Error() string {
 func (e *QueryError) Unwrap() error {
 	return e.err
 }
+
+type PotentiallyExecutedNotIdempotentError struct {
+	err error
+}
+
+func (e *PotentiallyExecutedNotIdempotentError) Error() string {
+	return fmt.Sprintf("Potentially executed not idempotent query: %s", e.err.Error())
+}
+
+func (e *PotentiallyExecutedNotIdempotentError) Unwrap() error {
+	return e.err
+}
