@@ -116,6 +116,7 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 	var lastErr error
 	var iter *Iter
 	var conn *Conn
+	var potentiallyExecuted bool
 	for selectedHost != nil {
 		host := selectedHost.Info()
 		if host == nil || !host.IsUp() {
@@ -149,6 +150,9 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 						// those errors represents logical errors, they should not count
 						// toward removing a node from the pool
 						selectedHost.Mark(nil)
+						if potentiallyExecuted && !qry.IsIdempotent() {
+							iter.err = &PotentiallyExecutedNotIdempotentError{err: iter.err}
+						}
 						return iter
 					default:
 						selectedHost.Mark(iter.err)
@@ -162,8 +166,13 @@ func (q *queryExecutor) do(ctx context.Context, qry ExecutableQuery, hostIter Ne
 
 					lastErr = iter.err
 
-					if customErr, ok := iter.err.(*QueryError); ok && customErr.potentiallyExecuted && !qry.IsIdempotent() {
-						return iter
+					if customErr, ok := iter.err.(*QueryError); ok && customErr.potentiallyExecuted {
+						lastErr = customErr.err
+						potentiallyExecuted = true
+					}
+
+					if potentiallyExecuted && !qry.IsIdempotent() {
+						lastErr = &PotentiallyExecutedNotIdempotentError{err: lastErr}
 					}
 				}
 			}
