@@ -729,7 +729,9 @@ func (f *framer) parseErrorFrame() frame {
 			res.RejectedByCoordinator = f.readByte() != 0
 			return res
 		} else {
-			panic(fmt.Errorf("unknown error code: 0x%x", errD.code))
+			return &UnknownServerError{
+				errorFrame: errD,
+			}
 		}
 	}
 }
