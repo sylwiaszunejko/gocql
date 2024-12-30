@@ -4,6 +4,7 @@
 package gocql
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -18,12 +19,12 @@ func TestErrorsParse(t *testing.T) {
 	if err := createTable(session, `CREATE TABLE gocql_test.errors_parse (id int primary key)`); err == nil {
 		t.Fatal("Should have gotten already exists error from cassandra server.")
 	} else {
-		switch e := err.(type) {
-		case *RequestErrAlreadyExists:
+		e := &RequestErrAlreadyExists{}
+		if errors.As(err, &e) {
 			if e.Table != "errors_parse" {
 				t.Fatalf("expected error table to be 'errors_parse' but was %q", e.Table)
 			}
-		default:
+		} else {
 			t.Fatalf("expected to get RequestErrAlreadyExists instead got %T", e)
 		}
 	}
