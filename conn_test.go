@@ -456,6 +456,10 @@ func (t *testRetryPolicy) Attempt(qry RetryableQuery) bool {
 	return qry.Attempts() <= t.NumRetries
 }
 func (t *testRetryPolicy) GetRetryType(err error) RetryType {
+	var executedErr *QueryError
+	if errors.As(err, &executedErr) && executedErr.PotentiallyExecuted() && !executedErr.IsIdempotent() {
+		return Rethrow
+	}
 	return Retry
 }
 
