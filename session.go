@@ -18,6 +18,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gocql/gocql/debounce"
 	"github.com/gocql/gocql/internal/lru"
 )
 
@@ -43,7 +44,7 @@ type Session struct {
 	frameObserver       FrameHeaderObserver
 	streamObserver      StreamObserver
 	hostSource          *ringDescriber
-	ringRefresher       *refreshDebouncer
+	ringRefresher       *debounce.RefreshDebouncer
 	stmtsLRU            *preparedLRU
 
 	connCfg *ConnConfig
@@ -149,7 +150,7 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 	s.routingKeyInfoCache.lru = lru.New(cfg.MaxRoutingKeyInfo)
 
 	s.hostSource = &ringDescriber{cfg: &s.cfg, logger: s.logger}
-	s.ringRefresher = newRefreshDebouncer(ringRefreshDebounceTime, func() error {
+	s.ringRefresher = debounce.NewRefreshDebouncer(debounce.RingRefreshDebounceTime, func() error {
 		return s.refreshRing()
 	})
 
@@ -539,7 +540,7 @@ func (s *Session) Close() {
 	}
 
 	if s.ringRefresher != nil {
-		s.ringRefresher.stop()
+		s.ringRefresher.Stop()
 	}
 
 	if s.cancel != nil {
