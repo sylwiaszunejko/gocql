@@ -192,10 +192,6 @@ func NewSession(cfg ClusterConfig) (*Session, error) {
 		}
 	}
 
-	if err = s.policy.IsOperational(s); err != nil {
-		return nil, fmt.Errorf("gocql: unable to create session: %v", err)
-	}
-
 	return s, nil
 }
 
@@ -385,6 +381,10 @@ func (s *Session) init() error {
 	// parameters. This is used by tokenAwareHostPolicy to discover replicas.
 	if !s.cfg.disableControlConn && s.cfg.Keyspace != "" {
 		s.policy.KeyspaceChanged(KeyspaceUpdateEvent{Keyspace: s.cfg.Keyspace})
+	}
+
+	if err = s.policy.IsOperational(s); err != nil {
+		return fmt.Errorf("gocql: unable to create session: %v", err)
 	}
 
 	s.sessionStateMu.Lock()
