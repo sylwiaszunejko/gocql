@@ -4,6 +4,30 @@ import (
 	"fmt"
 )
 
+const (
+	negInt16s8 = int16(-1) << 8
+
+	negInt32s8  = int32(-1) << 8
+	negInt32s16 = int32(-1) << 16
+	negInt32s24 = int32(-1) << 24
+
+	negInt64s8  = int64(-1) << 8
+	negInt64s16 = int64(-1) << 16
+	negInt64s24 = int64(-1) << 24
+	negInt64s32 = int64(-1) << 32
+	negInt64s40 = int64(-1) << 40
+	negInt64s48 = int64(-1) << 48
+	negInt64s56 = int64(-1) << 56
+
+	negIntS8  = int(-1) << 8
+	negIntS16 = int(-1) << 16
+	negIntS24 = int(-1) << 24
+	negIntS32 = int(-1) << 32
+	negIntS40 = int(-1) << 40
+	negIntS48 = int(-1) << 48
+	negIntS56 = int(-1) << 56
+)
+
 func DecInt8(p []byte, v *int8) error {
 	if v == nil {
 		return errNilReference(v)
@@ -291,28 +315,28 @@ func dec1toInt8(p []byte) int8 {
 
 func dec1toInt16(p []byte) int16 {
 	if p[0] > 127 {
-		return int16(-1)<<8 | int16(p[0])
+		return negInt16s8 | int16(p[0])
 	}
 	return int16(p[0])
 }
 
 func dec1toInt32(p []byte) int32 {
 	if p[0] > 127 {
-		return int32(-1)<<8 | int32(p[0])
+		return negInt32s8 | int32(p[0])
 	}
 	return int32(p[0])
 }
 
 func dec1toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<8 | int64(p[0])
+		return negInt64s8 | int64(p[0])
 	}
 	return int64(p[0])
 }
 
 func dec1toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<8 | int(p[0])
+		return negIntS8 | int(p[0])
 	}
 	return int(p[0])
 }
@@ -323,42 +347,42 @@ func dec2toInt16(p []byte) int16 {
 
 func dec2toInt32(p []byte) int32 {
 	if p[0] > 127 {
-		return int32(-1)<<16 | int32(p[0])<<8 | int32(p[1])
+		return negInt32s16 | int32(p[0])<<8 | int32(p[1])
 	}
 	return int32(p[0])<<8 | int32(p[1])
 }
 
 func dec2toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<16 | int64(p[0])<<8 | int64(p[1])
+		return negInt64s16 | int64(p[0])<<8 | int64(p[1])
 	}
 	return int64(p[0])<<8 | int64(p[1])
 }
 
 func dec2toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<16 | int(p[0])<<8 | int(p[1])
+		return negIntS16 | int(p[0])<<8 | int(p[1])
 	}
 	return int(p[0])<<8 | int(p[1])
 }
 
 func dec3toInt32(p []byte) int32 {
 	if p[0] > 127 {
-		return int32(-1)<<24 | int32(p[0])<<16 | int32(p[1])<<8 | int32(p[2])
+		return negInt32s24 | int32(p[0])<<16 | int32(p[1])<<8 | int32(p[2])
 	}
 	return int32(p[0])<<16 | int32(p[1])<<8 | int32(p[2])
 }
 
 func dec3toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<24 | int64(p[0])<<16 | int64(p[1])<<8 | int64(p[2])
+		return negInt64s24 | int64(p[0])<<16 | int64(p[1])<<8 | int64(p[2])
 	}
 	return int64(p[0])<<16 | int64(p[1])<<8 | int64(p[2])
 }
 
 func dec3toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<24 | int(p[0])<<16 | int(p[1])<<8 | int(p[2])
+		return negIntS24 | int(p[0])<<16 | int(p[1])<<8 | int(p[2])
 	}
 	return int(p[0])<<16 | int(p[1])<<8 | int(p[2])
 }
@@ -369,56 +393,56 @@ func dec4toInt32(p []byte) int32 {
 
 func dec4toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<32 | int64(p[0])<<24 | int64(p[1])<<16 | int64(p[2])<<8 | int64(p[3])
+		return negInt64s32 | int64(p[0])<<24 | int64(p[1])<<16 | int64(p[2])<<8 | int64(p[3])
 	}
 	return int64(p[0])<<24 | int64(p[1])<<16 | int64(p[2])<<8 | int64(p[3])
 }
 
 func dec4toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<32 | int(p[0])<<24 | int(p[1])<<16 | int(p[2])<<8 | int(p[3])
+		return negIntS32 | int(p[0])<<24 | int(p[1])<<16 | int(p[2])<<8 | int(p[3])
 	}
 	return int(p[0])<<24 | int(p[1])<<16 | int(p[2])<<8 | int(p[3])
 }
 
 func dec5toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<40 | int64(p[0])<<32 | int64(p[1])<<24 | int64(p[2])<<16 | int64(p[3])<<8 | int64(p[4])
+		return negInt64s40 | int64(p[0])<<32 | int64(p[1])<<24 | int64(p[2])<<16 | int64(p[3])<<8 | int64(p[4])
 	}
 	return int64(p[0])<<32 | int64(p[1])<<24 | int64(p[2])<<16 | int64(p[3])<<8 | int64(p[4])
 }
 
 func dec5toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<40 | int(p[0])<<32 | int(p[1])<<24 | int(p[2])<<16 | int(p[3])<<8 | int(p[4])
+		return negIntS40 | int(p[0])<<32 | int(p[1])<<24 | int(p[2])<<16 | int(p[3])<<8 | int(p[4])
 	}
 	return int(p[0])<<32 | int(p[1])<<24 | int(p[2])<<16 | int(p[3])<<8 | int(p[4])
 }
 
 func dec6toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<48 | int64(p[0])<<40 | int64(p[1])<<32 | int64(p[2])<<24 | int64(p[3])<<16 | int64(p[4])<<8 | int64(p[5])
+		return negInt64s48 | int64(p[0])<<40 | int64(p[1])<<32 | int64(p[2])<<24 | int64(p[3])<<16 | int64(p[4])<<8 | int64(p[5])
 	}
 	return int64(p[0])<<40 | int64(p[1])<<32 | int64(p[2])<<24 | int64(p[3])<<16 | int64(p[4])<<8 | int64(p[5])
 }
 
 func dec6toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<48 | int(p[0])<<40 | int(p[1])<<32 | int(p[2])<<24 | int(p[3])<<16 | int(p[4])<<8 | int(p[5])
+		return negIntS48 | int(p[0])<<40 | int(p[1])<<32 | int(p[2])<<24 | int(p[3])<<16 | int(p[4])<<8 | int(p[5])
 	}
 	return int(p[0])<<40 | int(p[1])<<32 | int(p[2])<<24 | int(p[3])<<16 | int(p[4])<<8 | int(p[5])
 }
 
 func dec7toInt64(p []byte) int64 {
 	if p[0] > 127 {
-		return int64(-1)<<56 | int64(p[0])<<48 | int64(p[1])<<40 | int64(p[2])<<32 | int64(p[3])<<24 | int64(p[4])<<16 | int64(p[5])<<8 | int64(p[6])
+		return negInt64s56 | int64(p[0])<<48 | int64(p[1])<<40 | int64(p[2])<<32 | int64(p[3])<<24 | int64(p[4])<<16 | int64(p[5])<<8 | int64(p[6])
 	}
 	return int64(p[0])<<48 | int64(p[1])<<40 | int64(p[2])<<32 | int64(p[3])<<24 | int64(p[4])<<16 | int64(p[5])<<8 | int64(p[6])
 }
 
 func dec7toInt(p []byte) int {
 	if p[0] > 127 {
-		return int(-1)<<56 | int(p[0])<<48 | int(p[1])<<40 | int(p[2])<<32 | int(p[3])<<24 | int(p[4])<<16 | int(p[5])<<8 | int(p[6])
+		return negIntS56 | int(p[0])<<48 | int(p[1])<<40 | int(p[2])<<32 | int(p[3])<<24 | int(p[4])<<16 | int(p[5])<<8 | int(p[6])
 	}
 	return int(p[0])<<48 | int(p[1])<<40 | int(p[2])<<32 | int(p[3])<<24 | int(p[4])<<16 | int(p[5])<<8 | int(p[6])
 }
