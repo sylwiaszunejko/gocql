@@ -8,6 +8,13 @@ import (
 	"strconv"
 )
 
+const (
+	negInt16 = int16(-1) << 8
+	negInt32 = int32(-1) << 8
+	negInt64 = int64(-1) << 8
+	negInt   = int(-1) << 8
+)
+
 var errWrongDataLen = fmt.Errorf("failed to unmarshal tinyint: the length of the data should less or equal then 1")
 
 func errNilReference(v interface{}) error {
@@ -570,28 +577,28 @@ func decReflectNullableR(p []byte, v reflect.Value) reflect.Value {
 
 func decInt16(p []byte) int16 {
 	if p[0] > math.MaxInt8 {
-		return int16(p[0]) - 256
+		return negInt16 | int16(p[0])
 	}
 	return int16(p[0])
 }
 
 func decInt32(p []byte) int32 {
 	if p[0] > math.MaxInt8 {
-		return int32(p[0]) - 256
+		return negInt32 | int32(p[0])
 	}
 	return int32(p[0])
 }
 
 func decInt64(p []byte) int64 {
 	if p[0] > math.MaxInt8 {
-		return int64(p[0]) - 256
+		return negInt64 | int64(p[0])
 	}
 	return int64(p[0])
 }
 
 func decInt(p []byte) int {
 	if p[0] > math.MaxInt8 {
-		return int(p[0]) - 256
+		return negInt | int(p[0])
 	}
 	return int(p[0])
 }

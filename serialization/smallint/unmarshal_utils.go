@@ -8,6 +8,12 @@ import (
 	"strconv"
 )
 
+const (
+	negInt32 = int32(-1) << 16
+	negInt64 = int64(-1) << 16
+	negInt   = int(-1) << 16
+)
+
 var errWrongDataLen = fmt.Errorf("failed to unmarshal smallint: the length of the data should be 0 or 2")
 
 func errNilReference(v interface{}) error {
@@ -662,21 +668,21 @@ func decInt16(p []byte) int16 {
 
 func decInt32(p []byte) int32 {
 	if p[0] > math.MaxInt8 {
-		return -65536 + int32(p[0])<<8 | int32(p[1])
+		return negInt32 | int32(p[0])<<8 | int32(p[1])
 	}
 	return int32(p[0])<<8 | int32(p[1])
 }
 
 func decInt64(p []byte) int64 {
 	if p[0] > math.MaxInt8 {
-		return -65536 + int64(p[0])<<8 | int64(p[1])
+		return negInt64 | int64(p[0])<<8 | int64(p[1])
 	}
 	return int64(p[0])<<8 | int64(p[1])
 }
 
 func decInt(p []byte) int {
 	if p[0] > math.MaxInt8 {
-		return -65536 + int(p[0])<<8 | int(p[1])
+		return negInt | int(p[0])<<8 | int(p[1])
 	}
 	return int(p[0])<<8 | int(p[1])
 }

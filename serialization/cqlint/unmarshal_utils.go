@@ -8,6 +8,11 @@ import (
 	"strconv"
 )
 
+const (
+	negInt64 = int64(-1) << 32
+	negInt   = int(-1) << 32
+)
+
 var errWrongDataLen = fmt.Errorf("failed to unmarshal int: the length of the data should be 0 or 4")
 
 func errNilReference(v interface{}) error {
@@ -750,14 +755,14 @@ func decInt32(p []byte) int32 {
 
 func decInt64(p []byte) int64 {
 	if p[0] > math.MaxInt8 {
-		return int64(-1)<<32 | int64(p[0])<<24 | int64(p[1])<<16 | int64(p[2])<<8 | int64(p[3])
+		return negInt64 | int64(p[0])<<24 | int64(p[1])<<16 | int64(p[2])<<8 | int64(p[3])
 	}
 	return int64(p[0])<<24 | int64(p[1])<<16 | int64(p[2])<<8 | int64(p[3])
 }
 
 func decInt(p []byte) int {
 	if p[0] > math.MaxInt8 {
-		return int(-1)<<32 | int(p[0])<<24 | int(p[1])<<16 | int(p[2])<<8 | int(p[3])
+		return negInt | int(p[0])<<24 | int(p[1])<<16 | int(p[2])<<8 | int(p[3])
 	}
 	return int(p[0])<<24 | int(p[1])<<16 | int(p[2])<<8 | int(p[3])
 }
