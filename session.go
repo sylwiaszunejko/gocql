@@ -87,6 +87,7 @@ type Session struct {
 	tabletsRoutingV1 bool
 
 	usingTimeoutClause string
+	warningHandler     WarningHandler
 }
 
 var queryPool = &sync.Pool{
@@ -182,7 +183,9 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 		return nil, fmt.Errorf("gocql: unable to create session: %v", err)
 	}
 	s.connCfg = connCfg
-
+	if cfg.WarningsHandlerBuilder != nil {
+		s.warningHandler = cfg.WarningsHandlerBuilder(s)
+	}
 	return s, nil
 }
 

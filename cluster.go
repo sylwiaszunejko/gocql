@@ -109,6 +109,8 @@ type ClusterConfig struct {
 	// Default: nil
 	Authenticator Authenticator
 
+	WarningsHandlerBuilder WarningHandlerBuilder
+
 	// An Authenticator factory. Can be used to create alternative authenticators.
 	// Default: nil
 	AuthProvider func(h *HostInfo) (Authenticator, error)
@@ -322,6 +324,7 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		WriteCoalesceWaitTime:        200 * time.Microsecond,
 		MetadataSchemaRequestTimeout: 60 * time.Second,
 		DisableSkipMetadata:          true,
+		WarningsHandlerBuilder:       DefaultWarningHandlerBuilder,
 	}
 
 	return cfg
