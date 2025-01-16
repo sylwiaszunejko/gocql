@@ -66,6 +66,12 @@ type Authenticator interface {
 	Success(data []byte) error
 }
 
+type WarningHandlerBuilder func(session *Session) WarningHandler
+
+type WarningHandler interface {
+	HandleWarnings(qry ExecutableQuery, host *HostInfo, warnings []string)
+}
+
 type PasswordAuthenticator struct {
 	Username              string
 	Password              string
@@ -1404,7 +1410,16 @@ func marshalQueryValue(typ TypeInfo, value interface{}, dst *queryValues) error 
 	return nil
 }
 
-func (c *Conn) executeQuery(ctx context.Context, qry *Query) *Iter {
+func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
+	defer func() {
+		if iter == nil || c.session == nil {
+			return
+		}
+		warnings := iter.Warnings()
+		if len(warnings) > 0 && c.session.warningHandler != nil {
+			c.session.warningHandler.HandleWarnings(qry, iter.host, warnings)
+		}
+	}()
 	params := queryParams{
 		consistency: qry.cons,
 	}
@@ -1670,7 +1685,17 @@ func (c *Conn) UseKeyspace(keyspace string) error {
 	return nil
 }
 
-func (c *Conn) executeBatch(ctx context.Context, batch *Batch) *Iter {
+func (c *Conn) executeBatch(ctx context.Context, batch *Batch) (iter *Iter) {
+	defer func() {
+		if iter == nil || c.session == nil {
+			return
+		}
+		warnings := iter.Warnings()
+		if len(warnings) > 0 && c.session.warningHandler != nil {
+			c.session.warningHandler.HandleWarnings(batch, iter.host, warnings)
+		}
+	}()
+
 	if c.version == protoVersion1 {
 		return &Iter{err: ErrUnsupported}
 	}
