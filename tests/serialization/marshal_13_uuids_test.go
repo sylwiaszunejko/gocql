@@ -104,6 +104,16 @@ func TestMarshalUUIDs(t *testing.T) {
 					gocql.UUID{233, 57, 245, 42, 214, 144, 17, 239, 156, 210, 2, 66, 172, 18, 0, 2},
 				}.AddVariants(mod.All...),
 			}.Run("uuid", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+				Values: mod.Values{
+					"ffffffff-ffff-ffff-ffff-ffffffffffff",
+					[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					[16]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					gocql.UUID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+				}.AddVariants(mod.All...),
+			}.Run("max", t, marshal, unmarshal)
 		})
 	}
 }
@@ -142,6 +152,16 @@ func TestMarshalTimeUUID(t *testing.T) {
 					"00000000-0000-0000-0000-000000000000",
 				}.AddVariants(mod.All...),
 			}.Run("zero", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte("\xff\xff\xff\xff\xff\xff\x1f\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+				Values: mod.Values{
+					"ffffffff-ffff-1fff-ffff-ffffffffffff",
+					[]byte{255, 255, 255, 255, 255, 255, 31, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					[16]byte{255, 255, 255, 255, 255, 255, 31, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					gocql.UUID{255, 255, 255, 255, 255, 255, 31, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+				}.AddVariants(mod.All...),
+			}.Run("max", t, marshal, unmarshal)
 		})
 	}
 }
