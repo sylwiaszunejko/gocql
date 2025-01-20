@@ -71,9 +71,19 @@ func TestMarshalFloat(t *testing.T) {
 			}.Run("max", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
+				Data:   []byte("\xff\x7f\xff\xff"),
+				Values: mod.Values{float32(-math.MaxFloat32)}.AddVariants(mod.All...),
+			}.Run("min", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
 				Data:   []byte("\x00\x00\x00\x01"),
 				Values: mod.Values{float32(math.SmallestNonzeroFloat32)}.AddVariants(mod.All...),
-			}.Run("smallest", t, marshal, unmarshal)
+			}.Run("smallest_pos", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data:   []byte("\x80\x00\x00\x01"),
+				Values: mod.Values{float32(-math.SmallestNonzeroFloat32)}.AddVariants(mod.All...),
+			}.Run("smallest_neg", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data:   []byte("\x7f\x80\x00\x00"),
