@@ -85,31 +85,14 @@ func TestMarshalsInet(t *testing.T) {
 					net.IP{0, 0, 0, 0},
 					[4]byte{},
 				}.AddVariants(mod.All...),
-			}.Run("zerosV4", t, marshal, unmarshal)
+			}.Run("v4zeros", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte{0, 0, 0, 0},
 				Values: mod.Values{
 					[16]byte{},
 				}.AddVariants(mod.All...),
-			}.Run("zerosV4unmarshal", t, nil, unmarshal)
-
-			serialization.PositiveSet{
-				Data: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				Values: mod.Values{
-					"::",
-					[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-					net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-					[16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				}.AddVariants(mod.All...),
-			}.Run("zerosV6", t, marshal, unmarshal)
-
-			serialization.PositiveSet{
-				Data: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				Values: mod.Values{
-					[4]byte{0, 0, 0, 0},
-				}.AddVariants(mod.All...),
-			}.Run("zerosV6unmarshal", t, nil, unmarshal)
+			}.Run("v4zerosUnmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte{192, 168, 0, 1},
@@ -119,14 +102,14 @@ func TestMarshalsInet(t *testing.T) {
 					net.IP{192, 168, 0, 1},
 					[4]byte{192, 168, 0, 1},
 				}.AddVariants(mod.All...),
-			}.Run("ipV4", t, marshal, unmarshal)
+			}.Run("v4", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte{192, 168, 0, 1},
 				Values: mod.Values{
 					[16]byte{192, 168, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				}.AddVariants(mod.All...),
-			}.Run("ipV4unmarshal", t, nil, unmarshal)
+			}.Run("v4unmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte{255, 255, 255, 255},
@@ -136,14 +119,31 @@ func TestMarshalsInet(t *testing.T) {
 					net.IP{255, 255, 255, 255},
 					[4]byte{255, 255, 255, 255},
 				}.AddVariants(mod.All...),
-			}.Run("ipV4max", t, marshal, unmarshal)
+			}.Run("v4max", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte{255, 255, 255, 255},
 				Values: mod.Values{
 					[16]byte{255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				}.AddVariants(mod.All...),
-			}.Run("ipV4maxUnmarshal", t, nil, unmarshal)
+			}.Run("v4maxUnmarshal", t, nil, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				Values: mod.Values{
+					"::",
+					[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				}.AddVariants(mod.All...),
+			}.Run("v6zeros", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				Values: mod.Values{
+					[4]byte{0, 0, 0, 0},
+				}.AddVariants(mod.All...),
+			}.Run("v6zerosUnmarshal", t, nil, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte("\xfe\x80\xcd\x00\x00\x00\x0c\xde\x12\x57\x00\x00\x21\x1e\x72\x9c"),
@@ -153,7 +153,17 @@ func TestMarshalsInet(t *testing.T) {
 					net.IP("\xfe\x80\xcd\x00\x00\x00\x0c\xde\x12\x57\x00\x00\x21\x1e\x72\x9c"),
 					[16]byte{254, 128, 205, 0, 0, 0, 12, 222, 18, 87, 0, 0, 33, 30, 114, 156},
 				}.AddVariants(mod.All...),
-			}.Run("ipV6", t, marshal, unmarshal)
+			}.Run("v6", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+				Values: mod.Values{
+					"ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+					[]byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+					net.IP("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+					[16]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+				}.AddVariants(mod.All...),
+			}.Run("v6max", t, marshal, unmarshal)
 		})
 	}
 }
