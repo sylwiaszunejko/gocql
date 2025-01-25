@@ -52,7 +52,7 @@ func TestMarshalsDate(t *testing.T) {
 			serialization.PositiveSet{
 				Data: nil,
 				Values: mod.Values{
-					(*uint32)(nil), (*int32)(nil), (*int64)(nil), (*string)(nil), (*time.Time)(nil),
+					(*uint32)(nil), (*int32)(nil), (*int64)(nil), (*string)(nil), "", (*time.Time)(nil),
 				}.AddVariants(mod.CustomType),
 			}.Run("[nil]nullable", t, marshal, unmarshal)
 
@@ -76,6 +76,13 @@ func TestMarshalsDate(t *testing.T) {
 					uint32(0), int32(0), zeroDate.UnixMilli(), zeroDate, "-5877641-06-23",
 				}.AddVariants(mod.All...),
 			}.Run("zeros", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte("\x00\x00\x00\x01"),
+				Values: mod.Values{
+					uint32(1), int32(1), zeroDate.Add(time.Hour * 24).UnixMilli(), zeroDate.Add(time.Hour * 24), "-5877641-06-24",
+				}.AddVariants(mod.All...),
+			}.Run("1", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
 				Data: []byte("\x80\x00\x00\x00"),
