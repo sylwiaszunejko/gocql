@@ -80,7 +80,7 @@ func EncDurationR(v *Duration) ([]byte, error) {
 func EncReflect(v reflect.Value) ([]byte, error) {
 	switch v.Kind() {
 	case reflect.Int64:
-		return encNanos(encIntZigZag64(v.Int())), nil
+		return encInt64(v.Int()), nil
 	case reflect.String:
 		val := v.String()
 		if val == "" {

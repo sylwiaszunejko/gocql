@@ -89,7 +89,6 @@ func TestMarshalUUIDs(t *testing.T) {
 			serialization.PositiveSet{
 				Data: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				Values: mod.Values{
-					"00000000-0000-0000-0000-000000000000",
 					[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 					[16]byte{},
 					gocql.UUID{},
@@ -97,14 +96,72 @@ func TestMarshalUUIDs(t *testing.T) {
 			}.Run("zeros", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
-				Data: []byte("\xb6\xb7\x7c\x23\xc7\x76\x40\xff\x82\x8d\xa3\x85\xf3\xe8\xa2\xaf"),
+				Data: []byte("\xe9\x39\xf5\x2a\xd6\x90\x11\xef\x9c\xd2\x02\x42\xac\x12\x00\x02"),
 				Values: mod.Values{
-					"b6b77c23-c776-40ff-828d-a385f3e8a2af",
-					[]byte{182, 183, 124, 35, 199, 118, 64, 255, 130, 141, 163, 133, 243, 232, 162, 175},
-					[16]byte{182, 183, 124, 35, 199, 118, 64, 255, 130, 141, 163, 133, 243, 232, 162, 175},
-					gocql.UUID{182, 183, 124, 35, 199, 118, 64, 255, 130, 141, 163, 133, 243, 232, 162, 175},
+					"e939f52a-d690-11ef-9cd2-0242ac120002",
+					[]byte{233, 57, 245, 42, 214, 144, 17, 239, 156, 210, 2, 66, 172, 18, 0, 2},
+					[16]byte{233, 57, 245, 42, 214, 144, 17, 239, 156, 210, 2, 66, 172, 18, 0, 2},
+					gocql.UUID{233, 57, 245, 42, 214, 144, 17, 239, 156, 210, 2, 66, 172, 18, 0, 2},
 				}.AddVariants(mod.All...),
 			}.Run("uuid", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte("\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+				Values: mod.Values{
+					"ffffffff-ffff-ffff-ffff-ffffffffffff",
+					[]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					[16]byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					gocql.UUID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+				}.AddVariants(mod.All...),
+			}.Run("max", t, marshal, unmarshal)
+		})
+	}
+}
+
+func TestMarshalTimeUUID(t *testing.T) {
+	tType := gocql.NewNativeType(4, gocql.TypeTimeUUID, "")
+
+	type testSuite struct {
+		name      string
+		marshal   func(interface{}) ([]byte, error)
+		unmarshal func(bytes []byte, i interface{}) error
+	}
+
+	testSuites := [4]testSuite{
+		{
+			name:      "serialization.timeuuid",
+			marshal:   timeuuid.Marshal,
+			unmarshal: timeuuid.Unmarshal,
+		},
+		{
+			name:      "glob.timeuuid",
+			marshal:   func(i interface{}) ([]byte, error) { return gocql.Marshal(tType, i) },
+			unmarshal: func(bytes []byte, i interface{}) error { return gocql.Unmarshal(tType, bytes, i) },
+		},
+	}
+
+	for _, tSuite := range testSuites {
+		marshal := tSuite.marshal
+		unmarshal := tSuite.unmarshal
+
+		t.Run(tSuite.name, func(t *testing.T) {
+
+			serialization.PositiveSet{
+				Data: make([]byte, 0),
+				Values: mod.Values{
+					"00000000-0000-0000-0000-000000000000",
+				}.AddVariants(mod.All...),
+			}.Run("zero", t, marshal, unmarshal)
+
+			serialization.PositiveSet{
+				Data: []byte("\xff\xff\xff\xff\xff\xff\x1f\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
+				Values: mod.Values{
+					"ffffffff-ffff-1fff-ffff-ffffffffffff",
+					[]byte{255, 255, 255, 255, 255, 255, 31, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					[16]byte{255, 255, 255, 255, 255, 255, 31, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+					gocql.UUID{255, 255, 255, 255, 255, 255, 31, 255, 255, 255, 255, 255, 255, 255, 255, 255},
+				}.AddVariants(mod.All...),
+			}.Run("max", t, marshal, unmarshal)
 		})
 	}
 }

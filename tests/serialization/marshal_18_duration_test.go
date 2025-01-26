@@ -325,11 +325,34 @@ func TestMarshalsDuration(t *testing.T) {
 	}.Run("nanosMaxInt64", t, marshal, unmarshal)
 
 	serialization.PositiveSet{
+		Data: []byte("\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe"),
+		Values: mod.Values{
+			gocql.Duration{Months: 0, Days: 0, Nanoseconds: math.MaxInt64},
+		}.AddVariants(mod.All...),
+	}.Run("nanosMaxInt64", t, marshal, unmarshal)
+
+	serialization.PositiveSet{
 		Data: []byte("\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff"),
 		Values: mod.Values{
 			gocql.Duration{Months: 0, Days: 0, Nanoseconds: math.MinInt64},
 		}.AddVariants(mod.All...),
 	}.Run("nanosMinInt64", t, marshal, unmarshal)
+
+	serialization.PositiveSet{
+		Data: []byte("\x00\xc3\x41\xfe\xfc\x9b\xc5\xc4\x9d\xff\xfe"),
+		Values: mod.Values{
+			gocql.Duration{Days: 106751, Months: 0, Nanoseconds: 85636854775807},
+			int64(math.MaxInt64), time.Duration(math.MaxInt64), time.Duration(math.MaxInt64).String(),
+		}.AddVariants(mod.All...),
+	}.Run("nanosMax", t, marshal, unmarshal)
+
+	serialization.PositiveSet{
+		Data: []byte("\x00\xc3\x41\xfd\xfc\x9b\xc5\xc4\x9d\xff\xff"),
+		Values: mod.Values{
+			gocql.Duration{Days: -106751, Months: 0, Nanoseconds: -85636854775808},
+			int64(math.MinInt64), time.Duration(math.MinInt64), time.Duration(math.MinInt64).String(),
+		}.AddVariants(mod.All...),
+	}.Run("nanosMin", t, marshal, unmarshal)
 
 	// sets for full range
 	serialization.PositiveSet{

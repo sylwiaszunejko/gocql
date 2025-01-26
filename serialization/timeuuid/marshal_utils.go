@@ -115,6 +115,9 @@ func encReflectBytes(rv reflect.Value) ([]byte, error) {
 // The following code was taken from the `Parse` function of the "github.com/google/uuid" package.
 func encReflectString(v reflect.Value) ([]byte, error) {
 	s := v.String()
+	if s == zeroUUID {
+		return make([]byte, 0), nil
+	}
 	switch len(s) {
 	case 45: // urn:timeuuid:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 		if !strings.EqualFold(s[:9], "urn:timeuuid:") {
@@ -165,6 +168,9 @@ func encReflectString(v reflect.Value) ([]byte, error) {
 // encString encodes uuid strings.
 // The following code was taken from the `Parse` function of the "github.com/google/uuid" package.
 func encString(s string) ([]byte, error) {
+	if s == zeroUUID {
+		return make([]byte, 0), nil
+	}
 	switch len(s) {
 	case 45: // urn:timeuuid:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 		if !strings.EqualFold(s[:9], "urn:timeuuid:") {

@@ -6,7 +6,10 @@ import (
 	"time"
 )
 
-const hexString = "0123456789abcdef"
+const (
+	hexString = "0123456789abcdef"
+	zeroUUID  = "00000000-0000-0000-0000-000000000000"
+)
 
 var (
 	offsets  = [...]int{0, 2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 28, 30, 32, 34}
@@ -104,7 +107,7 @@ func DecString(p []byte, v *string) error {
 		if p == nil {
 			*v = ""
 		} else {
-			*v = "00000000-0000-0000-0000-000000000000"
+			*v = zeroUUID
 		}
 	case 16:
 		*v = decString(p)
@@ -123,7 +126,7 @@ func DecStringR(p []byte, v **string) error {
 		if p == nil {
 			*v = nil
 		} else {
-			tmp := "00000000-0000-0000-0000-000000000000"
+			tmp := zeroUUID
 			*v = &tmp
 		}
 	case 16:
@@ -255,7 +258,7 @@ func decReflectString(p []byte, v reflect.Value) error {
 		if p == nil {
 			v.SetString("")
 		} else {
-			v.SetString("00000000-0000-0000-0000-000000000000")
+			v.SetString(zeroUUID)
 		}
 	case 16:
 		v.SetString(decString(p))
@@ -313,7 +316,7 @@ func decReflectStringR(p []byte, v reflect.Value) error {
 			v.Set(reflect.Zero(v.Type()))
 		} else {
 			val := reflect.New(v.Type().Elem())
-			val.Elem().SetString("00000000-0000-0000-0000-000000000000")
+			val.Elem().SetString(zeroUUID)
 			v.Set(val)
 		}
 	case 16:

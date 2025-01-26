@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gocql/gocql/serialization/boolean"
 	"math"
 	"reflect"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/gocql/gocql/serialization/ascii"
 	"github.com/gocql/gocql/serialization/bigint"
 	"github.com/gocql/gocql/serialization/blob"
+	"github.com/gocql/gocql/serialization/boolean"
 	"github.com/gocql/gocql/serialization/counter"
 	"github.com/gocql/gocql/serialization/cqlint"
 	"github.com/gocql/gocql/serialization/cqltime"
@@ -60,6 +60,12 @@ type Marshaler interface {
 	MarshalCQL(info TypeInfo) ([]byte, error)
 }
 
+type DirectMarshal []byte
+
+func (m DirectMarshal) MarshalCQL(_ TypeInfo) ([]byte, error) {
+	return m, nil
+}
+
 // Unmarshaler is an interface for custom unmarshaler.
 // Each value of the 'CQL binary protocol' consist of <value_len> and <value_data>.
 // <value_len> can be 'unset'(-2), 'nil'(-1), 'zero'(0) or any value up to 2147483647.
@@ -73,6 +79,13 @@ type Marshaler interface {
 // CQL binary protocol info:https://github.com/apache/cassandra/tree/trunk/doc
 type Unmarshaler interface {
 	UnmarshalCQL(info TypeInfo, data []byte) error
+}
+
+type DirectUnmarshal []byte
+
+func (d *DirectUnmarshal) UnmarshalCQL(_ TypeInfo, data []byte) error {
+	*d = bytes.Clone(data)
+	return nil
 }
 
 // Marshal returns the CQL encoding of the value for the Cassandra
