@@ -93,6 +93,7 @@ type rateLimitExt struct {
 }
 
 var _ cqlProtocolExtension = &rateLimitExt{}
+var Logger = &defaultLogger{}
 
 // Factory function to deserialize and create an `rateLimitExt` instance
 // from SUPPORTED message payload.

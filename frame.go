@@ -1,6 +1,26 @@
-// Copyright (c) 2012 The gocql Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Content before git sha 34fdeebefcbf183ed7f916f931aa0586fdaa1b40
+ * Copyright (c) 2012, The Gocql authors,
+ * provided under the BSD-3-Clause License.
+ * See the NOTICE file distributed with this work for additional information.
+ */
 
 package gocql
 
@@ -374,6 +394,8 @@ type framer struct {
 	flagLWT               int
 	rateLimitingErrorCode int
 	tabletsRoutingV1      bool
+
+	logger StdLogger
 }
 
 func newFramer(compressor Compressor, version byte) *framer {
@@ -381,6 +403,7 @@ func newFramer(compressor Compressor, version byte) *framer {
 	f := &framer{
 		buf:        buf[:0],
 		readBuffer: buf,
+		logger:     &defaultLogger{},
 	}
 	var flags byte
 	if compressor != nil {
@@ -417,7 +440,7 @@ func newFramerWithExts(compressor Compressor, version byte, cqlProtoExts []cqlPr
 	if lwtExt := findCQLProtoExtByName(cqlProtoExts, lwtAddMetadataMarkKey); lwtExt != nil {
 		castedExt, ok := lwtExt.(*lwtAddMetadataMarkExt)
 		if !ok {
-			Logger.Println(
+			f.logger.Println(
 				fmt.Errorf("Failed to cast CQL protocol extension identified by name %s to type %T",
 					lwtAddMetadataMarkKey, lwtAddMetadataMarkExt{}))
 			return f
@@ -428,7 +451,7 @@ func newFramerWithExts(compressor Compressor, version byte, cqlProtoExts []cqlPr
 	if rateLimitErrorExt := findCQLProtoExtByName(cqlProtoExts, rateLimitError); rateLimitErrorExt != nil {
 		castedExt, ok := rateLimitErrorExt.(*rateLimitExt)
 		if !ok {
-			Logger.Println(
+			f.logger.Println(
 				fmt.Errorf("Failed to cast CQL protocol extension identified by name %s to type %T",
 					rateLimitError, rateLimitExt{}))
 			return f
@@ -439,7 +462,7 @@ func newFramerWithExts(compressor Compressor, version byte, cqlProtoExts []cqlPr
 	if tabletsExt := findCQLProtoExtByName(cqlProtoExts, tabletsRoutingV1); tabletsExt != nil {
 		_, ok := tabletsExt.(*tabletsRoutingV1Ext)
 		if !ok {
-			Logger.Println(
+			f.logger.Println(
 				fmt.Errorf("Failed to cast CQL protocol extension identified by name %s to type %T",
 					tabletsRoutingV1, tabletsRoutingV1Ext{}))
 			return f
