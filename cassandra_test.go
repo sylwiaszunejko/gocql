@@ -1,6 +1,30 @@
 //go:build all || cassandra || scylla
 // +build all cassandra scylla
 
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+/*
+ * Content before git sha 34fdeebefcbf183ed7f916f931aa0586fdaa1b40
+ * Copyright (c) 2016, The Gocql authors,
+ * provided under the BSD-3-Clause License.
+ * See the NOTICE file distributed with this work for additional information.
+ */
+
 package gocql
 
 import (
@@ -8,6 +32,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
+	"io"
 	"math"
 	"math/big"
 	"net"
@@ -1175,6 +1201,55 @@ func matchSliceMap(t *testing.T, sliceMap []map[string]interface{}, testMap map[
 	}
 	if sliceMap[0]["testint"] != testMap["testint"] {
 		t.Fatal("returned testint did not match")
+	}
+}
+
+type MyRetryPolicy struct {
+}
+
+func (*MyRetryPolicy) Attempt(q RetryableQuery) bool {
+	if q.Attempts() > 5 {
+		return false
+	}
+	return true
+}
+
+func (*MyRetryPolicy) GetRetryType(error) RetryType {
+	return Retry
+}
+
+func Test_RetryPolicyIdempotence(t *testing.T) {
+	session := createSession(t)
+	defer session.Close()
+
+	testCases := []struct {
+		name                  string
+		idempotency           bool
+		expectedNumberOfTries int
+	}{
+		{
+			name:                  "with retry",
+			idempotency:           true,
+			expectedNumberOfTries: 6,
+		},
+		{
+			name:                  "without retry",
+			idempotency:           false,
+			expectedNumberOfTries: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := session.Query("INSERT INTO  gocql_test.not_existing_table(event_id, time, args) VALUES (?,?,?)", 4, UUIDFromTime(time.Now()), "test")
+
+			q.Idempotent(tc.idempotency)
+			q.RetryPolicy(&MyRetryPolicy{})
+			q.Consistency(All)
+
+			_ = q.Exec()
+			require.Equal(t, tc.expectedNumberOfTries, q.Attempts())
+		})
 	}
 }
 
@@ -2456,6 +2531,135 @@ func TestJSONSupport(t *testing.T) {
 	if state != "TX" {
 		t.Errorf("got state %q expected %q", state, "TX")
 	}
+}
+
+func TestDiscoverViaProxy(t *testing.T) {
+	// This (complicated) test tests that when the driver is given an initial host
+	// that is infact a proxy it discovers the rest of the ring behind the proxy
+	// and does not store the proxies address as a host in its connection pool.
+	// See https://github.com/apache/cassandra-gocql-driver/issues/481
+	clusterHosts := getClusterHosts()
+	proxy, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("unable to create proxy listener: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var (
+		mu         sync.Mutex
+		proxyConns []net.Conn
+		closed     bool
+	)
+
+	go func() {
+		cassandraAddr := JoinHostPort(clusterHosts[0], 9042)
+
+		cassandra := func() (net.Conn, error) {
+			return net.Dial("tcp", cassandraAddr)
+		}
+
+		proxyFn := func(errs chan error, from, to net.Conn) {
+			_, err := io.Copy(to, from)
+			if err != nil {
+				errs <- err
+			}
+		}
+
+		// handle dials cassandra and then proxies requests and reponsess. It waits
+		// for both the read and write side of the TCP connection to close before
+		// returning.
+		handle := func(conn net.Conn) error {
+			cass, err := cassandra()
+			if err != nil {
+				return err
+			}
+			defer cass.Close()
+
+			errs := make(chan error, 2)
+			go proxyFn(errs, conn, cass)
+			go proxyFn(errs, cass, conn)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case err := <-errs:
+				return err
+			}
+		}
+
+		for {
+			// proxy just accepts connections and then proxies them to cassandra,
+			// it runs until it is closed.
+			conn, err := proxy.Accept()
+			if err != nil {
+				mu.Lock()
+				if !closed {
+					t.Error(err)
+				}
+				mu.Unlock()
+				return
+			}
+
+			mu.Lock()
+			proxyConns = append(proxyConns, conn)
+			mu.Unlock()
+
+			go func(conn net.Conn) {
+				defer conn.Close()
+
+				if err := handle(conn); err != nil {
+					mu.Lock()
+					if !closed {
+						t.Error(err)
+					}
+					mu.Unlock()
+				}
+			}(conn)
+		}
+	}()
+
+	proxyAddr := proxy.Addr().String()
+
+	cluster := createCluster()
+	cluster.NumConns = 1
+	// initial host is the proxy address
+	cluster.Hosts = []string{proxyAddr}
+
+	session := createSessionFromCluster(cluster, t)
+	defer session.Close()
+
+	// we shouldnt need this but to be safe
+	time.Sleep(1 * time.Second)
+
+	session.pool.mu.RLock()
+	for _, host := range clusterHosts {
+		found := false
+		for _, hi := range session.pool.hostConnPools {
+			if hi.host.ConnectAddress().String() == host {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("missing host in pool after discovery: %q", host)
+		}
+	}
+	session.pool.mu.RUnlock()
+
+	mu.Lock()
+	closed = true
+	if err := proxy.Close(); err != nil {
+		t.Log(err)
+	}
+
+	for _, conn := range proxyConns {
+		if err := conn.Close(); err != nil {
+			t.Log(err)
+		}
+	}
+	mu.Unlock()
 }
 
 func TestUnmarshallNestedTypes(t *testing.T) {
