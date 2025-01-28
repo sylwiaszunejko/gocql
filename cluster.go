@@ -302,7 +302,7 @@ type ClusterConfig struct {
 	DisableShardAwarePort bool
 
 	// Logger for this ClusterConfig.
-	// If not specified, defaults to the global gocql.Logger.
+	// If not specified, defaults to the gocql.defaultLogger.
 	Logger StdLogger
 
 	// The timeout for the requests to the schema tables. (default: 60s)
@@ -358,7 +358,7 @@ func NewCluster(hosts ...string) *ClusterConfig {
 
 func (cfg *ClusterConfig) logger() StdLogger {
 	if cfg.Logger == nil {
-		return Logger
+		return &defaultLogger{}
 	}
 	return cfg.Logger
 }
