@@ -45,7 +45,7 @@ func TestCloudConnection(t *testing.T) {
 
 	var localAddress string
 	var localHostID gocql.UUID
-	scanner := session.Query("SELECT broadcast_address, host_id FROM system.local").Iter().Scanner()
+	scanner := session.Query("SELECT broadcast_address, host_id FROM system.local WHERE key='local'").Iter().Scanner()
 	if scanner.Next() {
 		if err := scanner.Scan(&localAddress, &localHostID); err != nil {
 			t.Fatal(err)
