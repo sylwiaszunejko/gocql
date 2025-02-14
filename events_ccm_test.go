@@ -290,7 +290,7 @@ func TestEventDownQueryable(t *testing.T) {
 	}
 
 	var rows int
-	if err := session.Query("SELECT COUNT(*) FROM system.local").Scan(&rows); err != nil {
+	if err := session.Query("SELECT COUNT(*) FROM system.local WHERE key='local'").Scan(&rows); err != nil {
 		t.Fatal(err)
 	} else if rows != 1 {
 		t.Fatalf("expected to get 1 row got %d", rows)

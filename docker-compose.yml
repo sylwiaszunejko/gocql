@@ -29,7 +29,7 @@ services:
       source: ./testdata/pki/cassandra.key
       target: /etc/scylla/db.key
     healthcheck:
-      test: [ "CMD", "cqlsh", "-e", "select * from system.local" ]
+      test: [ "CMD", "cqlsh", "-e", "select * from system.local where key='local'" ]
       interval: 5s
       timeout: 5s
       retries: 18
@@ -43,7 +43,7 @@ services:
       public:
         ipv4_address: 192.168.100.12
     healthcheck:
-      test: [ "CMD", "cqlsh", "192.168.100.12", "-e", "select * from system.local" ]
+      test: [ "CMD", "cqlsh", "192.168.100.12", "-e", "select * from system.local where key='local'" ]
       interval: 5s
       timeout: 5s
       retries: 18
@@ -57,7 +57,7 @@ services:
       public:
         ipv4_address: 192.168.100.13
     healthcheck:
-      test: [ "CMD", "cqlsh", "192.168.100.13", "-e", "select * from system.local" ]
+      test: [ "CMD", "cqlsh", "192.168.100.13", "-e", "select * from system.local where key='local'" ]
       interval: 5s
       timeout: 5s
       retries: 18
@@ -74,7 +74,7 @@ services:
       public:
         ipv4_address: 192.168.100.14
     healthcheck:
-      test: [ "CMD", "cqlsh", "192.168.100.14", "-e", "select * from system.local" ]
+      test: [ "CMD", "cqlsh", "192.168.100.14", "-e", "select * from system.local where key='local'" ]
       interval: 5s
       timeout: 5s
       retries: 18
