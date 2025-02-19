@@ -503,6 +503,8 @@ func setupTLSConfig(sslOpts *SslOptions) (*tls.Config, error) {
 	if sslOpts.Config == nil {
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: !sslOpts.EnableHostVerification,
+			// Ticket max size is 16371 bytes, so it can grow up to 16mb max.
+			ClientSessionCache: tls.NewLRUClientSessionCache(1024),
 		}
 	} else {
 		// use clone to avoid race.
