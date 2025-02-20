@@ -1,5 +1,5 @@
-//go:build integration && scylla
-// +build integration,scylla
+//go:build integration
+// +build integration
 
 package gocql
 

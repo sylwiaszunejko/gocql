@@ -1,5 +1,5 @@
-//go:build all || integration
-// +build all integration
+//go:build integration
+// +build integration
 
 package gocql
 

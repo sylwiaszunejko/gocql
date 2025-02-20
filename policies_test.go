@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build all || unit
-// +build all unit
+//go:build unit
+// +build unit
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
