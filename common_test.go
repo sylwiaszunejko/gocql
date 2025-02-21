@@ -80,7 +80,29 @@ func addSslOptions(cluster *ClusterConfig) *ClusterConfig {
 	return cluster
 }
 
-var initOnce sync.Once
+type OnceManager struct {
+	mu        sync.Mutex
+	keyspaces map[string]*sync.Once
+}
+
+func NewOnceManager() *OnceManager {
+	return &OnceManager{
+		keyspaces: make(map[string]*sync.Once),
+	}
+}
+
+func (o *OnceManager) GetOnce(key string) *sync.Once {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	if once, exists := o.keyspaces[key]; exists {
+		return once
+	}
+	o.keyspaces[key] = &sync.Once{}
+	return o.keyspaces[key]
+}
+
+var initKeyspaceOnce = NewOnceManager()
 
 func createTable(s *Session, table string) error {
 	// lets just be really sure
@@ -193,14 +215,25 @@ func createKeyspace(tb testing.TB, cluster *ClusterConfig, keyspace string, disa
 	}
 }
 
-func createSessionFromClusterHelper(cluster *ClusterConfig, tb testing.TB, tabletsDisabled bool) *Session {
+type testKeyspaceOpts struct {
+	tabletsDisabled bool
+}
+
+func (o *testKeyspaceOpts) KeyspaceName() string {
+	if o.tabletsDisabled {
+		return "gocql_test_tablets_disabled"
+	}
+	return "gocql_test"
+}
+
+func createSessionFromClusterHelper(cluster *ClusterConfig, tb testing.TB, opts testKeyspaceOpts) *Session {
 	// Drop and re-create the keyspace once. Different tests should use their own
 	// individual tables, but can assume that the table does not exist before.
-	initOnce.Do(func() {
-		createKeyspace(tb, cluster, "gocql_test", tabletsDisabled)
+	initKeyspaceOnce.GetOnce(opts.KeyspaceName()).Do(func() {
+		createKeyspace(tb, cluster, opts.KeyspaceName(), opts.tabletsDisabled)
 	})
 
-	cluster.Keyspace = "gocql_test"
+	cluster.Keyspace = opts.KeyspaceName()
 	session, err := cluster.CreateSession()
 	if err != nil {
 		tb.Fatal("createSession:", err)
@@ -214,11 +247,11 @@ func createSessionFromClusterHelper(cluster *ClusterConfig, tb testing.TB, table
 }
 
 func createSessionFromClusterTabletsDisabled(cluster *ClusterConfig, tb testing.TB) *Session {
-	return createSessionFromClusterHelper(cluster, tb, true)
+	return createSessionFromClusterHelper(cluster, tb, testKeyspaceOpts{tabletsDisabled: true})
 }
 
 func createSessionFromCluster(cluster *ClusterConfig, tb testing.TB) *Session {
-	return createSessionFromClusterHelper(cluster, tb, false)
+	return createSessionFromClusterHelper(cluster, tb, testKeyspaceOpts{tabletsDisabled: false})
 }
 
 func createSessionFromMultiNodeCluster(cluster *ClusterConfig, tb testing.TB) *Session {
@@ -229,7 +262,7 @@ func createSessionFromMultiNodeCluster(cluster *ClusterConfig, tb testing.TB) *S
 		tb.Fatal("createSession:", err)
 	}
 
-	initOnce.Do(func() {
+	initKeyspaceOnce.GetOnce(keyspace).Do(func() {
 		if err = createTable(session, `DROP KEYSPACE IF EXISTS `+keyspace); err != nil {
 			panic(fmt.Sprintf("unable to drop keyspace: %v", err))
 		}

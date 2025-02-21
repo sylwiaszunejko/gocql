@@ -528,7 +528,7 @@ func TestCAS(t *testing.T) {
 		t.Skip("lightweight transactions not supported. Please use Cassandra >= 2.0")
 	}
 
-	if err := createTable(session, `CREATE TABLE gocql_test.cas_table (
+	if err := createTable(session, `CREATE TABLE cas_table (
 			title         varchar,
 			revid   	  timeuuid,
 			last_modified timestamp,
@@ -700,7 +700,7 @@ func TestMapScanCAS(t *testing.T) {
 		t.Skip("lightweight transactions not supported. Please use Cassandra >= 2.0")
 	}
 
-	if err := createTable(session, `CREATE TABLE gocql_test.cas_table2 (
+	if err := createTable(session, `CREATE TABLE cas_table2 (
 			title         varchar,
 			revid   	  timeuuid,
 			last_modified timestamp,
@@ -1271,7 +1271,7 @@ func TestScanCASWithNilArguments(t *testing.T) {
 		t.Skip("lightweight transactions not supported. Please use Cassandra >= 2.0")
 	}
 
-	if err := createTable(session, `CREATE TABLE gocql_test.scan_cas_with_nil_arguments (
+	if err := createTable(session, `CREATE TABLE scan_cas_with_nil_arguments (
 		foo   varchar,
 		bar   varchar,
 		PRIMARY KEY (foo, bar)
