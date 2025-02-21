@@ -1,11 +1,12 @@
-//go:build all || unit
-// +build all unit
+//go:build unit
+// +build unit
 
 package serialization_test
 
 import (
-	"github.com/gocql/gocql/serialization/boolean"
 	"testing"
+
+	"github.com/gocql/gocql/serialization/boolean"
 
 	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/internal/tests/serialization"

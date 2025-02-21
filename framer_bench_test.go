@@ -1,5 +1,5 @@
-//go:build all
-// +build all
+//go:build bench
+// +build bench
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one

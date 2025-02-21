@@ -1,14 +1,15 @@
-//go:build all || unit
-// +build all unit
+//go:build unit
+// +build unit
 
 package serialization_test
 
 import (
 	"fmt"
-	"gopkg.in/inf.v0"
 	"math"
 	"math/big"
 	"testing"
+
+	"gopkg.in/inf.v0"
 
 	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/internal/tests/serialization"

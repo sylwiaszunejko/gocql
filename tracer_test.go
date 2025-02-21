@@ -1,5 +1,5 @@
-//go:build all || cassandra || scylla
-// +build all cassandra scylla
+//go:build integration
+// +build integration
 
 package gocql
 

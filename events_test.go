@@ -1,5 +1,5 @@
-//go:build all || unit
-// +build all unit
+//go:build unit
+// +build unit
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one

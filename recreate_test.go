@@ -1,5 +1,5 @@
-//go:build integration && scylla
-// +build integration,scylla
+//go:build integration
+// +build integration
 
 // Copyright (C) 2017 ScyllaDB
 

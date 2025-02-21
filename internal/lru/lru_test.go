@@ -1,5 +1,5 @@
-//go:build all || unit
-// +build all unit
+//go:build unit
+// +build unit
 
 /*
 Copyright 2015 To gocql authors
