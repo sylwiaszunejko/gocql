@@ -1,5 +1,5 @@
-//go:build tablet
-// +build tablet
+//go:build integration
+// +build integration
 
 package gocql
 
@@ -11,16 +11,16 @@ import (
 
 // Check if TokenAwareHostPolicy works correctly when using tablets
 func TestTablets(t *testing.T) {
-	cluster := createMultiNodeCluster()
+	cluster := createCluster()
 
 	fallback := RoundRobinHostPolicy()
 	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(fallback)
 
-	session := createSessionFromMultiNodeCluster(cluster, t)
+	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	if err := createTable(session, fmt.Sprintf(`CREATE TABLE %s.%s (pk int, ck int, v int, PRIMARY KEY (pk, ck));
-	`, "test1", "table1")); err != nil {
+	if err := createTable(session, fmt.Sprintf(`CREATE TABLE %s (pk int, ck int, v int, PRIMARY KEY (pk, ck));
+	`, "test_tablets")); err != nil {
 		panic(fmt.Sprintf("unable to create table: %v", err))
 	}
 
@@ -36,7 +36,7 @@ func TestTablets(t *testing.T) {
 	i := 0
 	for i < 50 {
 		i = i + 1
-		err := session.Query(`INSERT INTO test1.table1 (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
+		err := session.Query(`INSERT INTO test_tablets (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,7 +51,7 @@ func TestTablets(t *testing.T) {
 		var ck int
 		var v int
 
-		err := session.Query(`SELECT pk, ck, v FROM test1.table1 WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
+		err := session.Query(`SELECT pk, ck, v FROM test_tablets WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -101,16 +101,16 @@ func TestTablets(t *testing.T) {
 
 // Check if shard awareness works correctly when using tablets
 func TestTabletsShardAwareness(t *testing.T) {
-	cluster := createMultiNodeCluster()
+	cluster := createCluster()
 
 	fallback := RoundRobinHostPolicy()
 	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(fallback)
 
-	session := createSessionFromMultiNodeCluster(cluster, t)
+	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	if err := createTable(session, fmt.Sprintf(`CREATE TABLE %s.%s (pk int, ck int, v int, PRIMARY KEY (pk, ck));
-	`, "test1", "table_shard")); err != nil {
+	if err := createTable(session, fmt.Sprintf(`CREATE TABLE %s (pk int, ck int, v int, PRIMARY KEY (pk, ck));
+	`, "test_tablets_shard_awarness")); err != nil {
 		panic(fmt.Sprintf("unable to create table: %v", err))
 	}
 
@@ -119,7 +119,7 @@ func TestTabletsShardAwareness(t *testing.T) {
 	i := 0
 	for i < 50 {
 		i = i + 1
-		err := session.Query(`INSERT INTO test1.table_shard (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
+		err := session.Query(`INSERT INTO test_tablets_shard_awarness (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -134,7 +134,7 @@ func TestTabletsShardAwareness(t *testing.T) {
 		var ck int
 		var v int
 
-		err := session.Query(`SELECT pk, ck, v FROM test1.table_shard WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
+		err := session.Query(`SELECT pk, ck, v FROM test_tablets_shard_awarness WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
 		if err != nil {
 			t.Fatal(err)
 		}

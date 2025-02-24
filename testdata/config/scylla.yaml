@@ -9,3 +9,4 @@ client_encryption_options:
   truststore: /etc/scylla/ca.crt
   require_client_auth: true
 maintenance_socket: workdir
+enable_tablets: true
