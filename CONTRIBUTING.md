@@ -21,17 +21,35 @@ The following is a check list of requirements that need to be satisfied in order
 * The merge commit passes the regression test suite on GitHub Actions
 * `go fmt` has been applied to the submitted code
 * A correctly formatted commit message, see below
+* Notable changes (i.e. new features or changed behavior, bugfixes) are appropriately documented in CHANGELOG.md, functional changes also in godoc
 
 If there are any requirements that can't be reasonably satisfied, please state this either on the pull request or as part of discussion on the mailing list. Where appropriate, the core team may apply discretion and make an exception to these requirements.
 
 ## Commit Message
 
-This project has a commit message precendence like
-```
-<One sentence description>
+The commit message format should be:
 
-<More details>
 ```
+<short description>
+
+<reason why the change is needed>
+
+Patch by <authors>; reviewed by <Reviewers> for #####
+```
+
+Short description should:
+* Be a short sentence.
+* Start with a capital letter.
+* Be written in the present tense.
+* Summarize what is changed, not why it is changed.
+
+Short description should not:
+* End with a period.
+* Use the word Fixes . Most commits fix something.
+
+Long description / Reason:
+* Should describe why the change is needed. What is fixed by the change? Why it it was broken before? What use case does the new feature solve?
+* Consider adding details of other options that you considered when implementing the change and why you made the design decisions you made.
 
 ## Beyond The Checklist
 

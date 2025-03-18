@@ -128,7 +128,7 @@ type RetryType uint16
 const (
 	Retry         RetryType = 0x00 // retry on same connection
 	RetryNextHost RetryType = 0x01 // retry on another connection
-	Ignore        RetryType = 0x02 // ignore error and return result
+	Ignore        RetryType = 0x02 // same as Rethrow
 	Rethrow       RetryType = 0x03 // raise error and stop retrying
 )
 
