@@ -357,3 +357,70 @@ func TestIsUseStatement(t *testing.T) {
 		}
 	}
 }
+
+type simpleTestRetryPolycy struct {
+	RetryType  RetryType
+	NumRetries int
+}
+
+func (p *simpleTestRetryPolycy) Attempt(q RetryableQuery) bool {
+	return q.Attempts() <= p.NumRetries
+}
+
+func (p *simpleTestRetryPolycy) GetRetryType(error) RetryType {
+	return p.RetryType
+}
+
+// TestRetryType_IgnoreRethrow verify that with Ignore/Rethrow retry types:
+// - retries stopped
+// - return error is not nil on Rethrow, Ignore
+// - observed error is not nil
+func TestRetryType_IgnoreRethrow(t *testing.T) {
+	session := createSession(t)
+	defer session.Close()
+
+	var observedErr error
+	var observedAttempts int
+
+	resetObserved := func() {
+		observedErr = nil
+		observedAttempts = 0
+	}
+
+	observer := funcQueryObserver(func(ctx context.Context, o ObservedQuery) {
+		observedErr = o.Err
+		observedAttempts++
+	})
+
+	for i, caseParams := range []struct {
+		retries   int
+		retryType RetryType
+	}{
+		{0, Ignore},  // check that stops retries
+		{1, Ignore},  // check that stops retries
+		{0, Rethrow}, // check that stops retries
+		{1, Rethrow}, // check that stops retries
+	} {
+		retryPolicy := &simpleTestRetryPolycy{RetryType: caseParams.retryType, NumRetries: caseParams.retries}
+
+		err := session.Query("INSERT INTO gocql_test.invalid_table(value) VALUES(1)").Idempotent(true).RetryPolicy(retryPolicy).Observer(observer).Exec()
+
+		if err == nil {
+			t.Fatalf("case %d [%v] Expected unconfigured table error, got: nil", i, caseParams.retryType)
+		}
+
+		if observedErr == nil {
+			t.Fatalf("case %d expected unconfigured table error in Obserer, got: nil", i)
+		}
+
+		expectedAttempts := caseParams.retries
+		if expectedAttempts == 0 {
+			expectedAttempts = 1
+		}
+		if observedAttempts != expectedAttempts {
+			t.Fatalf("case %d expected %d attempts, got: %d", i, expectedAttempts, observedAttempts)
+		}
+
+		resetObserved()
+	}
+}
