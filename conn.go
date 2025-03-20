@@ -1847,21 +1847,15 @@ const qrySystemPeersV2 = "SELECT * FROM system.peers_2"
 
 const qrySystemLocal = "SELECT * FROM system.local WHERE key='local'"
 
-func getSchemaAgreement(queryLocalSchemasRows []string, querySystemPeersRows []map[string]interface{}, connectAddress net.IP, port int, translateAddressPort func(addr net.IP, port int) (net.IP, int), logger StdLogger) (err error) {
+func getSchemaAgreement(queryLocalSchemasRows []string, querySystemPeersRows []schemaAgreementHost, connectAddress net.IP, port int, translateAddressPort func(addr net.IP, port int) (net.IP, int), logger StdLogger) (err error) {
 	versions := make(map[string]struct{})
 
 	for _, row := range querySystemPeersRows {
-		var host *HostInfo
-		host, err = hostInfoFromMap(row, &HostInfo{connectAddress: connectAddress, port: port}, translateAddressPort)
-		if err != nil {
-			return err
-		}
-		if !isValidPeer(host) || host.schemaVersion == "" {
-			logger.Printf("invalid peer or peer with empty schema_version: peer=%q", host)
+		if !row.IsValid() {
+			logger.Printf("invalid peer or peer with empty schema_version: peer=%q", row)
 			continue
 		}
-
-		versions[host.schemaVersion] = struct{}{}
+		versions[row.SchemaVersion.String()] = struct{}{}
 	}
 
 	for _, schemaVersion := range queryLocalSchemasRows {
@@ -1881,11 +1875,19 @@ func getSchemaAgreement(queryLocalSchemasRows []string, querySystemPeersRows []m
 	return nil
 }
 
+type schemaAgreementHost struct {
+	DataCenter    string
+	Rack          string
+	HostID        UUID
+	SchemaVersion UUID
+	RPCAddress    string
+}
+
+func (h *schemaAgreementHost) IsValid() bool {
+	return h.DataCenter != "" && h.Rack != "" && h.HostID.String() != "" && h.SchemaVersion.String() != ""
+}
+
 func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
-	var localSchemas = "SELECT schema_version FROM system.local WHERE key='local'"
-
-	var schemaVersion string
-
 	endDeadline := time.Now().Add(c.session.cfg.MaxWaitSchemaAgreement)
 
 	var err error
@@ -1904,12 +1906,17 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	for time.Now().Before(endDeadline) {
 		var iter *Iter
 		if c.getIsSchemaV2() {
-			iter = c.querySystem(ctx, qrySystemPeersV2)
+			iter = c.querySystem(ctx, "SELECT host_id, data_center, rack, schema_version, rpc_address FROM system.peers_2")
 		} else {
-			iter = c.querySystem(ctx, qrySystemPeers)
+			iter = c.querySystem(ctx, "SELECT host_id, data_center, rack, schema_version, rpc_address FROM system.peers")
 		}
-		var systemPeersRows []map[string]interface{}
-		systemPeersRows, err = iter.SliceMap()
+		// data_center, rack, host_id, schema_version, rpc_address
+		var hosts []schemaAgreementHost
+		var tmp schemaAgreementHost
+		for iter.Scan(&tmp.HostID, &tmp.DataCenter, &tmp.Rack, &tmp.SchemaVersion, &tmp.RPCAddress) {
+			hosts = append(hosts, tmp)
+		}
+		err = iter.Close()
 		if err != nil {
 			return err
 		}
@@ -1919,7 +1926,9 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 
 		schemaVersions := []string{}
 
-		iter = c.querySystem(ctx, localSchemas)
+		iter = c.querySystem(ctx, "SELECT schema_version FROM system.local WHERE key='local'")
+
+		var schemaVersion string
 		for iter.Scan(&schemaVersion) {
 			schemaVersions = append(schemaVersions, schemaVersion)
 			schemaVersion = ""
@@ -1928,7 +1937,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		if err = iter.Close(); err != nil {
 			return err
 		}
-		err = getSchemaAgreement(schemaVersions, systemPeersRows, c.host.ConnectAddress(), c.session.cfg.Port, c.session.cfg.translateAddressPort, c.logger)
+		err = getSchemaAgreement(schemaVersions, hosts, c.host.ConnectAddress(), c.session.cfg.Port, c.session.cfg.translateAddressPort, c.logger)
 
 		if err == ErrConnectionClosed || err == nil {
 			return err

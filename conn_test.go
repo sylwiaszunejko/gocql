@@ -1427,39 +1427,27 @@ func (srv *TestServer) readFrame(conn net.Conn) (*framer, error) {
 
 func TestGetSchemaAgreement(t *testing.T) {
 	schema_version1 := ParseUUIDMust("af810386-a694-11ef-81fa-3aea73156247")
-	peersRows := []map[string]interface{}{
+	peersRows := []schemaAgreementHost{
 		{
-			"data_center":     "datacenter1",
-			"host_id":         ParseUUIDMust("b2035fd9-e0ca-4857-8c45-e63c00fb7c43"),
-			"peer":            "127.0.0.3",
-			"preferred_ip":    "127.0.0.3",
-			"rack":            "rack1",
-			"release_version": "3.0.8",
-			"rpc_address":     "127.0.0.3",
-			"schema_version":  schema_version1,
-			"tokens":          []string{"-1296227678594315580994457470329811265"},
+			DataCenter:    "datacenter1",
+			HostID:        ParseUUIDMust("b2035fd9-e0ca-4857-8c45-e63c00fb7c43"),
+			Rack:          "rack1",
+			RPCAddress:    "127.0.0.3",
+			SchemaVersion: schema_version1,
 		},
 		{
-			"data_center":     "datacenter1",
-			"host_id":         ParseUUIDMust("4b21ee4c-acea-4267-8e20-aaed5361a0dd"),
-			"peer":            "127.0.0.2",
-			"preferred_ip":    "127.0.0.2",
-			"rack":            "rack1",
-			"release_version": "3.0.8",
-			"rpc_address":     "127.0.0.2",
-			"schema_version":  schema_version1,
-			"tokens":          []string{"-1129762924682054333"},
+			DataCenter:    "datacenter1",
+			HostID:        ParseUUIDMust("4b21ee4c-acea-4267-8e20-aaed5361a0dd"),
+			Rack:          "rack1",
+			RPCAddress:    "127.0.0.2",
+			SchemaVersion: schema_version1,
 		},
 		{
-			"data_center":     "datacenter2",
-			"host_id":         ParseUUIDMust("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3"),
-			"peer":            "127.0.0.5",
-			"preferred_ip":    "127.0.0.5",
-			"rack":            "rack1",
-			"release_version": "3.0.8",
-			"rpc_address":     "127.0.0.5",
-			"schema_version":  ParseUUIDMust("875a938a-a695-11ef-4314-85c8ef0ebaa2"),
-			"tokens":          []string{},
+			DataCenter:    "datacenter2",
+			HostID:        ParseUUIDMust("dfef4a22-b8d8-47e9-aee5-8c19d4b7a9e3"),
+			Rack:          "rack1",
+			RPCAddress:    "127.0.0.5",
+			SchemaVersion: ParseUUIDMust("875a938a-a695-11ef-4314-85c8ef0ebaa2"),
 		},
 	}
 
@@ -1496,7 +1484,7 @@ func TestGetSchemaAgreement(t *testing.T) {
 	})
 
 	t.Run("SchemaConsistent", func(t *testing.T) {
-		peersRows[2]["schema_version"] = schema_version1
+		peersRows[2].SchemaVersion = schema_version1
 		err := getSchemaAgreement(
 			[]string{"af810386-a694-11ef-81fa-3aea73156247"},
 			peersRows,
