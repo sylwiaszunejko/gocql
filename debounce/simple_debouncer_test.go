@@ -147,7 +147,6 @@ func TestSimpleDebouncerCount(t *testing.T) {
 
 // TestDebouncer tests that the debouncer allows only one function to execute at a time
 func TestSimpleDebouncer(t *testing.T) {
-	t.Skip("This test sometimes ends vai panic. Issue https://github.com/scylladb/gocql/pull/344")
 	d := NewSimpleDebouncer()
 	var executions int32
 	startedCh := make(chan struct{}, 1)
