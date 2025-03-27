@@ -1484,7 +1484,8 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 			}
 		}
 
-		params.skipMeta = !(c.session.cfg.DisableSkipMetadata || qry.disableSkipMetadata)
+		// if the metadata was not present in the response then we should not skip it
+		params.skipMeta = !(c.session.cfg.DisableSkipMetadata || qry.disableSkipMetadata) && len(info.response.columns) != 0
 
 		frame = &writeExecuteFrame{
 			preparedID:    info.id,
@@ -1594,8 +1595,6 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 			} else {
 				return &Iter{framer: framer, err: errors.New("gocql: did not receive metadata but prepared info is nil")}
 			}
-		} else {
-			iter.meta = x.meta
 		}
 
 		if x.meta.morePages() && !qry.disableAutoPage {
