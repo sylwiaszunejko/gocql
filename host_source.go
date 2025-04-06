@@ -34,8 +34,10 @@ import (
 	"time"
 )
 
-var ErrCannotFindHost = errors.New("cannot find host")
-var ErrHostAlreadyExists = errors.New("host already exists")
+var (
+	ErrCannotFindHost    = errors.New("cannot find host")
+	ErrHostAlreadyExists = errors.New("host already exists")
+)
 
 type nodeState int32
 
@@ -55,6 +57,7 @@ const (
 
 type cassVersion struct {
 	Major, Minor, Patch int
+	Qualifier           string
 }
 
 func (c *cassVersion) Set(v string) error {
@@ -70,9 +73,7 @@ func (c *cassVersion) UnmarshalCQL(info TypeInfo, data []byte) error {
 }
 
 func (c *cassVersion) unmarshal(data []byte) error {
-	version := strings.TrimSuffix(string(data), "-SNAPSHOT")
-	version = strings.TrimPrefix(version, "v")
-	v := strings.Split(version, ".")
+	v := strings.SplitN(strings.TrimPrefix(strings.TrimSuffix(string(data), "-SNAPSHOT"), "v"), ".", 3)
 
 	if len(v) < 2 {
 		return fmt.Errorf("invalid version string: %s", data)
@@ -84,18 +85,31 @@ func (c *cassVersion) unmarshal(data []byte) error {
 		return fmt.Errorf("invalid major version %v: %v", v[0], err)
 	}
 
+	if len(v) == 2 {
+		vMinor := strings.SplitN(v[1], "-", 2)
+		c.Minor, err = strconv.Atoi(vMinor[0])
+		if err != nil {
+			return fmt.Errorf("invalid minor version %v: %v", vMinor[0], err)
+		}
+		if len(vMinor) == 2 {
+			c.Qualifier = vMinor[1]
+		}
+		return nil
+	}
+
 	c.Minor, err = strconv.Atoi(v[1])
 	if err != nil {
 		return fmt.Errorf("invalid minor version %v: %v", v[1], err)
 	}
 
-	if len(v) > 2 {
-		c.Patch, err = strconv.Atoi(v[2])
-		if err != nil {
-			return fmt.Errorf("invalid patch version %v: %v", v[2], err)
-		}
+	vPatch := strings.SplitN(v[2], "-", 2)
+	c.Patch, err = strconv.Atoi(vPatch[0])
+	if err != nil {
+		return fmt.Errorf("invalid patch version %v: %v", vPatch[0], err)
 	}
-
+	if len(vPatch) == 2 {
+		c.Qualifier = vPatch[1]
+	}
 	return nil
 }
 
@@ -110,7 +124,6 @@ func (c cassVersion) Before(major, minor, patch int) bool {
 		} else if c.Minor == minor && c.Patch < patch {
 			return true
 		}
-
 	}
 	return false
 }
@@ -120,6 +133,9 @@ func (c cassVersion) AtLeast(major, minor, patch int) bool {
 }
 
 func (c cassVersion) String() string {
+	if c.Qualifier != "" {
+		return fmt.Sprintf("%d.%d.%d-%v", c.Major, c.Minor, c.Patch, c.Qualifier)
+	}
 	return fmt.Sprintf("v%d.%d.%d", c.Major, c.Minor, c.Patch)
 }
 
@@ -498,7 +514,7 @@ func (h *HostInfo) String() string {
 	connectAddr, source := h.connectAddressLocked()
 	return fmt.Sprintf("[HostInfo hostname=%q connectAddress=%q peer=%q rpc_address=%q broadcast_address=%q "+
 		"preferred_ip=%q connect_addr=%q connect_addr_source=%q "+
-		"port=%d data_centre=%q rack=%q host_id=%q version=%q state=%s num_tokens=%d]",
+		"port=%d data_center=%q rack=%q host_id=%q version=%q state=%s num_tokens=%d]",
 		h.hostname, h.connectAddress, h.peer, h.rpcAddress, h.broadcastAddress, h.preferredIP,
 		connectAddr, source,
 		h.port, h.dataCenter, h.rack, h.hostId, h.version, h.state, len(h.tokens))
