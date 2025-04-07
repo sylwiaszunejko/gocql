@@ -94,19 +94,21 @@ func (t *TableMetadataOptions) Equals(other *TableMetadataOptions) bool {
 }
 
 type ViewMetadata struct {
-	KeyspaceName      string
-	ViewName          string
-	BaseTableID       string
-	BaseTableName     string
-	ID                string
-	IncludeAllColumns bool
-	Columns           map[string]*ColumnMetadata
-	OrderedColumns    []string
-	PartitionKey      []*ColumnMetadata
-	ClusteringColumns []*ColumnMetadata
-	WhereClause       string
-	Options           TableMetadataOptions
-	Extensions        map[string]interface{}
+	KeyspaceName            string
+	ViewName                string
+	BaseTableID             string
+	BaseTableName           string
+	ID                      string
+	IncludeAllColumns       bool
+	Columns                 map[string]*ColumnMetadata
+	OrderedColumns          []string
+	PartitionKey            []*ColumnMetadata
+	ClusteringColumns       []*ColumnMetadata
+	WhereClause             string
+	Options                 TableMetadataOptions
+	Extensions              map[string]interface{}
+	DcLocalReadRepairChance float64 // After Scylla 4.2 by default read_repair turned off
+	ReadRepairChance        float64 // After Scylla 4.2 by default read_repair turned off
 }
 
 // schema metadata for a column
@@ -1085,6 +1087,8 @@ func getViewMetadata(session *Session, keyspaceName string) ([]ViewMetadata, err
 		"min_index_interval":          &view.Options.MinIndexInterval,
 		"speculative_retry":           &view.Options.SpeculativeRetry,
 		"extensions":                  &view.Extensions,
+		"dclocal_read_repair_chance":  &view.DcLocalReadRepairChance,
+		"read_repair_chance":          &view.ReadRepairChance,
 	}) {
 		views = append(views, view)
 		view = ViewMetadata{KeyspaceName: keyspaceName}

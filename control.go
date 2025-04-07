@@ -90,9 +90,9 @@ func (c *controlConn) getSession() *Session {
 func createControlConn(session *Session) *controlConn {
 
 	control := &controlConn{
-		session:            session,
-		quit:               make(chan struct{}),
-		retry:              &SimpleRetryPolicy{NumRetries: 3},
+		session: session,
+		quit:    make(chan struct{}),
+		retry:   &SimpleRetryPolicy{NumRetries: 3},
 	}
 
 	control.conn.Store((*connHost)(nil))
@@ -161,8 +161,10 @@ func hostInfo(addr string, defaultPort int) ([]*HostInfo, error) {
 
 	// Check if host is a literal IP address
 	if ip := net.ParseIP(host); ip != nil {
-		hosts = append(hosts, &HostInfo{hostname: host, connectAddress: ip, port: port})
-		return hosts, nil
+		if validIpAddr(ip) {
+			hosts = append(hosts, &HostInfo{hostname: host, connectAddress: ip, port: port})
+			return hosts, nil
+		}
 	}
 
 	// Look up host in DNS
@@ -187,9 +189,14 @@ func hostInfo(addr string, defaultPort int) ([]*HostInfo, error) {
 	}
 
 	for _, ip := range ips {
-		hosts = append(hosts, &HostInfo{hostname: host, connectAddress: ip, port: port})
+		if validIpAddr(ip) {
+			hosts = append(hosts, &HostInfo{hostname: host, connectAddress: ip, port: port})
+		}
 	}
 
+	if len(hosts) == 0 {
+		return nil, fmt.Errorf("no IP's founded for %q", addr)
+	}
 	return hosts, nil
 }
 

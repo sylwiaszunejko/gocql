@@ -1928,7 +1928,13 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 		if err = iter.Close(); err != nil {
 			return err
 		}
-		err = getSchemaAgreement(schemaVersions, hosts, c.host.ConnectAddress(), c.session.cfg.Port, c.session.cfg.translateAddressPort, c.logger)
+
+		var addr net.IP
+		if addr, err = c.host.ConnectAddressWithError(); err != nil {
+			return err
+		}
+
+		err = getSchemaAgreement(schemaVersions, hosts, addr, c.session.cfg.Port, c.session.cfg.translateAddressPort, c.logger)
 
 		if err == ErrConnectionClosed || err == nil {
 			return err
