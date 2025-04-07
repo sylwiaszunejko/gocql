@@ -249,6 +249,17 @@ func (h *HostInfo) ConnectAddress() net.IP {
 	panic(fmt.Sprintf("no valid connect address for host: %v. Is your cluster configured correctly?", h))
 }
 
+// ConnectAddressWithError same as ConnectAddress, but an error instead of panic.
+func (h *HostInfo) ConnectAddressWithError() (net.IP, error) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if addr, source := h.connectAddressLocked(); source != "invalid" {
+		return addr, nil
+	}
+	return nil, fmt.Errorf("no valid connect address for host: %v", h)
+}
+
 func (h *HostInfo) UntranslatedConnectAddress() net.IP {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
