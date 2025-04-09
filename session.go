@@ -141,6 +141,7 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("gocql: unable to create session: cluster config validation failed: %v", err)
 	}
+
 	// TODO: we should take a context in here at some point
 	ctx, cancel := context.WithCancel(context.TODO())
 
@@ -544,6 +545,7 @@ func (s *Session) Query(stmt string, values ...interface{}) *Query {
 	qry.session = s
 	qry.stmt = stmt
 	qry.values = values
+	qry.hostID = ""
 	qry.defaultsFromSession()
 	qry.routingInfo.lwt = false
 	return qry
@@ -1097,6 +1099,10 @@ type Query struct {
 
 	// routingInfo is a pointer because Query can be copied and copyable struct can't hold a mutex.
 	routingInfo *queryRoutingInfo
+
+	// hostID specifies the host on which the query should be executed.
+	// If it is empty, then the host is picked by HostSelectionPolicy
+	hostID string
 }
 
 type queryRoutingInfo struct {
@@ -1459,7 +1465,7 @@ func (q *Query) Bind(v ...interface{}) *Query {
 // either SERIAL or LOCAL_SERIAL and if not present, it defaults to
 // SERIAL. This option will be ignored for anything else that a
 // conditional update/insert.
-func (q *Query) SerialConsistency(cons SerialConsistency) *Query {
+func (q *Query) SerialConsistency(cons Consistency) *Query {
 	if !cons.IsSerial() {
 		panic("Serial consistency can only be SERIAL or LOCAL_SERIAL got " + cons.String())
 	}
@@ -1640,6 +1646,20 @@ func (q *Query) borrowForExecution() {
 
 func (q *Query) releaseAfterExecution() {
 	q.decRefCount()
+}
+
+// SetHostID allows to define the host the query should be executed against. If the
+// host was filtered or otherwise unavailable, then the query will error. If an empty
+// string is sent, the default behavior, using the configured HostSelectionPolicy will
+// be used. A hostID can be obtained from HostInfo.HostID() after calling GetHosts().
+func (q *Query) SetHostID(hostID string) *Query {
+	q.hostID = hostID
+	return q
+}
+
+// GetHostID returns id of the host on which query should be executed.
+func (q *Query) GetHostID() string {
+	return q.hostID
 }
 
 // Iter represents an iterator that can be used to iterate over all rows that
@@ -1969,6 +1989,10 @@ type Batch struct {
 
 	// routingInfo is a pointer because Query can be copied and copyable struct can't hold a mutex.
 	routingInfo *queryRoutingInfo
+
+	// hostID specifies the host on which the query should be executed.
+	// If it is empty, then the host is picked by HostSelectionPolicy
+	hostID string
 }
 
 // NewBatch creates a new batch operation using defaults defined in the cluster
@@ -2146,7 +2170,7 @@ func (b *Batch) Size() int {
 // conditional update/insert.
 //
 // Only available for protocol 3 and above
-func (b *Batch) SerialConsistency(cons SerialConsistency) *Batch {
+func (b *Batch) SerialConsistency(cons Consistency) *Batch {
 	if !cons.IsSerial() {
 		panic("Serial consistency can only be SERIAL or LOCAL_SERIAL got " + cons.String())
 	}
@@ -2283,6 +2307,20 @@ func (b *Batch) releaseAfterExecution() {
 	// that would race with speculative executions.
 }
 
+// SetHostID allows to define the host the query should be executed against. If the
+// host was filtered or otherwise unavailable, then the query will error. If an empty
+// string is sent, the default behavior, using the configured HostSelectionPolicy will
+// be used. A hostID can be obtained from HostInfo.HostID() after calling GetHosts().
+func (b *Batch) SetHostID(hostID string) *Batch {
+	b.hostID = hostID
+	return b
+}
+
+// GetHostID satisfies ExecutableQuery interface but does noop.
+func (b *Batch) GetHostID() string {
+	return b.hostID
+}
+
 type BatchType byte
 
 const (
@@ -2349,6 +2387,11 @@ type inflightCachedEntry struct {
 	wg    sync.WaitGroup
 	err   error
 	value interface{}
+}
+
+// GetHosts return a list of hosts in the ring the driver knows of.
+func (s *Session) GetHosts() []*HostInfo {
+	return s.hostSource.getHostsList()
 }
 
 type ObservedQuery struct {

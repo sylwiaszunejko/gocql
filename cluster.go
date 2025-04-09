@@ -173,7 +173,7 @@ type ClusterConfig struct {
 
 	// Consistency for the serial part of queries, values can be either SERIAL or LOCAL_SERIAL.
 	// Default: unset
-	SerialConsistency SerialConsistency
+	SerialConsistency Consistency
 
 	// SslOpts configures TLS use when HostDialer is not set.
 	// SslOpts is ignored if HostDialer is set.
@@ -501,6 +501,10 @@ func (cfg *ClusterConfig) Validate() error {
 
 	if !cfg.DisableSkipMetadata {
 		cfg.Logger.Println("warning: enabling skipping metadata can lead to unpredictible results when executing query and altering columns involved in the query.")
+	}
+
+	if cfg.SerialConsistency > 0 && !cfg.SerialConsistency.IsSerial() {
+		return fmt.Errorf("the default SerialConsistency level is not allowed to be anything else but SERIAL or LOCAL_SERIAL. Recived value: %v", cfg.SerialConsistency)
 	}
 
 	return cfg.ValidateAndInitSSL()
