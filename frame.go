@@ -1915,14 +1915,14 @@ func (f *framer) readInetAdressOnly() net.IP {
 		panic(fmt.Errorf("invalid IP size: %d", size))
 	}
 
-	if len(f.buf) < 1 {
+	if len(f.buf) < int(size) {
 		panic(fmt.Errorf("not enough bytes in buffer to read inet require %d got: %d", size, len(f.buf)))
 	}
 
-	ip := make([]byte, size)
+	ip := make(net.IP, size)
 	copy(ip, f.buf[:size])
 	f.buf = f.buf[size:]
-	return net.IP(ip)
+	return ip
 }
 
 func (f *framer) readInet() (net.IP, int) {
