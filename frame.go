@@ -784,9 +784,9 @@ func (f *framer) writeHeader(flags byte, op frameOp, stream int) {
 }
 
 func (f *framer) setLength(length int) {
-	p := 4
-	if f.proto > protoVersion2 {
-		p = 5
+	p := 5
+	if f.proto <= protoVersion2 {
+		p = 4
 	}
 
 	f.buf[p+0] = byte(length >> 24)
