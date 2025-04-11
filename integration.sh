@@ -42,5 +42,5 @@ TAGS=$*
 if [ ! -z "$TAGS" ];
 then
 	echo "==> Running ${TAGS} tests with args: ${args}"
-	go test -timeout=5m -race -tags="$TAGS" ${args} ./...
+	go test -v -timeout=5m -race -tags="$TAGS" ${args} ./...
 fi
