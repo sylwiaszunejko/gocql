@@ -1965,7 +1965,7 @@ func (f *framer) writeByte(b byte) {
 
 func appendBytes(p []byte, d []byte) []byte {
 	if d == nil {
-		return appendInt(p, -1)
+		return appendIntNeg1(p)
 	}
 	p = appendInt(p, int32(len(d)))
 	p = append(p, d...)
@@ -1984,6 +1984,10 @@ func appendInt(p []byte, n int32) []byte {
 		byte(n>>16),
 		byte(n>>8),
 		byte(n))
+}
+
+func appendIntNeg1(p []byte) []byte {
+	return append(p, 255, 255, 255, 255)
 }
 
 func appendUint(p []byte, n uint32) []byte {
@@ -2028,6 +2032,14 @@ func (f *framer) writeInt(n int32) {
 	f.buf = appendInt(f.buf, n)
 }
 
+func (f *framer) writeIntNeg1() {
+	f.buf = appendIntNeg1(f.buf)
+}
+
+func (f *framer) writeIntNeg2() {
+	f.buf = append(f.buf, 255, 255, 255, 254)
+}
+
 func (f *framer) writeUint(n uint32) {
 	f.buf = appendUint(f.buf, n)
 }
@@ -2062,7 +2074,7 @@ func (f *framer) writeUnset() {
 	// value when executing a statement.   Bind variables without a value are
 	// called 'unset'. The 'unset' bind variable is serialized as the int
 	// value '-2' without following bytes.
-	f.writeInt(-2)
+	f.writeIntNeg2()
 }
 
 func (f *framer) writeBytes(p []byte) {
@@ -2070,7 +2082,7 @@ func (f *framer) writeBytes(p []byte) {
 	//     [bytes]        A [int] n, followed by n bytes if n >= 0. If n < 0,
 	//					  no byte should follow and the value represented is `null`.
 	if p == nil {
-		f.writeInt(-1)
+		f.writeIntNeg1()
 	} else {
 		f.writeInt(int32(len(p)))
 		f.buf = append(f.buf, p...)

@@ -1072,7 +1072,7 @@ func marshalTuple(info TypeInfo, value interface{}) ([]byte, error) {
 		var buf []byte
 		for i, elem := range v {
 			if elem == nil {
-				buf = appendInt(buf, int32(-1))
+				buf = appendIntNeg1(buf)
 				continue
 			}
 
@@ -1104,7 +1104,7 @@ func marshalTuple(info TypeInfo, value interface{}) ([]byte, error) {
 			field := rv.Field(i)
 
 			if field.Kind() == reflect.Ptr && field.IsNil() {
-				buf = appendInt(buf, int32(-1))
+				buf = appendIntNeg1(buf)
 				continue
 			}
 
@@ -1130,7 +1130,7 @@ func marshalTuple(info TypeInfo, value interface{}) ([]byte, error) {
 			item := rv.Index(i)
 
 			if item.Kind() == reflect.Ptr && item.IsNil() {
-				buf = appendInt(buf, int32(-1))
+				buf = appendIntNeg1(buf)
 				continue
 			}
 
