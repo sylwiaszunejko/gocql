@@ -1003,7 +1003,7 @@ func (f *framer) parsePreparedMetadata() preparedMetadata {
 	meta.lwt = meta.flags&f.flagLWT == f.flagLWT
 
 	if meta.flags&flagHasMorePages == flagHasMorePages {
-		meta.pagingState = copyBytes(f.readBytes())
+		meta.pagingState = f.readBytesCopy()
 	}
 
 	if meta.flags&flagNoMetaData == flagNoMetaData {
@@ -1091,7 +1091,7 @@ func (f *framer) parseResultMetadata() resultMetadata {
 	meta.actualColCount = meta.colCount
 
 	if meta.flags&flagHasMorePages == flagHasMorePages {
-		meta.pagingState = copyBytes(f.readBytes())
+		meta.pagingState = f.readBytesCopy()
 	}
 
 	if meta.flags&flagNoMetaData == flagNoMetaData {
@@ -1883,12 +1883,35 @@ func (f *framer) ReadBytesInternal() ([]byte, error) {
 }
 
 func (f *framer) readBytes() []byte {
-	l, err := f.ReadBytesInternal()
-	if err != nil {
-		panic(err)
+	size := f.readInt()
+	if size < 0 {
+		return nil
 	}
 
+	if len(f.buf) < size {
+		panic(fmt.Errorf("not enough bytes in buffer to read bytes require %d got: %d", size, len(f.buf)))
+	}
+
+	l := f.buf[:size]
+	f.buf = f.buf[size:]
+
 	return l
+}
+
+func (f *framer) readBytesCopy() []byte {
+	size := f.readInt()
+	if size < 0 {
+		return nil
+	}
+
+	if len(f.buf) < size {
+		panic(fmt.Errorf("not enough bytes in buffer to read bytes require %d got: %d", size, len(f.buf)))
+	}
+
+	out := make([]byte, size)
+	copy(out, f.buf[:size])
+	f.buf = f.buf[size:]
+	return out
 }
 
 func (f *framer) readShortBytes() []byte {
@@ -1938,9 +1961,7 @@ func (f *framer) readBytesMap() map[string][]byte {
 	m := make(map[string][]byte, size)
 
 	for i := 0; i < int(size); i++ {
-		k := f.readString()
-		v := f.readBytes()
-		m[k] = v
+		m[f.readString()] = f.readBytesCopy()
 	}
 
 	return m
