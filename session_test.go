@@ -29,9 +29,12 @@ package gocql
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestSessionAPI(t *testing.T) {
@@ -422,5 +425,115 @@ func TestRetryType_IgnoreRethrow(t *testing.T) {
 		}
 
 		resetObserved()
+	}
+}
+
+type sessionCache struct {
+	orig       tls.ClientSessionCache
+	values     map[string][][]byte
+	caches     map[string][]int64
+	valuesLock sync.Mutex
+}
+
+func (c *sessionCache) Get(sessionKey string) (session *tls.ClientSessionState, ok bool) {
+	return c.orig.Get(sessionKey)
+}
+
+func (c *sessionCache) Put(sessionKey string, cs *tls.ClientSessionState) {
+	ticket, _, err := cs.ResumptionState()
+	if err != nil {
+		panic(err)
+	}
+	if len(ticket) == 0 {
+		panic("ticket should not be empty")
+	}
+	c.valuesLock.Lock()
+	c.values[sessionKey] = append(c.values[sessionKey], ticket)
+	c.valuesLock.Unlock()
+	c.orig.Put(sessionKey, cs)
+}
+
+func (c *sessionCache) NumberOfTickets() int {
+	c.valuesLock.Lock()
+	defer c.valuesLock.Unlock()
+	total := 0
+	for _, tickets := range c.values {
+		total += len(tickets)
+	}
+	return total
+}
+
+func newSessionCache() *sessionCache {
+	return &sessionCache{
+		orig:       tls.NewLRUClientSessionCache(1024),
+		values:     make(map[string][][]byte),
+		caches:     make(map[string][]int64),
+		valuesLock: sync.Mutex{},
+	}
+}
+
+func withSessionCache(cache tls.ClientSessionCache) func(config *ClusterConfig) {
+	return func(config *ClusterConfig) {
+		config.SslOpts = &SslOptions{
+			EnableHostVerification: false,
+			Config: &tls.Config{
+				ClientSessionCache: cache,
+				InsecureSkipVerify: true,
+			},
+		}
+	}
+}
+
+func TestTLSTicketResumption(t *testing.T) {
+	t.Skip("TLS ticket resumption is only supported by 2025.2 and later")
+
+	c := newSessionCache()
+	session := createSession(t, withSessionCache(c))
+	defer session.Close()
+
+	waitAllConnectionsOpened := func() error {
+		println("wait all connections opened")
+		defer println("end of wait all connections closed")
+		endtime := time.Now().UTC().Add(time.Second * 10)
+		for {
+			if time.Now().UTC().After(endtime) {
+				return fmt.Errorf("timed out waiting for all connections opened")
+			}
+			missing, err := session.MissingConnections()
+			if err != nil {
+				return fmt.Errorf("failed to get missing connections count: %w", err)
+			}
+			if missing == 0 {
+				return nil
+			}
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+
+	if err := waitAllConnectionsOpened(); err != nil {
+		t.Fatal(err)
+	}
+	tickets := c.NumberOfTickets()
+	if tickets == 0 {
+		t.Fatal("no tickets learned, which means that server does not support TLS tickets")
+	}
+
+	session.CloseAllConnections()
+	if err := waitAllConnectionsOpened(); err != nil {
+		t.Fatal(err)
+	}
+	newTickets1 := c.NumberOfTickets()
+
+	session.CloseAllConnections()
+	if err := waitAllConnectionsOpened(); err != nil {
+		t.Fatal(err)
+	}
+	newTickets2 := c.NumberOfTickets()
+
+	if newTickets1 != tickets {
+		t.Fatalf("new tickets learned, it looks like tls tickets where not reused: new %d, was %d", newTickets1, tickets)
+	}
+	if newTickets2 != tickets {
+		t.Fatalf("new tickets learned, it looks like tls tickets where not reused: new %d, was %d", newTickets2, tickets)
 	}
 }
