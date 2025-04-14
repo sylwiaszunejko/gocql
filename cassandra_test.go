@@ -2291,7 +2291,6 @@ func TestNilInQuery(t *testing.T) {
 
 // Don't initialize time.Time bind variable if cassandra timestamp column is empty
 func TestEmptyTimestamp(t *testing.T) {
-	zeroTimestamp := time.UnixMilli(0).UTC()
 	session := createSession(t)
 
 	defer session.Close()
@@ -2310,7 +2309,7 @@ func TestEmptyTimestamp(t *testing.T) {
 		t.Fatalf("failed to select with err: %v", err)
 	}
 
-	if !timeVal.Equal(zeroTimestamp) {
+	if !timeVal.IsZero() {
 		t.Errorf("time.Time bind variable should be zero (was %s)", timeVal)
 	}
 }
