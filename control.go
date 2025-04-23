@@ -397,9 +397,8 @@ func (c *controlConn) reconnect() {
 	}
 	defer atomic.StoreInt32(&c.reconnecting, 0)
 
-	conn, err := c.attemptReconnect()
-
-	if conn == nil {
+	err := c.attemptReconnect()
+	if err != nil {
 		c.session.logger.Printf("gocql: unable to reconnect control connection: %v\n", err)
 		return
 	}
@@ -415,7 +414,7 @@ func (c *controlConn) reconnect() {
 	}
 }
 
-func (c *controlConn) attemptReconnect() (*Conn, error) {
+func (c *controlConn) attemptReconnect() error {
 	hosts := c.session.hostSource.getHostsList()
 	hosts = shuffleHosts(hosts)
 
@@ -432,10 +431,9 @@ func (c *controlConn) attemptReconnect() (*Conn, error) {
 		ch.conn.Close()
 	}
 
-	conn, err := c.attemptReconnectToAnyOfHosts(hosts)
-
-	if conn != nil {
-		return conn, err
+	err := c.attemptReconnectToAnyOfHosts(hosts)
+	if err == nil {
+		return nil
 	}
 
 	c.session.logger.Printf("gocql: unable to connect to any ring node: %v\n", err)
@@ -444,17 +442,15 @@ func (c *controlConn) attemptReconnect() (*Conn, error) {
 	// changed their IPs while keeping the same hostname(s).
 	initialHosts, resolvErr := addrsToHosts(c.session.cfg.Hosts, c.session.cfg.Port, c.session.logger)
 	if resolvErr != nil {
-		return nil, fmt.Errorf("resolve contact points' hostnames: %v", resolvErr)
+		return fmt.Errorf("resolve contact points' hostnames: %v", resolvErr)
 	}
 
 	return c.attemptReconnectToAnyOfHosts(initialHosts)
 }
 
-func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) (*Conn, error) {
-	var conn *Conn
-	var err error
+func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) error {
 	for _, host := range hosts {
-		conn, err = c.session.connect(c.session.ctx, host, c)
+		conn, err := c.session.connect(c.session.ctx, host, c)
 		if err != nil {
 			if c.session.cfg.ConvictionPolicy.AddFailure(err, host) {
 				c.session.handleNodeDown(host.ConnectAddress(), host.Port())
@@ -463,14 +459,14 @@ func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) (*Conn, er
 			continue
 		}
 		err = c.setupConn(conn)
-		if err == nil {
-			break
+		if err != nil {
+			c.session.logger.Printf("gocql: unable setup control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
+			conn.Close()
+			continue
 		}
-		c.session.logger.Printf("gocql: unable setup control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
-		conn.Close()
-		conn = nil
+		return nil
 	}
-	return conn, err
+	return fmt.Errorf("unable to connect to any known node: %v", hosts)
 }
 
 func (c *controlConn) HandleError(conn *Conn, err error, closed bool) {
