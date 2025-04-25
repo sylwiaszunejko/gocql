@@ -44,7 +44,7 @@ func TestHostInfo_Lookup(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		hosts, err := hostInfo(resolver, test.addr, 1)
+		hosts, err := hostInfo(resolver, nil, test.addr, 1)
 		if err != nil {
 			t.Errorf("%d: %v", i, err)
 			continue

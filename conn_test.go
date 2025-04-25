@@ -1257,7 +1257,7 @@ func (srv *TestServer) session() (*Session, error) {
 }
 
 func (srv *TestServer) host() *HostInfo {
-	hosts, err := hostInfo(nil, srv.Address, 9042)
+	hosts, err := hostInfo(nil, nil, srv.Address, 9042)
 	if err != nil {
 		srv.t.Fatal(err)
 	}
