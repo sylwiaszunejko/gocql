@@ -675,7 +675,7 @@ func (sd *scyllaDialer) DialHost(ctx context.Context, host *HostInfo) (*DialedHo
 		return nil, fmt.Errorf("host missing port: %v", port)
 	}
 
-	addr := host.HostnameAndPort()
+	addr := net.JoinHostPort(ip.String(), strconv.Itoa(port))
 	conn, err := sd.dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, err
@@ -694,8 +694,7 @@ func (sd *scyllaDialer) DialShard(ctx context.Context, host *HostInfo, shardID, 
 	}
 
 	iter := newScyllaPortIterator(shardID, nrShards)
-
-	addr := host.HostnameAndPort()
+	addr := net.JoinHostPort(ip.String(), strconv.Itoa(port))
 
 	var shardAwarePort uint16
 	if sd.tlsConfig != nil {
