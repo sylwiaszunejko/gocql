@@ -86,6 +86,8 @@ var frameExamples = struct {
 }
 
 func TestSnappyCompressor(t *testing.T) {
+	t.Parallel()
+
 	t.Run("basic", func(t *testing.T) {
 		c := gocql.SnappyCompressor{}
 		if c.Name() != "snappy" {
@@ -122,6 +124,8 @@ func TestSnappyCompressor(t *testing.T) {
 		t.Run("Encode", func(t *testing.T) {
 			for _, frame := range frameExamples.Requests {
 				t.Run(frame.Name, func(t *testing.T) {
+					t.Parallel()
+
 					encoded, err := c.Encode(frame.Frame)
 					if err != nil {
 						t.Fatalf("failed to encode frame %s", frame.Name)
@@ -142,6 +146,8 @@ func TestSnappyCompressor(t *testing.T) {
 		t.Run("Decode", func(t *testing.T) {
 			for _, frame := range frameExamples.Responses {
 				t.Run(frame.Name, func(t *testing.T) {
+					t.Parallel()
+
 					decoded, err := c.Decode(frame.Frame)
 					if err != nil {
 						t.Fatalf("failed to decode frame %s", frame.Name)

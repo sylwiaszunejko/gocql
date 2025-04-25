@@ -35,6 +35,8 @@ import (
 )
 
 func TestUsesAllStreams(t *testing.T) {
+	t.Parallel()
+
 	streams := New(1)
 
 	got := make(map[int]struct{})
@@ -74,6 +76,8 @@ func TestUsesAllStreams(t *testing.T) {
 }
 
 func TestFullStreams(t *testing.T) {
+	t.Parallel()
+
 	streams := New(1)
 	for i := range streams.streams {
 		streams.streams[i] = math.MaxUint64
@@ -86,6 +90,8 @@ func TestFullStreams(t *testing.T) {
 }
 
 func TestClearStreams(t *testing.T) {
+	t.Parallel()
+
 	streams := New(1)
 	for i := range streams.streams {
 		streams.streams[i] = math.MaxUint64
@@ -104,6 +110,8 @@ func TestClearStreams(t *testing.T) {
 }
 
 func TestDoubleClear(t *testing.T) {
+	t.Parallel()
+
 	streams := New(1)
 	stream, ok := streams.GetStream()
 	if !ok {
@@ -138,6 +146,8 @@ func BenchmarkConcurrentUse(b *testing.B) {
 }
 
 func TestStreamOffset(t *testing.T) {
+	t.Parallel()
+
 	tests := [...]struct {
 		n   int
 		off uint64
@@ -160,6 +170,8 @@ func TestStreamOffset(t *testing.T) {
 }
 
 func TestIsSet(t *testing.T) {
+	t.Parallel()
+
 	tests := [...]struct {
 		stream int
 		bucket uint64
@@ -189,6 +201,8 @@ func TestIsSet(t *testing.T) {
 }
 
 func TestBucketOfset(t *testing.T) {
+	t.Parallel()
+
 	tests := [...]struct {
 		n      int
 		bucket int
@@ -207,6 +221,8 @@ func TestBucketOfset(t *testing.T) {
 }
 
 func TestStreamFromBucket(t *testing.T) {
+	t.Parallel()
+
 	tests := [...]struct {
 		bucket int
 		pos    int

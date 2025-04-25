@@ -14,6 +14,8 @@ import (
 )
 
 func TestMarshalMapV2(t *testing.T) {
+	t.Parallel()
+
 	elem := gocql.NewNativeType(2, gocql.TypeSmallInt, "")
 	tType := gocql.NewCollectionType(gocql.NewNativeType(2, gocql.TypeMap, ""), elem, elem)
 
@@ -70,12 +72,13 @@ func TestMarshalMapV2(t *testing.T) {
 
 func TestMarshalMapV2Max(t *testing.T) {
 	t.Parallel()
+
 	elem := gocql.NewNativeType(2, gocql.TypeSmallInt, "")
 	tType := gocql.NewCollectionType(gocql.NewNativeType(2, gocql.TypeMap, ""), elem, elem)
 
 	elems := math.MaxUint16
 
-	data := make([]byte, 0, elems*4+2)
+	data := make([]byte, 0, elems*8+2)
 	data = append(data, 255, 255)
 	uintData := func(v uint) (byte, byte) {
 		return byte(v >> 8), byte(v)

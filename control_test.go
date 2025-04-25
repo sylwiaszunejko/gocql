@@ -33,6 +33,8 @@ import (
 )
 
 func TestHostInfo_Lookup(t *testing.T) {
+	t.Parallel()
+
 	resolver := NewSimpleDNSResolver(true)
 
 	tests := [...]struct {
@@ -58,6 +60,8 @@ func TestHostInfo_Lookup(t *testing.T) {
 }
 
 func TestParseProtocol(t *testing.T) {
+	t.Parallel()
+
 	tests := [...]struct {
 		err   error
 		proto int
