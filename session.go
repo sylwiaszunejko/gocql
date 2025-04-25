@@ -952,8 +952,11 @@ func (s *Session) MapExecuteBatchCAS(batch *Batch, dest map[string]interface{}) 
 		return false, iter, iter.err
 	}
 	// check if [applied] was returned, otherwise it might not be CAS
-	if _, ok := dest["[applied]"]; ok {
-		applied = dest["[applied]"].(bool)
+	if appliedRaw, ok := dest["[applied]"]; ok {
+		applied, ok = appliedRaw.(bool)
+		if !ok {
+			s.logger.Println("encountered non-bool \"[applied]\" key")
+		}
 		delete(dest, "[applied]")
 	}
 
@@ -1603,8 +1606,11 @@ func (q *Query) MapScanCAS(dest map[string]interface{}) (applied bool, err error
 		return false, iter.err
 	}
 	// check if [applied] was returned, otherwise it might not be CAS
-	if _, ok := dest["[applied]"]; ok {
-		applied = dest["[applied]"].(bool)
+	if appliedRaw, ok := dest["[applied]"]; ok {
+		applied, ok = appliedRaw.(bool)
+		if !ok {
+			q.session.logger.Println("encountered non-bool \"[applied]\" key")
+		}
 		delete(dest, "[applied]")
 	}
 
