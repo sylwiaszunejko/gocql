@@ -78,7 +78,7 @@ func testShardAwarePortNoReconnections(t *testing.T, makeCluster makeClusterTest
 				// Verify that there were no duplicate connections to the same shard
 				// Make sure that we didn't connect to the same shard twice
 				// There should be numberOfShards-1 connections to the new port
-				events := dialer.events[host.hostname]
+				events := dialer.events[host.ConnectAddress().String()]
 				shardAwareConnectionCount := 0
 				shardsConnected := make(map[int]testConnectionEvent)
 				for _, evt := range events {
@@ -203,7 +203,7 @@ func testShardAwarePortUnusedIfNotEnabled(t *testing.T, makeCluster makeClusterT
 			continue
 		}
 
-		events, _ := dialer.events[host.hostname]
+		events, _ := dialer.events[host.ConnectAddress().String()]
 
 		for _, evt := range events {
 			if evt.destinationPort == shardAwarePort {
@@ -362,7 +362,7 @@ func newLoggingTestDialer() *loggingTestDialer {
 func (ltd *loggingTestDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	sourcePort := ScyllaGetSourcePort(ctx)
 
-	hostname, destinationPortStr, err := net.SplitHostPort(addr)
+	ipaddr, destinationPortStr, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +381,7 @@ func (ltd *loggingTestDialer) DialContext(ctx context.Context, network, addr str
 			sourcePort:      sourcePort,
 			destinationPort: uint16(destinationPort),
 		}
-		ltd.events[hostname] = append(ltd.events[hostname], evt)
+		ltd.events[ipaddr] = append(ltd.events[ipaddr], evt)
 	}
 
 	return conn, err

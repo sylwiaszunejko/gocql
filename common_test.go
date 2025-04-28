@@ -149,19 +149,20 @@ func createCluster(opts ...func(*ClusterConfig)) *ClusterConfig {
 }
 
 func createKeyspace(tb testing.TB, cluster *ClusterConfig, keyspace string, disableTablets bool) {
-	// TODO: tb.Helper()
+	tb.Helper()
+
 	c := *cluster
 	c.Keyspace = "system"
 	c.Timeout = 30 * time.Second
 	session, err := c.CreateSession()
 	if err != nil {
-		panic(err)
+		tb.Fatalf("failed to create session: %v", err)
 	}
 	defer session.Close()
 
 	err = createTable(session, `DROP KEYSPACE IF EXISTS `+keyspace)
 	if err != nil {
-		panic(fmt.Sprintf("unable to drop keyspace: %v", err))
+		tb.Fatalf("unable to drop keyspace: %v", err)
 	}
 
 	query := fmt.Sprintf(`CREATE KEYSPACE %s
@@ -179,7 +180,7 @@ func createKeyspace(tb testing.TB, cluster *ClusterConfig, keyspace string, disa
 	err = createTable(session, query)
 
 	if err != nil {
-		panic(fmt.Sprintf("unable to create keyspace: %v", err))
+		tb.Fatalf("unable to create table: %v", err)
 	}
 }
 

@@ -141,7 +141,7 @@ func (c *controlConn) heartBeat() {
 	}
 }
 
-func hostInfo(resolver DNSResolver, addr string, defaultPort int) ([]*HostInfo, error) {
+func hostInfo(resolver DNSResolver, translateAddressPort func(addr net.IP, port int) (net.IP, int), addr string, defaultPort int) ([]*HostInfo, error) {
 	var port int
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -174,7 +174,12 @@ func hostInfo(resolver DNSResolver, addr string, defaultPort int) ([]*HostInfo, 
 
 	for _, ip := range ips {
 		if validIpAddr(ip) {
-			hosts = append(hosts, &HostInfo{hostname: host, connectAddress: ip, port: port})
+			hh := &HostInfo{hostname: host, connectAddress: ip, port: port}
+			hh.untranslatedConnectAddress = ip
+			if translateAddressPort != nil {
+				hh.connectAddress, hh.port = translateAddressPort(ip, port)
+			}
+			hosts = append(hosts, hh)
 		}
 	}
 
@@ -424,7 +429,7 @@ func (c *controlConn) attemptReconnect() error {
 	c.session.logger.Printf("gocql: control falling back to initial contact points.\n")
 	// Fallback to initial contact points, as it may be the case that all known initialHosts
 	// changed their IPs while keeping the same hostname(s).
-	initialHosts, resolvErr := addrsToHosts(c.session.cfg.DNSResolver, c.session.cfg.Hosts, c.session.cfg.Port, c.session.logger)
+	initialHosts, resolvErr := addrsToHosts(c.session.cfg.DNSResolver, c.session.cfg.translateAddressPort, c.session.cfg.Hosts, c.session.cfg.Port, c.session.logger)
 	if resolvErr != nil {
 		return fmt.Errorf("resolve contact points' hostnames: %v", resolvErr)
 	}
