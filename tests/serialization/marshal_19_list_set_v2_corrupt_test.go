@@ -14,6 +14,8 @@ import (
 )
 
 func TestMarshalSetListV2Corrupt(t *testing.T) {
+	t.Parallel()
+
 	elem := gocql.NewNativeType(2, gocql.TypeSmallInt, "")
 	tTypes := []gocql.TypeInfo{
 		gocql.NewCollectionType(gocql.NewNativeType(2, gocql.TypeList, ""), nil, elem),
@@ -167,6 +169,7 @@ func TestMarshalSetListV2Corrupt(t *testing.T) {
 
 func TestMarshalSetListV2CorruptMax(t *testing.T) {
 	t.Parallel()
+
 	elem := gocql.NewNativeType(2, gocql.TypeSmallInt, "")
 
 	tTypes := []gocql.TypeInfo{

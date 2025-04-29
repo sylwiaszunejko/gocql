@@ -34,6 +34,8 @@ import (
 )
 
 func TestFuzzBugs(t *testing.T) {
+	t.Parallel()
+
 	// these inputs are found using go-fuzz (https://github.com/dvyukov/go-fuzz)
 	// and should cause a panic unless fixed.
 	tests := [][]byte{
@@ -83,6 +85,8 @@ func TestFuzzBugs(t *testing.T) {
 }
 
 func TestFrameWriteTooLong(t *testing.T) {
+	t.Parallel()
+
 	if os.Getenv("TRAVIS") == "true" {
 		t.Skip("skipping test in travis due to memory pressure with the race detecor")
 	}
@@ -98,6 +102,8 @@ func TestFrameWriteTooLong(t *testing.T) {
 }
 
 func TestFrameReadTooLong(t *testing.T) {
+	t.Parallel()
+
 	if os.Getenv("TRAVIS") == "true" {
 		t.Skip("skipping test in travis due to memory pressure with the race detecor")
 	}

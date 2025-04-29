@@ -14,6 +14,8 @@ import (
 // Tests metadata "compilation" from example data which might be returned
 // from metadata schema queries (see getKeyspaceMetadata, getTableMetadata, and getColumnMetadata)
 func TestCompileMetadata(t *testing.T) {
+	t.Parallel()
+
 	keyspace := &KeyspaceMetadata{
 		Name: "V2Keyspace",
 	}

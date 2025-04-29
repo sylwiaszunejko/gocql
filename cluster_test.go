@@ -35,6 +35,8 @@ import (
 )
 
 func TestNewCluster_Defaults(t *testing.T) {
+	t.Parallel()
+
 	cfg := NewCluster()
 	assertEqual(t, "cluster config cql version", "3.0.0", cfg.CQLVersion)
 	assertEqual(t, "cluster config timeout", 11*time.Second, cfg.Timeout)
@@ -54,6 +56,8 @@ func TestNewCluster_Defaults(t *testing.T) {
 }
 
 func TestNewCluster_WithHosts(t *testing.T) {
+	t.Parallel()
+
 	cfg := NewCluster("addr1", "addr2")
 	assertEqual(t, "cluster config hosts length", 2, len(cfg.Hosts))
 	assertEqual(t, "cluster config host 0", "addr1", cfg.Hosts[0])
@@ -61,6 +65,8 @@ func TestNewCluster_WithHosts(t *testing.T) {
 }
 
 func TestClusterConfig_translateAddressAndPort_NilTranslator(t *testing.T) {
+	t.Parallel()
+
 	cfg := NewCluster()
 	assertNil(t, "cluster config address translator", cfg.AddressTranslator)
 	newAddr, newPort := cfg.translateAddressPort(net.ParseIP("10.0.0.1"), 1234)
@@ -69,6 +75,8 @@ func TestClusterConfig_translateAddressAndPort_NilTranslator(t *testing.T) {
 }
 
 func TestClusterConfig_translateAddressAndPort_EmptyAddr(t *testing.T) {
+	t.Parallel()
+
 	cfg := NewCluster()
 	cfg.AddressTranslator = staticAddressTranslator(net.ParseIP("10.10.10.10"), 5432)
 	newAddr, newPort := cfg.translateAddressPort(net.IP([]byte{}), 0)
@@ -77,6 +85,8 @@ func TestClusterConfig_translateAddressAndPort_EmptyAddr(t *testing.T) {
 }
 
 func TestClusterConfig_translateAddressAndPort_Success(t *testing.T) {
+	t.Parallel()
+
 	cfg := NewCluster()
 	cfg.AddressTranslator = staticAddressTranslator(net.ParseIP("10.10.10.10"), 5432)
 	newAddr, newPort := cfg.translateAddressPort(net.ParseIP("10.0.0.1"), 2345)

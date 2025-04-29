@@ -13,6 +13,8 @@ import (
 )
 
 func TestGetClusterPeerInfoZeroToken(t *testing.T) {
+	t.Parallel()
+
 	schema_version1 := ParseUUIDMust("af810386-a694-11ef-81fa-3aea73156247")
 
 	peersRows := []map[string]interface{}{
@@ -323,6 +325,8 @@ func marshalMetadataMust(metadata resultMetadata, data []interface{}) [][]byte {
 }
 
 func TestMockGetHostsFromSystem(t *testing.T) {
+	t.Parallel()
+
 	r := &ringDescriber{control: &mockControlConn{}, cfg: &ClusterConfig{}}
 
 	hosts, _, err := r.GetHostsFromSystem()
@@ -336,6 +340,8 @@ func TestMockGetHostsFromSystem(t *testing.T) {
 }
 
 func TestRing_AddHostIfMissing_Missing(t *testing.T) {
+	t.Parallel()
+
 	ring := &ringDescriber{}
 
 	host := &HostInfo{hostId: MustRandomUUID().String(), connectAddress: net.IPv4(1, 1, 1, 1)}
@@ -350,6 +356,8 @@ func TestRing_AddHostIfMissing_Missing(t *testing.T) {
 }
 
 func TestRing_AddHostIfMissing_Existing(t *testing.T) {
+	t.Parallel()
+
 	ring := &ringDescriber{}
 
 	host := &HostInfo{hostId: MustRandomUUID().String(), connectAddress: net.IPv4(1, 1, 1, 1)}

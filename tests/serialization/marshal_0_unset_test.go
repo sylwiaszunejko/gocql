@@ -10,6 +10,8 @@ import (
 )
 
 func TestMarshalUnsetColumn(t *testing.T) {
+	t.Parallel()
+
 	type tCase struct {
 		tp      gocql.TypeInfo
 		nilData bool

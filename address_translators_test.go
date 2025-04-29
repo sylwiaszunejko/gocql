@@ -33,6 +33,8 @@ import (
 )
 
 func TestIdentityAddressTranslator_NilAddrAndZeroPort(t *testing.T) {
+	t.Parallel()
+
 	var tr AddressTranslator = IdentityTranslator()
 	hostIP := net.ParseIP("")
 	if hostIP != nil {
@@ -47,6 +49,8 @@ func TestIdentityAddressTranslator_NilAddrAndZeroPort(t *testing.T) {
 }
 
 func TestIdentityAddressTranslator_HostProvided(t *testing.T) {
+	t.Parallel()
+
 	var tr AddressTranslator = IdentityTranslator()
 	hostIP := net.ParseIP("10.1.2.3")
 	if hostIP == nil {

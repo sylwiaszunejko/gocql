@@ -45,6 +45,8 @@ import (
 
 // Tests of the round-robin host selection policy implementation
 func TestRoundRobbin(t *testing.T) {
+	t.Parallel()
+
 	policy := RoundRobinHostPolicy()
 
 	hosts := [...]*HostInfo{
@@ -71,6 +73,8 @@ func TestRoundRobbin(t *testing.T) {
 }
 
 func TestRoundRobbinSameConnectAddress(t *testing.T) {
+	t.Parallel()
+
 	policy := RoundRobinHostPolicy()
 
 	hosts := [...]*HostInfo{
@@ -99,6 +103,8 @@ func TestRoundRobbinSameConnectAddress(t *testing.T) {
 // Tests of the token-aware host selection policy implementation with a
 // round-robin host selection policy fallback.
 func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
+	t.Parallel()
+
 	const keyspace = "myKeyspace"
 	policy := TokenAwareHostPolicy(RoundRobinHostPolicy())
 	policyInternal := policy.(*tokenAwareHostPolicy)
@@ -170,6 +176,8 @@ func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
 }
 
 func TestHostPolicy_TokenAware_LWT_DisablesHostShuffling(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		hosts      []*HostInfo
 		routingKey string
@@ -278,6 +286,8 @@ func createPolicy(keyspace string, shuffle bool) HostSelectionPolicy {
 }
 
 func TestHostPolicy_RoundRobin_NilHostInfo(t *testing.T) {
+	t.Parallel()
+
 	policy := RoundRobinHostPolicy()
 
 	host := &HostInfo{hostId: "host-1"}
@@ -303,6 +313,8 @@ func TestHostPolicy_RoundRobin_NilHostInfo(t *testing.T) {
 }
 
 func TestHostPolicy_TokenAware_NilHostInfo(t *testing.T) {
+	t.Parallel()
+
 	policy := TokenAwareHostPolicy(RoundRobinHostPolicy())
 	policyInternal := policy.(*tokenAwareHostPolicy)
 	policyInternal.getKeyspaceName = func() string { return "myKeyspace" }
@@ -350,6 +362,8 @@ func TestHostPolicy_TokenAware_NilHostInfo(t *testing.T) {
 }
 
 func TestCOWList_Add(t *testing.T) {
+	t.Parallel()
+
 	var cow cowHostList
 
 	toAdd := [...]net.IP{net.IPv4(10, 0, 0, 1), net.IPv4(10, 0, 0, 2), net.IPv4(10, 0, 0, 3)}
@@ -379,6 +393,8 @@ func TestCOWList_Add(t *testing.T) {
 
 // TestSimpleRetryPolicy makes sure that we only allow 1 + numRetries attempts
 func TestSimpleRetryPolicy(t *testing.T) {
+	t.Parallel()
+
 	q := &Query{routingInfo: &queryRoutingInfo{}}
 
 	// this should allow a total of 3 tries.
@@ -408,6 +424,8 @@ func TestSimpleRetryPolicy(t *testing.T) {
 }
 
 func TestLWTSimpleRetryPolicy(t *testing.T) {
+	t.Parallel()
+
 	ebrp := &SimpleRetryPolicy{NumRetries: 2}
 	// Verify that SimpleRetryPolicy implements both interfaces
 	var _ RetryPolicy = ebrp
@@ -416,6 +434,8 @@ func TestLWTSimpleRetryPolicy(t *testing.T) {
 }
 
 func TestExponentialBackoffPolicy(t *testing.T) {
+	t.Parallel()
+
 	// test with defaults
 	sut := &ExponentialBackoffRetryPolicy{NumRetries: 2}
 
@@ -444,6 +464,8 @@ func TestExponentialBackoffPolicy(t *testing.T) {
 }
 
 func TestLWTExponentialBackoffPolicy(t *testing.T) {
+	t.Parallel()
+
 	ebrp := &ExponentialBackoffRetryPolicy{NumRetries: 2}
 	// Verify that ExponentialBackoffRetryPolicy implements both interfaces
 	var _ RetryPolicy = ebrp
@@ -452,6 +474,7 @@ func TestLWTExponentialBackoffPolicy(t *testing.T) {
 }
 
 func TestDowngradingConsistencyRetryPolicy(t *testing.T) {
+	t.Parallel()
 
 	q := &Query{cons: LocalQuorum, routingInfo: &queryRoutingInfo{}}
 
@@ -557,6 +580,8 @@ func expectNoMoreHosts(t *testing.T, iter NextHost) {
 }
 
 func TestHostPolicy_DCAwareRR(t *testing.T) {
+	t.Parallel()
+
 	p := DCAwareRoundRobinPolicy("local")
 
 	hosts := [...]*HostInfo{
@@ -603,6 +628,8 @@ func TestHostPolicy_DCAwareRR(t *testing.T) {
 }
 
 func TestHostPolicy_DCAwareRR_disableDCFailover(t *testing.T) {
+	t.Parallel()
+
 	p := DCAwareRoundRobinPolicy("local", HostPolicyOptionDisableDCFailover)
 
 	hosts := [...]*HostInfo{
@@ -646,6 +673,8 @@ func TestHostPolicy_DCAwareRR_disableDCFailover(t *testing.T) {
 // DC aware round-robin host selection policy fallback
 // with {"class": "NetworkTopologyStrategy", "a": 1, "b": 1, "c": 1} replication.
 func TestHostPolicy_TokenAware(t *testing.T) {
+	t.Parallel()
+
 	const keyspace = "myKeyspace"
 	policy := TokenAwareHostPolicy(DCAwareRoundRobinPolicy("local"))
 	policyInternal := policy.(*tokenAwareHostPolicy)
@@ -748,6 +777,8 @@ func TestHostPolicy_TokenAware(t *testing.T) {
 // DC aware round-robin host selection policy fallback
 // with {"class": "NetworkTopologyStrategy", "a": 2, "b": 2, "c": 2} replication.
 func TestHostPolicy_TokenAware_NetworkStrategy(t *testing.T) {
+	t.Parallel()
+
 	const keyspace = "myKeyspace"
 	policy := TokenAwareHostPolicy(DCAwareRoundRobinPolicy("local"), NonLocalReplicasFallback())
 	policyInternal := policy.(*tokenAwareHostPolicy)
@@ -838,6 +869,8 @@ func TestHostPolicy_TokenAware_NetworkStrategy(t *testing.T) {
 }
 
 func TestHostPolicy_RackAwareRR(t *testing.T) {
+	t.Parallel()
+
 	p := RackAwareRoundRobinPolicy("local", "b")
 
 	hosts := [...]*HostInfo{
@@ -869,6 +902,8 @@ func TestHostPolicy_RackAwareRR(t *testing.T) {
 // Tests of the token-aware host selection policy implementation with a
 // DC & Rack aware round-robin host selection policy fallback
 func TestHostPolicy_TokenAware_RackAware(t *testing.T) {
+	t.Parallel()
+
 	const keyspace = "myKeyspace"
 	policy := TokenAwareHostPolicy(RackAwareRoundRobinPolicy("local", "b"))
 	policyWithFallback := TokenAwareHostPolicy(RackAwareRoundRobinPolicy("local", "b"), NonLocalReplicasFallback())
@@ -1001,6 +1036,8 @@ func TestHostPolicy_TokenAware_RackAware(t *testing.T) {
 }
 
 func TestHostPolicy_TokenAware_Issue1274(t *testing.T) {
+	t.Parallel()
+
 	policy := TokenAwareHostPolicy(DCAwareRoundRobinPolicy("local"))
 	policyInternal := policy.(*tokenAwareHostPolicy)
 	policyInternal.getKeyspaceName = func() string { return "myKeyspace" }
@@ -1078,6 +1115,8 @@ func TestHostPolicy_TokenAware_Issue1274(t *testing.T) {
 }
 
 func TestTokenAwarePolicyReset(t *testing.T) {
+	t.Parallel()
+
 	policy := TokenAwareHostPolicy(
 		RackAwareRoundRobinPolicy("local", "b"),
 		NonLocalReplicasFallback(),
@@ -1123,6 +1162,8 @@ func TestTokenAwarePolicyReset(t *testing.T) {
 }
 
 func TestTokenAwarePolicyResetInSessionClose(t *testing.T) {
+	t.Parallel()
+
 	policy := TokenAwareHostPolicy(
 		RackAwareRoundRobinPolicy("local", "b"),
 		NonLocalReplicasFallback(),

@@ -519,6 +519,8 @@ func bigintize(s string) *big.Int {
 }
 
 func TestMarshal_Encode(t *testing.T) {
+	t.Parallel()
+
 	for i, test := range marshalTests {
 		if test.MarshalError == nil {
 			data, err := Marshal(test.Info, test.Value)
@@ -538,6 +540,8 @@ func TestMarshal_Encode(t *testing.T) {
 }
 
 func TestMarshal_Decode(t *testing.T) {
+	t.Parallel()
+
 	for i, test := range marshalTests {
 		if test.UnmarshalError == nil {
 			v := reflect.New(reflect.TypeOf(test.Value))
@@ -587,6 +591,8 @@ func equalStringPointerSlice(leftList, rightList []*string) bool {
 }
 
 func TestMarshalList(t *testing.T) {
+	t.Parallel()
+
 	typeInfoV2 := CollectionType{
 		NativeType: NativeType{proto: 2, typ: TypeList},
 		Elem:       NativeType{proto: 2, typ: TypeVarchar},
@@ -737,6 +743,8 @@ func testType(t *testing.T, cassType string, expectedType Type) {
 }
 
 func TestLookupCassType(t *testing.T) {
+	t.Parallel()
+
 	for _, lookupTest := range typeLookupTest {
 		testType(t, lookupTest.TypeName, lookupTest.ExpectedType)
 	}
@@ -749,6 +757,8 @@ func (m *MyPointerMarshaler) MarshalCQL(_ TypeInfo) ([]byte, error) {
 }
 
 func TestMarshalPointer(t *testing.T) {
+	t.Parallel()
+
 	m := &MyPointerMarshaler{}
 	typ := NativeType{proto: 2, typ: TypeInt}
 
@@ -763,6 +773,8 @@ func TestMarshalPointer(t *testing.T) {
 }
 
 func TestMarshalTuple(t *testing.T) {
+	t.Parallel()
+
 	info := TupleTypeInfo{
 		NativeType: NativeType{proto: 3, typ: TypeTuple},
 		Elems: []TypeInfo{
@@ -910,6 +922,8 @@ func TestMarshalTuple(t *testing.T) {
 }
 
 func TestUnmarshalTuple(t *testing.T) {
+	t.Parallel()
+
 	info := TupleTypeInfo{
 		NativeType: NativeType{proto: 3, typ: TypeTuple},
 		Elems: []TypeInfo{
@@ -985,6 +999,8 @@ func TestUnmarshalTuple(t *testing.T) {
 }
 
 func TestMarshalUDTMap(t *testing.T) {
+	t.Parallel()
+
 	typeInfo := UDTTypeInfo{NativeType{proto: 3, typ: TypeUDT}, "", "xyz", []UDTField{
 		{Name: "x", Type: NativeType{proto: 3, typ: TypeInt}},
 		{Name: "y", Type: NativeType{proto: 3, typ: TypeInt}},
@@ -1040,6 +1056,8 @@ func TestMarshalUDTMap(t *testing.T) {
 }
 
 func TestMarshalUDTStruct(t *testing.T) {
+	t.Parallel()
+
 	typeInfo := UDTTypeInfo{NativeType{proto: 3, typ: TypeUDT}, "", "xyz", []UDTField{
 		{Name: "x", Type: NativeType{proto: 3, typ: TypeInt}},
 		{Name: "y", Type: NativeType{proto: 3, typ: TypeInt}},
@@ -1109,6 +1127,8 @@ func TestMarshalUDTStruct(t *testing.T) {
 }
 
 func TestMarshalNil(t *testing.T) {
+	t.Parallel()
+
 	types := []Type{
 		TypeAscii,
 		TypeBlob,
@@ -1138,6 +1158,8 @@ func TestMarshalNil(t *testing.T) {
 }
 
 func TestUnmarshalInetCopyBytes(t *testing.T) {
+	t.Parallel()
+
 	data := []byte{127, 0, 0, 1}
 	var ip net.IP
 	if err := unmarshalInet(data, &ip); err != nil {
@@ -1165,6 +1187,8 @@ func BenchmarkUnmarshalVarchar(b *testing.B) {
 }
 
 func TestReadCollectionSize(t *testing.T) {
+	t.Parallel()
+
 	listV2 := CollectionType{
 		NativeType: NativeType{proto: 2, typ: TypeList},
 		Elem:       NativeType{proto: 2, typ: TypeVarchar},
@@ -1263,6 +1287,8 @@ func BenchmarkUnmarshalUUID(b *testing.B) {
 }
 
 func TestUnmarshalUDT(t *testing.T) {
+	t.Parallel()
+
 	info := UDTTypeInfo{
 		NativeType: NativeType{proto: 4, typ: TypeUDT},
 		Name:       "myudt",

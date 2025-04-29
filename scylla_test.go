@@ -217,7 +217,6 @@ func TestScyllaRateLimitingExtParsing(t *testing.T) {
 	t.Parallel()
 
 	t.Run("init framer without cql extensions", func(t *testing.T) {
-		t.Parallel()
 		// mock connection without cql extensions, expected to have the `rateLimitingErrorCode`
 		// field set to 0 (default, signifying no code)
 		conn := mockConn(0)
@@ -229,7 +228,6 @@ func TestScyllaRateLimitingExtParsing(t *testing.T) {
 
 	const mockCode = 42
 	t.Run("init framer with cql extensions", func(t *testing.T) {
-		t.Parallel()
 		// create a mock connection, add `lwt` cql protocol extension to it,
 		// ensure that framer recognizes this extension and adjusts appropriately
 		conn := mockConn(0)
@@ -249,7 +247,6 @@ func TestScyllaLWTExtParsing(t *testing.T) {
 	t.Parallel()
 
 	t.Run("init framer without cql extensions", func(t *testing.T) {
-		t.Parallel()
 		// mock connection without cql extensions, expected not to have
 		// the `flagLWT` field being set in the framer created out of it
 		conn := mockConn(0)
@@ -260,7 +257,6 @@ func TestScyllaLWTExtParsing(t *testing.T) {
 	})
 
 	t.Run("init framer with cql extensions", func(t *testing.T) {
-		t.Parallel()
 		// create a mock connection, add `lwt` cql protocol extension to it,
 		// ensure that framer recognizes this extension and adjusts appropriately
 		conn := mockConn(0)
@@ -282,7 +278,6 @@ func TestScyllaPortIterator(t *testing.T) {
 	for _shardCount := 1; _shardCount <= 64; _shardCount++ {
 		shardCount := _shardCount
 		t.Run(fmt.Sprintf("shard count %d", shardCount), func(t *testing.T) {
-			t.Parallel()
 			for shardID := 0; shardID < shardCount; shardID++ {
 				// Count by brute force ports that can be used to connect to requested shard
 				expectedPortCount := 0

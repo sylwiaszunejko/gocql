@@ -123,6 +123,8 @@ var tablets = TabletInfoList{
 }
 
 func TestFindTablets(t *testing.T) {
+	t.Parallel()
+
 	id, id2 := tablets.findTablets("test1", "table1")
 	assertEqual(t, "id", 0, id)
 	assertEqual(t, "id2", 7, id2)
@@ -137,6 +139,8 @@ func TestFindTablets(t *testing.T) {
 }
 
 func TestFindTabletForToken(t *testing.T) {
+	t.Parallel()
+
 	tablet := tablets.findTabletForToken(parseInt64Token("0"), 0, 7)
 	assertTrue(t, "tablet.lastToken == 2305843009213693951", tablet.lastToken == 2305843009213693951)
 
@@ -160,6 +164,8 @@ func CompareRanges(tablets TabletInfoList, ranges [][]int64) bool {
 	return true
 }
 func TestAddTabletToEmptyTablets(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{}
 
 	tablets = tablets.addTabletToTabletsList(&TabletInfo{
@@ -174,6 +180,8 @@ func TestAddTabletToEmptyTablets(t *testing.T) {
 }
 
 func TestAddTabletAtTheBeggining(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
@@ -195,6 +203,8 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 }
 
 func TestAddTabletAtTheEnd(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
@@ -216,6 +226,8 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 }
 
 func TestAddTabletInTheMiddle(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
@@ -244,6 +256,8 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 }
 
 func TestAddTabletIntersecting(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
@@ -285,6 +299,8 @@ func TestAddTabletIntersecting(t *testing.T) {
 }
 
 func TestAddTabletIntersectingWithFirst(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
@@ -312,6 +328,8 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 }
 
 func TestAddTabletIntersectingWithLast(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
@@ -339,6 +357,8 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 }
 
 func TestRemoveTabletsWithHost(t *testing.T) {
+	t.Parallel()
+
 	removed_host_id := TimeUUID()
 
 	tablets := TabletInfoList{{
@@ -369,6 +389,8 @@ func TestRemoveTabletsWithHost(t *testing.T) {
 }
 
 func TestRemoveTabletsWithKeyspace(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"removed_ks",
 		"test_tb",
@@ -395,6 +417,8 @@ func TestRemoveTabletsWithKeyspace(t *testing.T) {
 }
 
 func TestRemoveTabletsWithTable(t *testing.T) {
+	t.Parallel()
+
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
