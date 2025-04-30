@@ -578,15 +578,16 @@ func (t *tokenAwareHostPolicy) KeyspaceChanged(update KeyspaceUpdateEvent) {
 // It must be called with t.mu mutex locked.
 // meta must not be nil and it's replicas field will be updated.
 func (t *tokenAwareHostPolicy) updateReplicas(meta *clusterMeta, keyspace string) {
+	if keyspace == "" || meta == nil || meta.tokenRing == nil {
+		return
+	}
 	newReplicas := make(map[string]tokenRingReplicas, len(meta.replicas))
 
 	ks, err := t.getKeyspaceMetadata(keyspace)
 	if err == nil {
 		strat := getStrategy(ks, t.logger)
 		if strat != nil {
-			if meta != nil && meta.tokenRing != nil {
-				newReplicas[keyspace] = strat.replicaMap(meta.tokenRing)
-			}
+			newReplicas[keyspace] = strat.replicaMap(meta.tokenRing)
 		}
 	}
 
