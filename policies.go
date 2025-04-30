@@ -767,7 +767,7 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 		replicas = shuffleHosts(replicas)
 	}
 
-	if s := qry.GetSession(); s != nil && t.avoidSlowReplicas {
+	if s := qry.GetSession(); s != nil && !qry.IsLWT() && t.avoidSlowReplicas {
 		healthyReplicas := make([]*HostInfo, 0, len(replicas))
 		unhealthyReplicas := make([]*HostInfo, 0, len(replicas))
 
