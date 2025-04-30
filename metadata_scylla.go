@@ -475,53 +475,71 @@ func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, e
 }
 
 func (s *metadataDescriber) setTablets(tablets TabletInfoList) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.metadata.tabletsMetadata.set(tablets)
 }
 
 func (s *metadataDescriber) getTablets() TabletInfoList {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	return s.metadata.tabletsMetadata.get()
 }
 
-func (s *metadataDescriber) addTablet(tablet *TabletInfo) error {
+func (s *metadataDescriber) AddTablet(tablet *TabletInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.addTablet(tablet)
+}
+
+func (s *metadataDescriber) addTablet(tablet *TabletInfo) {
 	tablets := s.getTablets()
 	tablets = tablets.addTabletToTabletsList(tablet)
-
 	s.setTablets(tablets)
-
-	return nil
 }
 
-func (s *metadataDescriber) removeTabletsWithHost(host *HostInfo) error {
+// RemoveTabletsWithHost removes tablets that contains given host.
+// to be used outside the metadataDescriber
+func (s *metadataDescriber) RemoveTabletsWithHost(host *HostInfo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.removeTabletsWithHost(host)
+}
+
+// removeTabletsWithHost removes tablets that contains given host.
+// s.mu should be locked
+func (s *metadataDescriber) removeTabletsWithHost(host *HostInfo) {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
-
 	s.setTablets(tablets)
-
-	return nil
 }
 
-func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) error {
+// RemoveTabletsWithKeyspace removes tablets for given keyspace.
+// to be used outside the metadataDescriber
+func (s *metadataDescriber) RemoveTabletsWithKeyspace(keyspace string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.removeTabletsWithKeyspace(keyspace)
+}
+
+// removeTabletsWithKeyspace removes tablets for given keyspace.
+// s.mu should be locked
+func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
-
 	s.setTablets(tablets)
-
-	return nil
 }
 
-func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) error {
+// RemoveTabletsWithTable removes tablets for given table.
+// to be used outside the metadataDescriber
+func (s *metadataDescriber) RemoveTabletsWithTable(keyspace string, table string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.removeTabletsWithTable(keyspace, table)
+}
+
+// removeTabletsWithTable removes tablets for given table.
+// s.mu should be locked
+func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) {
 	tablets := s.getTablets()
 	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
-
 	s.setTablets(tablets)
-
-	return nil
 }
 
 // clearSchema clears the cached keyspace metadata

@@ -1570,7 +1570,7 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 			tablet.keyspaceName = qry.routingInfo.keyspace
 			tablet.tableName = qry.routingInfo.table
 
-			c.session.metadataDescriber.addTablet(&tablet)
+			c.session.metadataDescriber.AddTablet(&tablet)
 		}
 	}
 
