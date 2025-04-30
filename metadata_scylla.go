@@ -5,6 +5,7 @@
 package gocql
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -576,7 +577,7 @@ func (s *metadataDescriber) refreshAllSchema() error {
 	for keyspaceName, metadata := range copiedMap {
 		// refresh the cache for this keyspace
 		err := s.refreshSchema(keyspaceName)
-		if err == ErrKeyspaceDoesNotExist {
+		if errors.Is(err, ErrKeyspaceDoesNotExist) {
 			s.clearSchema(keyspaceName)
 			s.removeTabletsWithKeyspace(keyspaceName)
 			continue
