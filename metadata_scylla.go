@@ -524,11 +524,8 @@ func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string
 	return nil
 }
 
-// clears the already cached keyspace metadata
+// clearSchema clears the cached keyspace metadata
 func (s *metadataDescriber) clearSchema(keyspaceName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.metadata.keyspaceMetadata.remove(keyspaceName)
 }
 
