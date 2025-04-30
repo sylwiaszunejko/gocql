@@ -454,12 +454,9 @@ func newMetadataDescriber(session *Session) *metadataDescriber {
 	}
 }
 
-// returns the cached KeyspaceMetadata held by the describer for the named
-// keyspace.
+// getSchema returns the KeyspaceMetadata for the keyspace, if it is not present, loads it from `system_schema`
+// does not require holding a lock
 func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	metadata, found := s.metadata.keyspaceMetadata.getKeyspace(keyspaceName)
 	if !found {
 		// refresh the cache for this keyspace
