@@ -264,6 +264,8 @@ func (s *Session) init() error {
 		return err
 	}
 
+	var partitioner string
+
 	if !s.cfg.disableControlConn {
 		s.control = createControlConn(s)
 		reconnectionPolicy := s.cfg.InitialReconnectionPolicy
@@ -316,12 +318,12 @@ func (s *Session) init() error {
 		s.hostSource.setControlConn(s.control)
 
 		if !s.cfg.DisableInitialHostLookup {
-			var partitioner string
-			newHosts, partitioner, err := s.hostSource.GetHostsFromSystem()
+			var newHosts []*HostInfo
+			newHosts, partitioner, err = s.hostSource.GetHostsFromSystem()
 			if err != nil {
 				return err
 			}
-			s.policy.SetPartitioner(partitioner)
+
 			filteredHosts := make([]*HostInfo, 0, len(newHosts))
 			for _, host := range newHosts {
 				if !s.cfg.filterHost(host) {
@@ -339,6 +341,10 @@ func (s *Session) init() error {
 
 		newer, _ := checkSystemSchema(s.control)
 		s.useSystemSchema = newer
+	}
+
+	if partitioner != "" {
+		s.policy.SetPartitioner(partitioner)
 	}
 
 	for _, host := range hosts {
