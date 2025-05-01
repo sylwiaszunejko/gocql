@@ -178,7 +178,6 @@ func createKeyspace(tb testing.TB, cluster *ClusterConfig, keyspace string, disa
 	}
 
 	err = createTable(session, query)
-
 	if err != nil {
 		tb.Fatalf("unable to create table: %v", err)
 	}
@@ -205,11 +204,11 @@ func createSessionFromClusterHelper(cluster *ClusterConfig, tb testing.TB, opts 
 	cluster.Keyspace = opts.KeyspaceName()
 	session, err := cluster.CreateSession()
 	if err != nil {
-		tb.Fatal("createSession:", err)
+		tb.Fatalf("failed to create session: %v", err)
 	}
 
 	if err := session.control.awaitSchemaAgreement(); err != nil {
-		tb.Fatal(err)
+		tb.Fatalf("failed to wait on schema agreement: %v", err)
 	}
 
 	return session
