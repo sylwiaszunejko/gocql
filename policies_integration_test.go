@@ -5,6 +5,7 @@ package gocql
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -39,6 +40,53 @@ func TestDCValidationRackAware(t *testing.T) {
 	_, err := cluster.CreateSession()
 	if err == nil {
 		t.Fatal("createSession was expected to fail with wrong DC name provided.")
+	}
+}
+
+func TestTokenAwareHostPolicy(t *testing.T) {
+	t.Run("keyspace", func(t *testing.T) {
+		ks := "tokenaware_init_test"
+		createKeyspace(t, createCluster(), ks, false)
+
+		policy := TokenAwareHostPolicy(RoundRobinHostPolicy())
+		tokenPolicy := policy.(*tokenAwareHostPolicy)
+		cluster := createCluster()
+		cluster.Keyspace = ks
+		cluster.PoolConfig.HostSelectionPolicy = policy
+		testIfPolicyInitializedProperly(t, cluster, tokenPolicy)
+	})
+
+	t.Run("no-keyspace", func(t *testing.T) {
+		policy := TokenAwareHostPolicy(RoundRobinHostPolicy())
+		tokenPolicy := policy.(*tokenAwareHostPolicy)
+		cluster := createCluster()
+		cluster.PoolConfig.HostSelectionPolicy = policy
+		testIfPolicyInitializedProperly(t, cluster, tokenPolicy)
+	})
+}
+
+func testIfPolicyInitializedProperly(t *testing.T, cluster *ClusterConfig, policy *tokenAwareHostPolicy) {
+	_, err := cluster.CreateSession()
+	if err != nil {
+		t.Fatalf(fmt.Errorf("faled to create session: %v", err).Error())
+	}
+	md := policy.getMetadataReadOnly()
+	if md == nil {
+		t.Fatalf("tokenAwareHostPolicy has no metadata")
+	}
+	if len(md.tokenRing.tokens) == 0 {
+		t.Fatalf("tokenAwareHostPolicy metadata has no tokens")
+	}
+	if len(md.tokenRing.hosts) == 0 {
+		t.Fatalf("tokenAwareHostPolicy metadata has no hosts")
+	}
+	if md.tokenRing.partitioner == nil {
+		t.Fatalf("tokenAwareHostPolicy metadata has no partitioner")
+	}
+	if cluster.Keyspace != "" {
+		if len(md.replicas[cluster.Keyspace]) == 0 {
+			t.Fatalf("tokenAwareHostPolicy metadata has no replicas in target keyspace")
+		}
 	}
 }
 
