@@ -540,7 +540,12 @@ func (t *tokenAwareHostPolicy) Init(s *Session) {
 		// See https://github.com/scylladb/gocql/issues/94.
 		panic("sharing token aware host selection policy between sessions is not supported")
 	}
-	t.getKeyspaceMetadata = s.KeyspaceMetadata
+	t.getKeyspaceMetadata = func(keyspace string) (*KeyspaceMetadata, error) {
+		if keyspace == "" {
+			return nil, ErrNoKeyspace
+		}
+		return s.metadataDescriber.getSchema(keyspace)
+	}
 	t.getKeyspaceName = func() string { return s.cfg.Keyspace }
 	t.logger = s.logger
 }

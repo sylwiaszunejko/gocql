@@ -264,6 +264,8 @@ func (s *Session) init() error {
 		return err
 	}
 
+	var partitioner string
+
 	if !s.cfg.disableControlConn {
 		s.control = createControlConn(s)
 		reconnectionPolicy := s.cfg.InitialReconnectionPolicy
@@ -316,12 +318,12 @@ func (s *Session) init() error {
 		s.hostSource.setControlConn(s.control)
 
 		if !s.cfg.DisableInitialHostLookup {
-			var partitioner string
-			newHosts, partitioner, err := s.hostSource.GetHostsFromSystem()
+			var newHosts []*HostInfo
+			newHosts, partitioner, err = s.hostSource.GetHostsFromSystem()
 			if err != nil {
 				return err
 			}
-			s.policy.SetPartitioner(partitioner)
+
 			filteredHosts := make([]*HostInfo, 0, len(newHosts))
 			for _, host := range newHosts {
 				if !s.cfg.filterHost(host) {
@@ -336,6 +338,13 @@ func (s *Session) init() error {
 				s.metadataDescriber.setTablets(tablets)
 			}
 		}
+
+		newer, _ := checkSystemSchema(s.control)
+		s.useSystemSchema = newer
+	}
+
+	if partitioner != "" {
+		s.policy.SetPartitioner(partitioner)
 	}
 
 	for _, host := range hosts {
@@ -390,6 +399,12 @@ func (s *Session) init() error {
 		close(connectedCh)
 	}
 
+	if s.cfg.disableControlConn {
+		version := s.hostSource.getHostsList()[0].Version()
+		s.useSystemSchema = version.AtLeast(3, 0, 0)
+		s.hasAggregatesAndFunctions = version.AtLeast(2, 2, 0)
+	}
+
 	// before waiting for them to connect, add them all to the policy so we can
 	// utilize efficiencies by calling AddHosts if the policy supports it
 	type bulkAddHosts interface {
@@ -417,19 +432,6 @@ func (s *Session) init() error {
 	// See if there are any connections in the pool
 	if s.cfg.ReconnectInterval > 0 {
 		go s.reconnectDownedHosts(s.cfg.ReconnectInterval)
-	}
-
-	// If we disable the initial host lookup, we need to still check if the
-	// cluster is using the newer system schema or not... however, if control
-	// connection is disable, we really have no choice, so we just make our
-	// best guess...
-	if !s.cfg.disableControlConn && s.cfg.DisableInitialHostLookup {
-		newer, _ := checkSystemSchema(s.control)
-		s.useSystemSchema = newer
-	} else {
-		version := s.hostSource.getHostsList()[0].Version()
-		s.useSystemSchema = version.AtLeast(3, 0, 0)
-		s.hasAggregatesAndFunctions = version.AtLeast(2, 2, 0)
 	}
 
 	if s.pool.Size() == 0 {
