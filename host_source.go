@@ -717,7 +717,7 @@ func (s *Session) refreshRing() error {
 	}
 
 	for _, host := range prevHosts {
-		s.metadataDescriber.removeTabletsWithHost(host)
+		s.metadataDescriber.RemoveTabletsWithHost(host)
 		s.removeHost(host)
 	}
 	s.policy.SetPartitioner(partitioner)
