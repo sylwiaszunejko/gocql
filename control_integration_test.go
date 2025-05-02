@@ -48,7 +48,7 @@ func TestUnixSockets(t *testing.T) {
 
 	sess, err := c.CreateSession()
 	if err != nil {
-		panic(fmt.Sprintf("unable to create session: %v", err))
+		t.Fatalf("unable to create session: %v", err)
 	}
 
 	defer sess.Close()

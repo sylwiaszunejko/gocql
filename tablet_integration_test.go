@@ -21,7 +21,7 @@ func TestTablets(t *testing.T) {
 
 	if err := createTable(session, fmt.Sprintf(`CREATE TABLE %s (pk int, ck int, v int, PRIMARY KEY (pk, ck));
 	`, "test_tablets")); err != nil {
-		panic(fmt.Sprintf("unable to create table: %v", err))
+		t.Fatalf("unable to create table: %v", err)
 	}
 
 	hosts := session.hostSource.getHostsList()
@@ -111,7 +111,7 @@ func TestTabletsShardAwareness(t *testing.T) {
 
 	if err := createTable(session, fmt.Sprintf(`CREATE TABLE %s (pk int, ck int, v int, PRIMARY KEY (pk, ck));
 	`, "test_tablets_shard_awarness")); err != nil {
-		panic(fmt.Sprintf("unable to create table: %v", err))
+		t.Fatalf("unable to create table: %v", err)
 	}
 
 	ctx := context.Background()

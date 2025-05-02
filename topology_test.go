@@ -224,7 +224,7 @@ func TestPlacementStrategy_NetworkStrategy(t *testing.T) {
 								}
 							}
 							if exp.rack == lastRack {
-								panic("no more racks")
+								t.Fatal("no more racks")
 							}
 						}
 						lastRack = replica.rack
