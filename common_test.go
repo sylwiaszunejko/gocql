@@ -37,19 +37,19 @@ import (
 )
 
 var (
-	flagCluster      = flag.String("cluster", "127.0.0.1", "a comma-separated list of host:port tuples")
-	flagProto        = flag.Int("proto", 0, "protcol version")
-	flagCQL          = flag.String("cql", "3.0.0", "CQL version")
-	flagRF           = flag.Int("rf", 1, "replication factor for test keyspace")
-	clusterSize      = flag.Int("clusterSize", 1, "the expected size of the cluster")
-	flagRetry        = flag.Int("retries", 5, "number of times to retry queries")
-	flagAutoWait     = flag.Duration("autowait", 1000*time.Millisecond, "time to wait for autodiscovery to fill the hosts poll")
-	flagRunSslTest   = flag.Bool("runssl", false, "Set to true to run ssl test")
-	flagRunAuthTest  = flag.Bool("runauth", false, "Set to true to run authentication test")
-	flagCompressTest = flag.String("compressor", "", "compressor to use")
-	flagTimeout      = flag.Duration("gocql.timeout", 5*time.Second, "sets the connection `timeout` for all operations")
-
-	flagCassVersion cassVersion
+	flagCluster       = flag.String("cluster", "127.0.0.1", "a comma-separated list of host:port tuples")
+	flagProto         = flag.Int("proto", 0, "protcol version")
+	flagCQL           = flag.String("cql", "3.0.0", "CQL version")
+	flagRF            = flag.Int("rf", 1, "replication factor for test keyspace")
+	clusterSize       = flag.Int("clusterSize", 1, "the expected size of the cluster")
+	flagRetry         = flag.Int("retries", 5, "number of times to retry queries")
+	flagAutoWait      = flag.Duration("autowait", 1000*time.Millisecond, "time to wait for autodiscovery to fill the hosts poll")
+	flagRunSslTest    = flag.Bool("runssl", false, "Set to true to run ssl test")
+	flagRunAuthTest   = flag.Bool("runauth", false, "Set to true to run authentication test")
+	flagCompressTest  = flag.String("compressor", "", "compressor to use")
+	flagTimeout       = flag.Duration("gocql.timeout", 5*time.Second, "sets the connection `timeout` for all operations")
+	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by colon")
+	flagCassVersion   cassVersion
 )
 
 func init() {
@@ -212,6 +212,16 @@ func createSessionFromClusterHelper(cluster *ClusterConfig, tb testing.TB, opts 
 	}
 
 	return session
+}
+
+func getClusterSocketFile() []string {
+	var res []string
+	for _, socketFile := range strings.Split(*flagClusterSocket, ",") {
+		if socketFile != "" {
+			res = append(res, socketFile)
+		}
+	}
+	return res
 }
 
 func createSessionFromClusterTabletsDisabled(cluster *ClusterConfig, tb testing.TB) *Session {
