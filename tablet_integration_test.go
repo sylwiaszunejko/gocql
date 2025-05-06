@@ -11,6 +11,9 @@ import (
 
 // Check if TokenAwareHostPolicy works correctly when using tablets
 func TestTablets(t *testing.T) {
+	if !isTabletsSupported() {
+		t.Skip("Tablets are not supported by this server")
+	}
 	cluster := createCluster()
 
 	fallback := RoundRobinHostPolicy()
@@ -101,6 +104,9 @@ func TestTablets(t *testing.T) {
 
 // Check if shard awareness works correctly when using tablets
 func TestTabletsShardAwareness(t *testing.T) {
+	if !isTabletsSupported() {
+		t.Skip("Tablets are not supported by this server")
+	}
 	cluster := createCluster()
 
 	fallback := RoundRobinHostPolicy()

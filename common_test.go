@@ -99,6 +99,91 @@ func (o *OnceManager) GetOnce(key string) *sync.Once {
 
 var initKeyspaceOnce = NewOnceManager()
 
+var isTabletsSupportedFlag *bool
+var isTabletsSupportedOnce sync.RWMutex
+
+func isTabletsSupported() bool {
+	isTabletsSupportedOnce.RLock()
+	if isTabletsSupportedFlag != nil {
+		isTabletsSupportedOnce.RUnlock()
+		return *isTabletsSupportedFlag
+	}
+	isTabletsSupportedOnce.RUnlock()
+	isTabletsSupportedOnce.Lock()
+	defer isTabletsSupportedOnce.Unlock()
+	if isTabletsSupportedFlag != nil {
+		return *isTabletsSupportedFlag
+	}
+	var result bool
+
+	s, err := createCluster().CreateSession()
+	if err != nil {
+		panic(fmt.Errorf("failed to create session: %v", err))
+	}
+	res := make(map[string]interface{})
+	err = s.Query("select * from system.local").MapScan(res)
+	if err != nil {
+		panic(fmt.Errorf("failed to read system.local: %v", err))
+	}
+
+	features, _ := res["supported_features"]
+	featuresCasted, _ := features.(string)
+	for _, feature := range strings.Split(featuresCasted, ",") {
+		if feature == "TABLETS" {
+			result = true
+			isTabletsSupportedFlag = &result
+			return true
+		}
+	}
+	result = false
+	isTabletsSupportedFlag = &result
+	return false
+}
+
+var isTabletsAutoEnabledFlag *bool
+var isTabletsAutoEnabledOnce sync.RWMutex
+
+func isTabletsAutoEnabled() bool {
+	isTabletsAutoEnabledOnce.RLock()
+	if isTabletsAutoEnabledFlag != nil {
+		isTabletsAutoEnabledOnce.RUnlock()
+		return *isTabletsAutoEnabledFlag
+	}
+	isTabletsAutoEnabledOnce.RUnlock()
+	isTabletsAutoEnabledOnce.Lock()
+	defer isTabletsAutoEnabledOnce.Unlock()
+	if isTabletsAutoEnabledFlag != nil {
+		return *isTabletsAutoEnabledFlag
+	}
+	var result bool
+
+	s, err := createCluster().CreateSession()
+	if err != nil {
+		panic(fmt.Errorf("failed to create session: %v", err))
+	}
+
+	err = s.Query("DROP KEYSPACE IF EXISTS gocql_check_tablets_enabled").Exec()
+	if err != nil {
+		panic(fmt.Errorf("failed to delete keyspace: %v", err))
+	}
+	err = s.Query("CREATE KEYSPACE gocql_check_tablets_enabled WITH replication = {'class': 'NetworkTopologyStrategy', 'replication_factor': '1'}").Exec()
+	if err != nil {
+		panic(fmt.Errorf("failed to delete keyspace: %v", err))
+	}
+
+	res := make(map[string]interface{})
+	err = s.Query("describe keyspace gocql_check_tablets_enabled").MapScan(res)
+	if err != nil {
+		panic(fmt.Errorf("failed to read system.local: %v", err))
+	}
+
+	createStmt, _ := res["create_statement"]
+	createStmtCasted, _ := createStmt.(string)
+	result = strings.Contains(createStmtCasted, "AND TABLETS")
+	isTabletsAutoEnabledFlag = &result
+	return result
+}
+
 func createTable(s *Session, table string) error {
 	// lets just be really sure
 	if err := s.control.awaitSchemaAgreement(); err != nil {
@@ -171,10 +256,12 @@ func createKeyspace(tb testing.TB, cluster *ClusterConfig, keyspace string, disa
 		'replication_factor' : %d
 	}`, keyspace, *flagRF)
 
-	if disableTablets {
-		query += " AND tablets = {'enabled': false}"
-	} else {
-		query += " AND tablets = {'enabled': true, 'initial': 8};"
+	if isTabletsSupported() {
+		if disableTablets {
+			query += " AND tablets = {'enabled': false}"
+		} else if !isTabletsAutoEnabled() {
+			query += " AND tablets = {'enabled': true};"
+		}
 	}
 
 	err = createTable(session, query)
