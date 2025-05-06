@@ -269,21 +269,19 @@ func (s *Session) init() error {
 	if !s.cfg.disableControlConn {
 		s.control = createControlConn(s)
 		reconnectionPolicy := s.cfg.InitialReconnectionPolicy
-		var lastErr error
 		for i := 0; i < reconnectionPolicy.GetMaxRetries(); i++ {
-			lastErr = nil
 			if i != 0 {
 				time.Sleep(reconnectionPolicy.GetInterval(i))
 			}
 
 			if s.cfg.ProtoVersion == 0 {
-				proto, err := s.control.discoverProtocol(hosts)
+				var proto int
+				proto, err = s.control.discoverProtocol(hosts)
 				if err != nil {
 					err = fmt.Errorf("unable to discover protocol version: %v\n", err)
 					if gocqlDebug {
 						s.logger.Println(err.Error())
 					}
-					lastErr = err
 					continue
 				} else if proto == 0 {
 					return errors.New("unable to discovery protocol version")
@@ -294,17 +292,17 @@ func (s *Session) init() error {
 				s.connCfg.ProtoVersion = proto
 			}
 
-			if err := s.control.connect(hosts); err != nil {
+			if err = s.control.connect(hosts); err != nil {
 				err = fmt.Errorf("unable to create control connection: %v\n", err)
 				if gocqlDebug {
 					s.logger.Println(err.Error())
 				}
-				lastErr = err
 				continue
 			}
+			break
 		}
-		if lastErr != nil {
-			return fmt.Errorf("unable to connect to the cluster, last error: %v", lastErr.Error())
+		if err != nil {
+			return fmt.Errorf("unable to connect to the cluster, last error: %v", err.Error())
 		}
 
 		conn := s.control.getConn().conn.(*Conn)
