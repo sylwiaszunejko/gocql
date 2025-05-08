@@ -451,7 +451,13 @@ func TestQueryMultinodeWithMetrics(t *testing.T) {
 	}
 
 	for i, ip := range addresses {
-		host := &HostInfo{connectAddress: net.ParseIP(ip)}
+		var host *HostInfo
+		for _, clusterHost := range db.GetHosts() {
+			if clusterHost.connectAddress.String() == ip {
+				host = clusterHost
+			}
+		}
+
 		queryMetric := qry.metrics.hostMetrics(host)
 		observedMetrics := observer.GetMetrics(host)
 

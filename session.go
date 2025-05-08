@@ -1011,11 +1011,11 @@ func (qm *queryMetrics) hostMetrics(host *HostInfo) *hostMetrics {
 // hostMetricsLocked gets or creates host metrics for given host.
 // It must be called only while holding qm.l lock.
 func (qm *queryMetrics) hostMetricsLocked(host *HostInfo) *hostMetrics {
-	metrics, exists := qm.m[host.ConnectAddress().String()]
+	metrics, exists := qm.m[host.HostID()]
 	if !exists {
 		// if the host is not in the map, it means it's been accessed for the first time
 		metrics = &hostMetrics{}
-		qm.m[host.ConnectAddress().String()] = metrics
+		qm.m[host.HostID()] = metrics
 	}
 
 	return metrics
