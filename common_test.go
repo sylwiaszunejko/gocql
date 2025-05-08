@@ -48,7 +48,7 @@ var (
 	flagRunAuthTest   = flag.Bool("runauth", false, "Set to true to run authentication test")
 	flagCompressTest  = flag.String("compressor", "", "compressor to use")
 	flagTimeout       = flag.Duration("gocql.timeout", 5*time.Second, "sets the connection `timeout` for all operations")
-	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by colon")
+	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by comma")
 	flagCassVersion   cassVersion
 )
 
