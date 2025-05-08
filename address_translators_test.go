@@ -45,7 +45,7 @@ func TestIdentityAddressTranslator_NilAddrAndZeroPort(t *testing.T) {
 	if addr != nil {
 		t.Errorf("expected translated host to be (nil) but was (%+v) instead", addr)
 	}
-	assertEqual(t, "translated port", 0, port)
+	AssertEqual(t, "translated port", 0, port)
 }
 
 func TestIdentityAddressTranslator_HostProvided(t *testing.T) {
@@ -61,5 +61,5 @@ func TestIdentityAddressTranslator_HostProvided(t *testing.T) {
 	if !hostIP.Equal(addr) {
 		t.Errorf("expected translated addr to be (%+v) but was (%+v) instead", hostIP, addr)
 	}
-	assertEqual(t, "translated port", 9042, port)
+	AssertEqual(t, "translated port", 9042, port)
 }

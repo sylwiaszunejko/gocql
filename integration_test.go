@@ -70,9 +70,9 @@ func TestGetHostsFromSystem(t *testing.T) {
 
 	hosts, partitioner, err := session.hostSource.GetHostsFromSystem()
 
-	assertTrue(t, "err == nil", err == nil)
-	assertEqual(t, "len(hosts)", len(clusterHosts), len(hosts))
-	assertTrue(t, "len(partitioner) != 0", len(partitioner) != 0)
+	AssertTrue(t, "err == nil", err == nil)
+	AssertEqual(t, "len(hosts)", len(clusterHosts), len(hosts))
+	AssertTrue(t, "len(partitioner) != 0", len(partitioner) != 0)
 }
 
 // TestRingDiscovery makes sure that you can autodiscover other cluster members
@@ -124,7 +124,7 @@ func TestHostFilterDiscovery(t *testing.T) {
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	assertEqual(t, "len(clusterHosts)-1 != len(rr.hosts.get())", len(clusterHosts)-1, len(rr.hosts.get()))
+	AssertEqual(t, "len(clusterHosts)-1 != len(rr.hosts.get())", len(clusterHosts)-1, len(rr.hosts.get()))
 }
 
 // TestHostFilterInitial ensures that host filtering works for the initial
@@ -148,7 +148,7 @@ func TestHostFilterInitial(t *testing.T) {
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
 
-	assertEqual(t, "len(clusterHosts)-1 != len(rr.hosts.get())", len(clusterHosts)-1, len(rr.hosts.get()))
+	AssertEqual(t, "len(clusterHosts)-1 != len(rr.hosts.get())", len(clusterHosts)-1, len(rr.hosts.get()))
 }
 
 func TestWriteFailure(t *testing.T) {

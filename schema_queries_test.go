@@ -20,5 +20,5 @@ func TestSchemaQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal("unable to get keyspace metadata for keyspace: ", err)
 	}
-	assertTrue(t, "keyspace present in metadataDescriber", keyspaceMetadata.Name == "gocql_test")
+	AssertTrue(t, "keyspace present in metadataDescriber", keyspaceMetadata.Name == "gocql_test")
 }

@@ -126,29 +126,29 @@ func TestFindTablets(t *testing.T) {
 	t.Parallel()
 
 	id, id2 := tablets.findTablets("test1", "table1")
-	assertEqual(t, "id", 0, id)
-	assertEqual(t, "id2", 7, id2)
+	AssertEqual(t, "id", 0, id)
+	AssertEqual(t, "id2", 7, id2)
 
 	id, id2 = tablets.findTablets("test2", "table1")
-	assertEqual(t, "id", 8, id)
-	assertEqual(t, "id2", 15, id2)
+	AssertEqual(t, "id", 8, id)
+	AssertEqual(t, "id2", 15, id2)
 
 	id, id2 = tablets.findTablets("test3", "table1")
-	assertEqual(t, "id", -1, id)
-	assertEqual(t, "id2", -1, id2)
+	AssertEqual(t, "id", -1, id)
+	AssertEqual(t, "id2", -1, id2)
 }
 
 func TestFindTabletForToken(t *testing.T) {
 	t.Parallel()
 
 	tablet := tablets.findTabletForToken(0, 0, 7)
-	assertTrue(t, "tablet.lastToken == 2305843009213693951", tablet.lastToken == 2305843009213693951)
+	AssertTrue(t, "tablet.lastToken == 2305843009213693951", tablet.lastToken == 2305843009213693951)
 
 	tablet = tablets.findTabletForToken(9223372036854775807, 0, 7)
-	assertTrue(t, "tablet.lastToken == 9223372036854775807", tablet.lastToken == 9223372036854775807)
+	AssertTrue(t, "tablet.lastToken == 9223372036854775807", tablet.lastToken == 9223372036854775807)
 
 	tablet = tablets.findTabletForToken(-4611686018427387904, 0, 7)
-	assertTrue(t, "tablet.lastToken == -2305843009213693953", tablet.lastToken == -2305843009213693953)
+	AssertTrue(t, "tablet.lastToken == -2305843009213693953", tablet.lastToken == -2305843009213693953)
 }
 
 func CompareRanges(tablets TabletInfoList, ranges [][]int64) bool {
@@ -176,7 +176,7 @@ func TestAddTabletToEmptyTablets(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905}}))
+	AssertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905}}))
 }
 
 func TestAddTabletAtTheBeggining(t *testing.T) {
@@ -198,7 +198,7 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct",
+	AssertTrue(t, "Token range in tablets table not correct",
 		CompareRanges(tablets, [][]int64{{-8611686018427387905, -7917529027641081857}, {-6917529027641081857, -4611686018427387905}}))
 }
 
@@ -221,7 +221,7 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905},
+	AssertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905},
 		{-1, 2305843009213693951}}))
 }
 
@@ -250,7 +250,7 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905},
+	AssertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905},
 		{-4611686018427387905, -2305843009213693953},
 		{-1, 2305843009213693951}}))
 }
@@ -292,7 +292,7 @@ func TestAddTabletIntersecting(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct",
+	AssertTrue(t, "Token range in tablets table not correct",
 		CompareRanges(tablets, [][]int64{{-6917529027641081857, -4611686018427387905},
 			{-3611686018427387905, -6},
 			{-1, 2305843009213693951}}))
@@ -323,7 +323,7 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-8011686018427387905, -7987529027641081857},
+	AssertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-8011686018427387905, -7987529027641081857},
 		{-6917529027641081857, -4611686018427387905}}))
 }
 
@@ -352,7 +352,7 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 		[]ReplicaInfo{},
 	})
 
-	assertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-8611686018427387905, -7917529027641081857},
+	AssertTrue(t, "Token range in tablets table not correct", CompareRanges(tablets, [][]int64{{-8611686018427387905, -7917529027641081857},
 		{-5011686018427387905, -2987529027641081857}}))
 }
 
@@ -383,7 +383,7 @@ func TestRemoveTabletsWithHost(t *testing.T) {
 
 	tablets = tablets.removeTabletsWithHostFromTabletsList(removed_host_id)
 
-	assertEqual(t, "TabletsList length", 1, len(tablets))
+	AssertEqual(t, "TabletsList length", 1, len(tablets))
 }
 
 func TestRemoveTabletsWithKeyspace(t *testing.T) {
@@ -411,7 +411,7 @@ func TestRemoveTabletsWithKeyspace(t *testing.T) {
 
 	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList("removed_ks")
 
-	assertEqual(t, "TabletsList length", 1, len(tablets))
+	AssertEqual(t, "TabletsList length", 1, len(tablets))
 }
 
 func TestRemoveTabletsWithTable(t *testing.T) {
@@ -439,5 +439,5 @@ func TestRemoveTabletsWithTable(t *testing.T) {
 
 	tablets = tablets.removeTabletsWithTableFromTabletsList("test_ks", "removed_tb")
 
-	assertEqual(t, "TabletsList length", 2, len(tablets))
+	AssertEqual(t, "TabletsList length", 2, len(tablets))
 }

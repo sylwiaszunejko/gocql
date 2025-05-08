@@ -1202,20 +1202,20 @@ func TestMapScan(t *testing.T) {
 	if !iter.MapScan(row) {
 		t.Fatal("select:", iter.Close())
 	}
-	assertEqual(t, "fullname", "Ada Lovelace", row["fullname"])
-	assertEqual(t, "age", 30, row["age"])
-	assertEqual(t, "address", "10.0.0.2", row["address"])
-	assertDeepEqual(t, "data", []byte(`{"foo": "bar"}`), row["data"])
+	AssertEqual(t, "fullname", "Ada Lovelace", row["fullname"])
+	AssertEqual(t, "age", 30, row["age"])
+	AssertEqual(t, "address", "10.0.0.2", row["address"])
+	AssertDeepEqual(t, "data", []byte(`{"foo": "bar"}`), row["data"])
 
 	// Second iteration using a new map
 	row = make(map[string]interface{})
 	if !iter.MapScan(row) {
 		t.Fatal("select:", iter.Close())
 	}
-	assertEqual(t, "fullname", "Grace Hopper", row["fullname"])
-	assertEqual(t, "age", 31, row["age"])
-	assertEqual(t, "address", "10.0.0.1", row["address"])
-	assertDeepEqual(t, "data", []byte(nil), row["data"])
+	AssertEqual(t, "fullname", "Grace Hopper", row["fullname"])
+	AssertEqual(t, "age", 31, row["age"])
+	AssertEqual(t, "address", "10.0.0.1", row["address"])
+	AssertDeepEqual(t, "data", []byte(nil), row["data"])
 }
 
 func TestSliceMap(t *testing.T) {
@@ -2263,7 +2263,7 @@ func TestBatchObserve(t *testing.T) {
 			t.Fatal("unexpected query", stmt)
 		}
 
-		assertDeepEqual(t, "observed value", []interface{}{i}, observedBatch.observedValues[i])
+		AssertDeepEqual(t, "observed value", []interface{}{i}, observedBatch.observedValues[i])
 	}
 }
 

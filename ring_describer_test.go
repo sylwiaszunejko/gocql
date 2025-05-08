@@ -69,7 +69,7 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to get peers: %v", err)
 		}
-		assertEqual(t, "peers length", 2, len(peers))
+		AssertEqual(t, "peers length", 2, len(peers))
 	})
 
 	t.Run("NoZeroTokenNodes", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to get peers: %v", err)
 		}
-		assertEqual(t, "peers length", 3, len(peers))
+		AssertEqual(t, "peers length", 3, len(peers))
 	})
 }
 
@@ -335,8 +335,8 @@ func TestMockGetHostsFromSystem(t *testing.T) {
 	}
 
 	// local host and one of the peers are zero token so only one peer should be returned with 2 tokens
-	assertEqual(t, "hosts length", 1, len(hosts))
-	assertEqual(t, "host token length", 2, len(hosts[0].tokens))
+	AssertEqual(t, "hosts length", 1, len(hosts))
+	AssertEqual(t, "host token length", 2, len(hosts[0].tokens))
 }
 
 func TestRing_AddHostIfMissing_Missing(t *testing.T) {
