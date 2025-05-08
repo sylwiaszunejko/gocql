@@ -735,16 +735,17 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 	}
 
 	token := partitioner.Hash(routingKey)
+	tokenCasted, isInt64Token := token.(int64Token)
 
 	var replicas []*HostInfo
 
-	if session := qry.GetSession(); session != nil && session.tabletsRoutingV1 {
+	if session := qry.GetSession(); session != nil && session.tabletsRoutingV1 && isInt64Token {
 		tablets := session.metadataDescriber.getTablets()
 
 		// Search for tablets with Keyspace and Table from the Query
 		l, r := tablets.findTablets(qry.Keyspace(), qry.Table())
 		if l != -1 {
-			tablet := tablets.findTabletForToken(token, l, r)
+			tablet := tablets.findTabletForToken(int64(tokenCasted), l, r)
 			hosts := t.hosts.get()
 			for _, replica := range tablet.Replicas() {
 				for _, host := range hosts {

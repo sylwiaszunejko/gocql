@@ -141,13 +141,13 @@ func TestFindTablets(t *testing.T) {
 func TestFindTabletForToken(t *testing.T) {
 	t.Parallel()
 
-	tablet := tablets.findTabletForToken(parseInt64Token("0"), 0, 7)
+	tablet := tablets.findTabletForToken(0, 0, 7)
 	assertTrue(t, "tablet.lastToken == 2305843009213693951", tablet.lastToken == 2305843009213693951)
 
-	tablet = tablets.findTabletForToken(parseInt64Token("9223372036854775807"), 0, 7)
+	tablet = tablets.findTabletForToken(9223372036854775807, 0, 7)
 	assertTrue(t, "tablet.lastToken == 9223372036854775807", tablet.lastToken == 9223372036854775807)
 
-	tablet = tablets.findTabletForToken(parseInt64Token("-4611686018427387904"), 0, 7)
+	tablet = tablets.findTabletForToken(-4611686018427387904, 0, 7)
 	assertTrue(t, "tablet.lastToken == -2305843009213693953", tablet.lastToken == -2305843009213693953)
 }
 
