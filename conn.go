@@ -1557,7 +1557,7 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 				}
 				if hostId, ok := replica[0].(UUID); ok {
 					if shardId, ok := replica[1].(int); ok {
-						repInfo := ReplicaInfo{hostId, shardId}
+						repInfo := ReplicaInfo{hostId.String(), shardId}
 						tabletReplicas = append(tabletReplicas, repInfo)
 					} else {
 						return &Iter{err: err}

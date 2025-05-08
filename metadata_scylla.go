@@ -500,14 +500,14 @@ func (s *metadataDescriber) addTablet(tablet *TabletInfo) {
 func (s *metadataDescriber) RemoveTabletsWithHost(host *HostInfo) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.removeTabletsWithHost(host)
+	s.removeTabletsWithHost(host.HostID())
 }
 
 // removeTabletsWithHost removes tablets that contains given host.
 // s.mu should be locked
-func (s *metadataDescriber) removeTabletsWithHost(host *HostInfo) {
+func (s *metadataDescriber) removeTabletsWithHost(hostID string) {
 	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithHostFromTabletsList(host)
+	tablets = tablets.removeTabletsWithHostFromTabletsList(hostID)
 	s.setTablets(tablets)
 }
 
