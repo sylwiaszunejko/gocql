@@ -32,6 +32,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gocql/gocql/internal/tests"
 	"math"
 	"math/big"
 	"net"
@@ -1202,20 +1203,20 @@ func TestMapScan(t *testing.T) {
 	if !iter.MapScan(row) {
 		t.Fatal("select:", iter.Close())
 	}
-	AssertEqual(t, "fullname", "Ada Lovelace", row["fullname"])
-	AssertEqual(t, "age", 30, row["age"])
-	AssertEqual(t, "address", "10.0.0.2", row["address"])
-	AssertDeepEqual(t, "data", []byte(`{"foo": "bar"}`), row["data"])
+	tests.AssertEqual(t, "fullname", "Ada Lovelace", row["fullname"])
+	tests.AssertEqual(t, "age", 30, row["age"])
+	tests.AssertEqual(t, "address", "10.0.0.2", row["address"])
+	tests.AssertDeepEqual(t, "data", []byte(`{"foo": "bar"}`), row["data"])
 
 	// Second iteration using a new map
 	row = make(map[string]interface{})
 	if !iter.MapScan(row) {
 		t.Fatal("select:", iter.Close())
 	}
-	AssertEqual(t, "fullname", "Grace Hopper", row["fullname"])
-	AssertEqual(t, "age", 31, row["age"])
-	AssertEqual(t, "address", "10.0.0.1", row["address"])
-	AssertDeepEqual(t, "data", []byte(nil), row["data"])
+	tests.AssertEqual(t, "fullname", "Grace Hopper", row["fullname"])
+	tests.AssertEqual(t, "age", 31, row["age"])
+	tests.AssertEqual(t, "address", "10.0.0.1", row["address"])
+	tests.AssertDeepEqual(t, "data", []byte(nil), row["data"])
 }
 
 func TestSliceMap(t *testing.T) {
@@ -2263,7 +2264,7 @@ func TestBatchObserve(t *testing.T) {
 			t.Fatal("unexpected query", stmt)
 		}
 
-		AssertDeepEqual(t, "observed value", []interface{}{i}, observedBatch.observedValues[i])
+		tests.AssertDeepEqual(t, "observed value", []interface{}{i}, observedBatch.observedValues[i])
 	}
 }
 

@@ -6,6 +6,7 @@ package gocql
 import (
 	"context"
 	"fmt"
+	"github.com/gocql/gocql/internal/tests"
 	"net"
 	"testing"
 
@@ -69,7 +70,7 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to get peers: %v", err)
 		}
-		AssertEqual(t, "peers length", 2, len(peers))
+		tests.AssertEqual(t, "peers length", 2, len(peers))
 	})
 
 	t.Run("NoZeroTokenNodes", func(t *testing.T) {
@@ -84,7 +85,7 @@ func TestGetClusterPeerInfoZeroToken(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to get peers: %v", err)
 		}
-		AssertEqual(t, "peers length", 3, len(peers))
+		tests.AssertEqual(t, "peers length", 3, len(peers))
 	})
 }
 
@@ -335,8 +336,8 @@ func TestMockGetHostsFromSystem(t *testing.T) {
 	}
 
 	// local host and one of the peers are zero token so only one peer should be returned with 2 tokens
-	AssertEqual(t, "hosts length", 1, len(hosts))
-	AssertEqual(t, "host token length", 2, len(hosts[0].tokens))
+	tests.AssertEqual(t, "hosts length", 1, len(hosts))
+	tests.AssertEqual(t, "host token length", 2, len(hosts[0].tokens))
 }
 
 func TestRing_AddHostIfMissing_Missing(t *testing.T) {
