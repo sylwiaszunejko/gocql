@@ -2,6 +2,7 @@ package tablets
 
 import (
 	"fmt"
+	"sync"
 	"sync/atomic"
 )
 
@@ -233,6 +234,9 @@ func (t TabletInfoList) FindTabletForToken(token int64, l int, r int) *TabletInf
 // CowTabletList implements a copy on write tablet list, its equivalent type is TabletInfoList
 type CowTabletList struct {
 	list atomic.Value
+	// every tablet update reads tablets states, update it and then writes it.
+	// parallel writing will cause one of write being lost
+	writeLock sync.Mutex
 }
 
 func NewCowTabletList() CowTabletList {
@@ -252,18 +256,26 @@ func (c *CowTabletList) set(tablets TabletInfoList) {
 }
 
 func (c *CowTabletList) AddTablet(tablet *TabletInfo) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
 	c.set(c.Get().AddTabletToTabletsList(tablet))
 }
 
 func (c *CowTabletList) RemoveTabletsWithHost(hostID string) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
 	c.set(c.Get().RemoveTabletsWithHost(hostID))
 }
 
 func (c *CowTabletList) RemoveTabletsWithKeyspace(keyspace string) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
 	c.set(c.Get().RemoveTabletsWithKeyspace(keyspace))
 }
 
 func (c *CowTabletList) RemoveTabletsWithTableFromTabletsList(keyspace string, table string) {
+	c.writeLock.Lock()
+	defer c.writeLock.Unlock()
 	c.set(c.Get().RemoveTabletsWithTableFromTabletsList(keyspace, table))
 }
 
