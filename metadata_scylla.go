@@ -434,7 +434,7 @@ func columnKindFromSchema(kind string) (ColumnKind, error) {
 }
 
 type Metadata struct {
-	tabletsMetadata  cowTabletList
+	tabletsMetadata  CowTabletList
 	keyspaceMetadata cowKeyspaceMetadataMap
 }
 
@@ -476,11 +476,11 @@ func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, e
 }
 
 func (s *metadataDescriber) setTablets(tablets TabletInfoList) {
-	s.metadata.tabletsMetadata.set(tablets)
+	s.metadata.tabletsMetadata.Set(tablets)
 }
 
 func (s *metadataDescriber) getTablets() TabletInfoList {
-	return s.metadata.tabletsMetadata.get()
+	return s.metadata.tabletsMetadata.Get()
 }
 
 func (s *metadataDescriber) AddTablet(tablet *TabletInfo) {
@@ -491,7 +491,7 @@ func (s *metadataDescriber) AddTablet(tablet *TabletInfo) {
 
 func (s *metadataDescriber) addTablet(tablet *TabletInfo) {
 	tablets := s.getTablets()
-	tablets = tablets.addTabletToTabletsList(tablet)
+	tablets = tablets.AddTabletToTabletsList(tablet)
 	s.setTablets(tablets)
 }
 
@@ -507,7 +507,7 @@ func (s *metadataDescriber) RemoveTabletsWithHost(host *HostInfo) {
 // s.mu should be locked
 func (s *metadataDescriber) removeTabletsWithHost(hostID string) {
 	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithHostFromTabletsList(hostID)
+	tablets = tablets.RemoveTabletsWithHostFromTabletsList(hostID)
 	s.setTablets(tablets)
 }
 
@@ -523,7 +523,7 @@ func (s *metadataDescriber) RemoveTabletsWithKeyspace(keyspace string) {
 // s.mu should be locked
 func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) {
 	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList(keyspace)
+	tablets = tablets.RemoveTabletsWithKeyspaceFromTabletsList(keyspace)
 	s.setTablets(tablets)
 }
 
@@ -539,7 +539,7 @@ func (s *metadataDescriber) RemoveTabletsWithTable(keyspace string, table string
 // s.mu should be locked
 func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) {
 	tablets := s.getTablets()
-	tablets = tablets.removeTabletsWithTableFromTabletsList(keyspace, table)
+	tablets = tablets.RemoveTabletsWithTableFromTabletsList(keyspace, table)
 	s.setTablets(tablets)
 }
 

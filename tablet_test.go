@@ -126,15 +126,15 @@ var tablets = TabletInfoList{
 func TestFindTablets(t *testing.T) {
 	t.Parallel()
 
-	id, id2 := tablets.findTablets("test1", "table1")
+	id, id2 := tablets.FindTablets("test1", "table1")
 	tests.AssertEqual(t, "id", 0, id)
 	tests.AssertEqual(t, "id2", 7, id2)
 
-	id, id2 = tablets.findTablets("test2", "table1")
+	id, id2 = tablets.FindTablets("test2", "table1")
 	tests.AssertEqual(t, "id", 8, id)
 	tests.AssertEqual(t, "id2", 15, id2)
 
-	id, id2 = tablets.findTablets("test3", "table1")
+	id, id2 = tablets.FindTablets("test3", "table1")
 	tests.AssertEqual(t, "id", -1, id)
 	tests.AssertEqual(t, "id2", -1, id2)
 }
@@ -142,13 +142,13 @@ func TestFindTablets(t *testing.T) {
 func TestFindTabletForToken(t *testing.T) {
 	t.Parallel()
 
-	tablet := tablets.findTabletForToken(0, 0, 7)
+	tablet := tablets.FindTabletForToken(0, 0, 7)
 	tests.AssertTrue(t, "tablet.lastToken == 2305843009213693951", tablet.lastToken == 2305843009213693951)
 
-	tablet = tablets.findTabletForToken(9223372036854775807, 0, 7)
+	tablet = tablets.FindTabletForToken(9223372036854775807, 0, 7)
 	tests.AssertTrue(t, "tablet.lastToken == 9223372036854775807", tablet.lastToken == 9223372036854775807)
 
-	tablet = tablets.findTabletForToken(-4611686018427387904, 0, 7)
+	tablet = tablets.FindTabletForToken(-4611686018427387904, 0, 7)
 	tests.AssertTrue(t, "tablet.lastToken == -2305843009213693953", tablet.lastToken == -2305843009213693953)
 }
 
@@ -169,7 +169,7 @@ func TestAddTabletToEmptyTablets(t *testing.T) {
 
 	tablets := TabletInfoList{}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
@@ -191,7 +191,7 @@ func TestAddTabletAtTheBeggining(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
@@ -214,7 +214,7 @@ func TestAddTabletAtTheEnd(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-1,
@@ -243,7 +243,7 @@ func TestAddTabletInTheMiddle(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-4611686018427387905,
@@ -285,7 +285,7 @@ func TestAddTabletIntersecting(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-3611686018427387905,
@@ -316,7 +316,7 @@ func TestAddTabletIntersectingWithFirst(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-8011686018427387905,
@@ -345,7 +345,7 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 		[]ReplicaInfo{},
 	}}
 
-	tablets = tablets.addTabletToTabletsList(&TabletInfo{
+	tablets = tablets.AddTabletToTabletsList(&TabletInfo{
 		"test_ks",
 		"test_tb",
 		-5011686018427387905,
@@ -382,7 +382,7 @@ func TestRemoveTabletsWithHost(t *testing.T) {
 		[]ReplicaInfo{{TimeUUID().String(), 9}, {removed_host_id, 8}, {TimeUUID().String(), 3}},
 	}}
 
-	tablets = tablets.removeTabletsWithHostFromTabletsList(removed_host_id)
+	tablets = tablets.RemoveTabletsWithHostFromTabletsList(removed_host_id)
 
 	tests.AssertEqual(t, "TabletsList length", 1, len(tablets))
 }
@@ -410,7 +410,7 @@ func TestRemoveTabletsWithKeyspace(t *testing.T) {
 		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
 	}}
 
-	tablets = tablets.removeTabletsWithKeyspaceFromTabletsList("removed_ks")
+	tablets = tablets.RemoveTabletsWithKeyspaceFromTabletsList("removed_ks")
 
 	tests.AssertEqual(t, "TabletsList length", 1, len(tablets))
 }
@@ -438,7 +438,7 @@ func TestRemoveTabletsWithTable(t *testing.T) {
 		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
 	}}
 
-	tablets = tablets.removeTabletsWithTableFromTabletsList("test_ks", "removed_tb")
+	tablets = tablets.RemoveTabletsWithTableFromTabletsList("test_ks", "removed_tb")
 
 	tests.AssertEqual(t, "TabletsList length", 2, len(tablets))
 }
