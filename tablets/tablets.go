@@ -1,4 +1,4 @@
-package gocql
+package tablets
 
 import (
 	"fmt"

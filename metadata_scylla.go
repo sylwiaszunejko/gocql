@@ -7,6 +7,7 @@ package gocql
 import (
 	"errors"
 	"fmt"
+	"github.com/gocql/gocql/tablets"
 	"reflect"
 	"strings"
 	"sync"
@@ -434,7 +435,7 @@ func columnKindFromSchema(kind string) (ColumnKind, error) {
 }
 
 type Metadata struct {
-	tabletsMetadata  CowTabletList
+	tabletsMetadata  tablets.CowTabletList
 	keyspaceMetadata cowKeyspaceMetadataMap
 }
 
@@ -475,21 +476,21 @@ func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, e
 	return metadata, nil
 }
 
-func (s *metadataDescriber) setTablets(tablets TabletInfoList) {
+func (s *metadataDescriber) setTablets(tablets tablets.TabletInfoList) {
 	s.metadata.tabletsMetadata.Set(tablets)
 }
 
-func (s *metadataDescriber) getTablets() TabletInfoList {
+func (s *metadataDescriber) getTablets() tablets.TabletInfoList {
 	return s.metadata.tabletsMetadata.Get()
 }
 
-func (s *metadataDescriber) AddTablet(tablet *TabletInfo) {
+func (s *metadataDescriber) AddTablet(tablet *tablets.TabletInfo) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.addTablet(tablet)
 }
 
-func (s *metadataDescriber) addTablet(tablet *TabletInfo) {
+func (s *metadataDescriber) addTablet(tablet *tablets.TabletInfo) {
 	tablets := s.getTablets()
 	tablets = tablets.AddTabletToTabletsList(tablet)
 	s.setTablets(tablets)
