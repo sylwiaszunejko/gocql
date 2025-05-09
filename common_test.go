@@ -48,7 +48,7 @@ var (
 	flagRunAuthTest   = flag.Bool("runauth", false, "Set to true to run authentication test")
 	flagCompressTest  = flag.String("compressor", "", "compressor to use")
 	flagTimeout       = flag.Duration("gocql.timeout", 5*time.Second, "sets the connection `timeout` for all operations")
-	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by colon")
+	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by comma")
 	flagCassVersion   cassVersion
 )
 
@@ -155,7 +155,6 @@ func isTabletsAutoEnabled() bool {
 	if isTabletsAutoEnabledFlag != nil {
 		return *isTabletsAutoEnabledFlag
 	}
-	var result bool
 
 	s, err := createCluster().CreateSession()
 	if err != nil {
@@ -179,7 +178,7 @@ func isTabletsAutoEnabled() bool {
 
 	createStmt, _ := res["create_statement"]
 	createStmtCasted, _ := createStmt.(string)
-	result = strings.Contains(createStmtCasted, "AND TABLETS")
+	result := strings.Contains(strings.ToLower(createStmtCasted), "and tablets")
 	isTabletsAutoEnabledFlag = &result
 	return result
 }
