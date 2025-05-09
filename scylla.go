@@ -372,6 +372,7 @@ func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
 
 	idx := -1
 
+outer:
 	for _, conn := range p.conns {
 		if conn == nil {
 			continue
@@ -381,6 +382,7 @@ func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
 			for _, replica := range conn.session.findTabletReplicasForToken(qry.Keyspace(), qry.Table(), int64(mmt)) {
 				if replica.HostID() == p.hostId {
 					idx = replica.ShardID()
+					break outer
 				}
 			}
 		}
