@@ -161,7 +161,7 @@ func (t TabletInfoList) removeTabletsWithTableFromTabletsList(keyspace string, t
 }
 
 // Search for place in tablets table for token starting from index l to index r
-func (t TabletInfoList) findTabletForToken(token Token, l int, r int) *TabletInfo {
+func (t TabletInfoList) findTabletForToken(token int64, l int, r int) *TabletInfo {
 	for l < r {
 		var m int
 		if r*l > 0 {
@@ -169,7 +169,7 @@ func (t TabletInfoList) findTabletForToken(token Token, l int, r int) *TabletInf
 		} else {
 			m = (r + l) / 2
 		}
-		if int64Token(t[m].LastToken()).Less(token) {
+		if t[m].LastToken() < token {
 			l = m + 1
 		} else {
 			r = m

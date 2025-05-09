@@ -384,7 +384,7 @@ func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
 			l, r := tablets.findTablets(qry.Keyspace(), qry.Table())
 
 			if l != -1 {
-				tablet := tablets.findTabletForToken(mmt, l, r)
+				tablet := tablets.findTabletForToken(int64(mmt), l, r)
 
 				for _, replica := range tablet.replicas {
 					if replica.hostId == p.hostId {
