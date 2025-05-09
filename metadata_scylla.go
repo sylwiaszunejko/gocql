@@ -491,9 +491,7 @@ func (s *metadataDescriber) AddTablet(tablet *tablets.TabletInfo) {
 }
 
 func (s *metadataDescriber) addTablet(tablet *tablets.TabletInfo) {
-	tablets := s.getTablets()
-	tablets = tablets.AddTabletToTabletsList(tablet)
-	s.setTablets(tablets)
+	s.metadata.tabletsMetadata.AddTablet(tablet)
 }
 
 // RemoveTabletsWithHost removes tablets that contains given host.
@@ -507,9 +505,7 @@ func (s *metadataDescriber) RemoveTabletsWithHost(host *HostInfo) {
 // removeTabletsWithHost removes tablets that contains given host.
 // s.mu should be locked
 func (s *metadataDescriber) removeTabletsWithHost(hostID string) {
-	tablets := s.getTablets()
-	tablets = tablets.RemoveTabletsWithHostFromTabletsList(hostID)
-	s.setTablets(tablets)
+	s.metadata.tabletsMetadata.RemoveTabletsWithHost(hostID)
 }
 
 // RemoveTabletsWithKeyspace removes tablets for given keyspace.
@@ -523,9 +519,7 @@ func (s *metadataDescriber) RemoveTabletsWithKeyspace(keyspace string) {
 // removeTabletsWithKeyspace removes tablets for given keyspace.
 // s.mu should be locked
 func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) {
-	tablets := s.getTablets()
-	tablets = tablets.RemoveTabletsWithKeyspaceFromTabletsList(keyspace)
-	s.setTablets(tablets)
+	s.metadata.tabletsMetadata.RemoveTabletsWithKeyspace(keyspace)
 }
 
 // RemoveTabletsWithTable removes tablets for given table.
@@ -539,9 +533,7 @@ func (s *metadataDescriber) RemoveTabletsWithTable(keyspace string, table string
 // removeTabletsWithTable removes tablets for given table.
 // s.mu should be locked
 func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) {
-	tablets := s.getTablets()
-	tablets = tablets.RemoveTabletsWithTableFromTabletsList(keyspace, table)
-	s.setTablets(tablets)
+	s.metadata.tabletsMetadata.RemoveTabletsWithTableFromTabletsList(keyspace, table)
 }
 
 // clearSchema clears the cached keyspace metadata

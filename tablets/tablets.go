@@ -165,7 +165,7 @@ func (t TabletInfoList) AddTabletToTabletsList(tablet *TabletInfo) TabletInfoLis
 }
 
 // Remove all tablets that have given host as a replica
-func (t TabletInfoList) RemoveTabletsWithHostFromTabletsList(hostID string) TabletInfoList {
+func (t TabletInfoList) RemoveTabletsWithHost(hostID string) TabletInfoList {
 	filteredTablets := make([]*TabletInfo, 0, len(t)) // Preallocate for efficiency
 
 	for _, tablet := range t {
@@ -186,7 +186,7 @@ func (t TabletInfoList) RemoveTabletsWithHostFromTabletsList(hostID string) Tabl
 	return t
 }
 
-func (t TabletInfoList) RemoveTabletsWithKeyspaceFromTabletsList(keyspace string) TabletInfoList {
+func (t TabletInfoList) RemoveTabletsWithKeyspace(keyspace string) TabletInfoList {
 	filteredTablets := make([]*TabletInfo, 0, len(t))
 
 	for _, tablet := range t {
@@ -212,7 +212,6 @@ func (t TabletInfoList) RemoveTabletsWithTableFromTabletsList(keyspace string, t
 	return t
 }
 
-// Search for place in tablets table for token starting from index l to index r
 func (t TabletInfoList) FindTabletForToken(token int64, l int, r int) *TabletInfo {
 	for l < r {
 		var m int
@@ -241,6 +240,30 @@ func (c *CowTabletList) Get() TabletInfoList {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.list
+}
+
+func (c *CowTabletList) AddTablet(tablet *TabletInfo) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.list = c.list.AddTabletToTabletsList(tablet)
+}
+
+func (c *CowTabletList) RemoveTabletsWithHost(hostID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.list = c.list.RemoveTabletsWithHost(hostID)
+}
+
+func (c *CowTabletList) RemoveTabletsWithKeyspace(keyspace string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.list = c.list.RemoveTabletsWithKeyspace(keyspace)
+}
+
+func (c *CowTabletList) RemoveTabletsWithTableFromTabletsList(keyspace string, table string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.list = c.list.RemoveTabletsWithTableFromTabletsList(keyspace, table)
 }
 
 func (c *CowTabletList) Set(tablets TabletInfoList) {
