@@ -1519,11 +1519,8 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 
 	if len(framer.customPayload) > 0 {
 		if tabletInfo, ok := framer.customPayload["tablets-routing-v1"]; ok {
-			var firstToken string
-			var lastToken string
-			var replicas [][]interface{}
-			tabletInfoValue := []interface{}{&firstToken, &lastToken, &replicas}
-			Unmarshal(TupleTypeInfo{
+			tabletBuilder := NewTabletInfoBuilder()
+			err = Unmarshal(TupleTypeInfo{
 				NativeType: NativeType{proto: c.version, typ: TypeTuple},
 				Elems: []TypeInfo{
 					NativeType{typ: TypeBigInt},
@@ -1538,39 +1535,17 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 							}},
 					},
 				},
-			}, tabletInfo, tabletInfoValue)
-
-			tablet := TabletInfo{}
-			tablet.firstToken, err = strconv.ParseInt(firstToken, 10, 64)
+			}, tabletInfo, []interface{}{&tabletBuilder.FirstToken, &tabletBuilder.LastToken, &tabletBuilder.Replicas})
 			if err != nil {
 				return &Iter{err: err}
 			}
-			tablet.lastToken, err = strconv.ParseInt(lastToken, 10, 64)
+			tabletBuilder.KeyspaceName = qry.routingInfo.keyspace
+			tabletBuilder.TableName = qry.routingInfo.table
+			tablet, err := tabletBuilder.Build()
 			if err != nil {
 				return &Iter{err: err}
 			}
-
-			tabletReplicas := make([]ReplicaInfo, 0, len(replicas))
-			for _, replica := range replicas {
-				if len(replica) != 2 {
-					return &Iter{err: err}
-				}
-				if hostId, ok := replica[0].(UUID); ok {
-					if shardId, ok := replica[1].(int); ok {
-						repInfo := ReplicaInfo{hostId.String(), shardId}
-						tabletReplicas = append(tabletReplicas, repInfo)
-					} else {
-						return &Iter{err: err}
-					}
-				} else {
-					return &Iter{err: err}
-				}
-			}
-			tablet.replicas = tabletReplicas
-			tablet.keyspaceName = qry.routingInfo.keyspace
-			tablet.tableName = qry.routingInfo.table
-
-			c.session.metadataDescriber.AddTablet(&tablet)
+			c.session.metadataDescriber.AddTablet(tablet)
 		}
 	}
 

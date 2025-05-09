@@ -1,6 +1,7 @@
 package gocql
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -8,6 +9,45 @@ type ReplicaInfo struct {
 	// hostId for sake of better performance, it has to be same type as HostInfo.hostId
 	hostId  string
 	shardId int
+}
+
+type TabletInfoBuilder struct {
+	KeyspaceName string
+	TableName    string
+	FirstToken   int64
+	LastToken    int64
+	Replicas     [][]interface{}
+}
+
+func NewTabletInfoBuilder() TabletInfoBuilder {
+	return TabletInfoBuilder{}
+}
+
+func (b TabletInfoBuilder) Build() (*TabletInfo, error) {
+	tabletReplicas := make([]ReplicaInfo, 0, len(b.Replicas))
+	for _, replica := range b.Replicas {
+		if len(replica) != 2 {
+			return nil, fmt.Errorf("replica info should have exactly two elements, but it has %d: %v", len(replica), replica)
+		}
+		if hostId, ok := replica[0].(UUID); ok {
+			if shardId, ok := replica[1].(int); ok {
+				repInfo := ReplicaInfo{hostId.String(), shardId}
+				tabletReplicas = append(tabletReplicas, repInfo)
+			} else {
+				return nil, fmt.Errorf("second element (shard) of replica is not int: %v", replica)
+			}
+		} else {
+			return nil, fmt.Errorf("first element (hostID) of replica is not UUID: %v", replica)
+		}
+	}
+
+	return &TabletInfo{
+		keyspaceName: b.KeyspaceName,
+		tableName:    b.TableName,
+		firstToken:   b.FirstToken,
+		lastToken:    b.LastToken,
+		replicas:     tabletReplicas,
+	}, nil
 }
 
 type TabletInfo struct {
