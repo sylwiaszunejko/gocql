@@ -1834,7 +1834,7 @@ func (c *Conn) querySystem(ctx context.Context, query string) *Iter {
 }
 
 const qrySystemPeers = "SELECT * FROM system.peers"
-const qrySystemPeersV2 = "SELECT * FROM system.peers_2"
+const qrySystemPeersV2 = "SELECT * FROM system.peers_v2"
 
 const qrySystemLocal = "SELECT * FROM system.local WHERE key='local'"
 
@@ -1897,7 +1897,7 @@ func (c *Conn) awaitSchemaAgreement(ctx context.Context) error {
 	for time.Now().Before(endDeadline) {
 		var iter *Iter
 		if c.getIsSchemaV2() {
-			iter = c.querySystem(ctx, "SELECT host_id, data_center, rack, schema_version, rpc_address FROM system.peers_2")
+			iter = c.querySystem(ctx, "SELECT host_id, data_center, rack, schema_version, preferred_ip FROM system.peers_v2")
 		} else {
 			iter = c.querySystem(ctx, "SELECT host_id, data_center, rack, schema_version, rpc_address FROM system.peers")
 		}
