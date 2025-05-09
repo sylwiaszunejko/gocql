@@ -476,10 +476,6 @@ func (s *metadataDescriber) getSchema(keyspaceName string) (*KeyspaceMetadata, e
 	return metadata, nil
 }
 
-func (s *metadataDescriber) setTablets(tablets tablets.TabletInfoList) {
-	s.metadata.tabletsMetadata.Set(tablets)
-}
-
 func (s *metadataDescriber) getTablets() tablets.TabletInfoList {
 	return s.metadata.tabletsMetadata.Get()
 }

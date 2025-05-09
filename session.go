@@ -331,11 +331,6 @@ func (s *Session) init() error {
 			}
 
 			hosts = filteredHosts
-
-			if s.tabletsRoutingV1 {
-				tablets := tablets.TabletInfoList{}
-				s.metadataDescriber.setTablets(tablets)
-			}
 		}
 
 		newer, _ := checkSystemSchema(s.control)
