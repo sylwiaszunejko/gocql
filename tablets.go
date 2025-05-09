@@ -5,7 +5,8 @@ import (
 )
 
 type ReplicaInfo struct {
-	hostId  UUID
+	// hostId for sake of better performance, it has to be same type as HostInfo.hostId
+	hostId  string
 	shardId int
 }
 
@@ -112,14 +113,14 @@ func (t TabletInfoList) addTabletToTabletsList(tablet *TabletInfo) TabletInfoLis
 }
 
 // Remove all tablets that have given host as a replica
-func (t TabletInfoList) removeTabletsWithHostFromTabletsList(host *HostInfo) TabletInfoList {
+func (t TabletInfoList) removeTabletsWithHostFromTabletsList(hostID string) TabletInfoList {
 	filteredTablets := make([]*TabletInfo, 0, len(t)) // Preallocate for efficiency
 
 	for _, tablet := range t {
 		// Check if any replica matches the given host ID
 		shouldExclude := false
 		for _, replica := range tablet.replicas {
-			if replica.hostId.String() == host.HostID() {
+			if replica.hostId == hostID {
 				shouldExclude = true
 				break
 			}
