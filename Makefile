@@ -9,6 +9,12 @@ TEST_CQL_PROTOCOL ?= 4
 TEST_COMPRESSOR ?= snappy
 TEST_OPTS ?=
 TEST_INTEGRATION_TAGS ?= integration gocql_debug
+JVM_EXTRA_OPTS ?= -Dcassandra.test.fail_writes_ks=test -Dcassandra.custom_query_handler_class=org.apache.cassandra.cql3.CustomPayloadMirroringQueryHandler
+
+CCM_CASSANDRA_CLUSTER_NAME = gocql_cassandra_integration_test
+CCM_CASSANDRA_IP_PREFIX = 127.0.1.
+CCM_CASSANDRA_REPO ?= github.com/apache/cassandra-ccm
+CCM_CASSANDRA_VERSION ?= d3225ac6565242b231129e0c4f8f0b7a041219cf
 
 CCM_SCYLLA_CLUSTER_NAME = gocql_scylla_integration_test
 CCM_SCYLLA_IP_PREFIX = 127.0.2.
@@ -19,6 +25,32 @@ ifeq (${CCM_CONFIG_DIR},)
 	CCM_CONFIG_DIR = ~/.ccm
 endif
 CCM_CONFIG_DIR := $(shell readlink --canonicalize ${CCM_CONFIG_DIR})
+
+CASSANDRA_CONFIG ?= "client_encryption_options.enabled: true" \
+"client_encryption_options.keystore: ${KEY_PATH}/.keystore" \
+"client_encryption_options.keystore_password: cassandra" \
+"client_encryption_options.require_client_auth: true" \
+"client_encryption_options.truststore: ${KEY_PATH}/.truststore" \
+"client_encryption_options.truststore_password: cassandra" \
+"concurrent_reads: 2" \
+"concurrent_writes: 2" \
+"write_request_timeout_in_ms: 5000" \
+"read_request_timeout_in_ms: 5000"
+
+ifeq ($(shell echo "${CASSANDRA_VERSION}" | grep -oP "3\.[0-9]+\.[0-9]+" ),${CASSANDRA_VERSION})
+	CASSANDRA_CONFIG += "rpc_server_type: sync" \
+"rpc_min_threads: 2" \
+"rpc_max_threads: 2" \
+"enable_user_defined_functions: true" \
+"enable_materialized_views: true" \
+
+else ifeq ($(shell echo "${CASSANDRA_VERSION}" | grep -oP "4\.0\.[0-9]+" ),${CASSANDRA_VERSION})
+	CASSANDRA_CONFIG +=	"enable_user_defined_functions: true" \
+"enable_materialized_views: true"
+else
+	CASSANDRA_CONFIG += "user_defined_functions_enabled: true" \
+"materialized_views_enabled: true"
+endif
 
 SCYLLA_CONFIG = "native_transport_port_ssl: 9142" \
 "native_transport_port: 9042" \
@@ -39,6 +71,20 @@ export JAVA11_HOME=${JAVA_HOME_11_X64}
 export JAVA17_HOME=${JAVA_HOME_17_X64}
 export JAVA_HOME=${JAVA_HOME_11_X64}
 
+cassandra-start: .prepare-cassandra-ccm .prepare-java
+	@if [ -d ${CCM_CONFIG_DIR}/${CCM_CASSANDRA_CLUSTER_NAME} ] && ccm switch ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 && ccm status | grep UP 2>/dev/null 1>&2; then \
+		echo "Cassandra cluster is already started"; \
+  	else \
+		echo "Start cassandra ${CASSANDRA_VERSION} cluster"; \
+		ccm stop ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 || true; \
+		ccm remove ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 || true; \
+		ccm create ${CCM_CASSANDRA_CLUSTER_NAME} -i ${CCM_CASSANDRA_IP_PREFIX} -v ${CASSANDRA_VERSION} -n 3 -d --vnodes --jvm_arg="-Xmx256m -XX:NewSize=100m" && \
+		ccm updateconf ${CASSANDRA_CONFIG} && \
+		ccm start --wait-for-binary-proto --wait-other-notice --verbose && \
+		ccm status && \
+		ccm node1 nodetool status; \
+  	fi
+
 scylla-start: .prepare-scylla-ccm .prepare-java
 	@if [ -d ${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME} ] && ccm switch ${CCM_SCYLLA_CLUSTER_NAME} 2>/dev/null 1>&2 && ccm status | grep UP 2>/dev/null 1>&2; then \
 		echo "Scylla cluster is already started"; \
@@ -56,10 +102,19 @@ scylla-start: .prepare-scylla-ccm .prepare-java
 		sudo chmod 0777 ${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME}/node3/cql.m; \
 	fi
 
+cassandra-stop: .prepare-cassandra-ccm
+	@echo "Stop cassandra cluster"
+	@ccm stop --not-gently ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 || true
+	@ccm remove ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 || true
+
 scylla-stop: .prepare-scylla-ccm
 	@echo "Stop scylla cluster"
 	@ccm stop --not-gently ${CCM_SCYLLA_CLUSTER_NAME} 2>/dev/null 1>&2 || true
 	@ccm remove ${CCM_SCYLLA_CLUSTER_NAME} 2>/dev/null 1>&2 || true
+
+test-integration-cassandra: cassandra-start
+	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on cassandra ${CASSANDRA_VERSION}"
+	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
 
 test-integration-scylla: scylla-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on scylla ${SCYLLA_IMAGE}"
@@ -91,6 +146,24 @@ install-java:
 		sdk default java 11.0.24-zulu; \
 		sdk use java 11.0.24-zulu \
 	)
+
+.prepare-cassandra-ccm:
+	@ccm --help 2>/dev/null 1>&2; if [[ $$? -lt 127 ]] && grep CASSANDRA ${CCM_CONFIG_DIR}/ccm-type 2>/dev/null 1>&2 && grep ${CCM_CASSANDRA_VERSION} ${CCM_CONFIG_DIR}/ccm-version 2>/dev//null  1>&2; then \
+		echo "Cassandra CCM ${CCM_CASSANDRA_VERSION} is already installed"; \
+  	else \
+		echo "Installing Cassandra CCM ${CCM_CASSANDRA_VERSION}"; \
+		pip install "git+https://${CCM_CASSANDRA_REPO}.git@${CCM_CASSANDRA_VERSION}"; \
+		mkdir ${CCM_CONFIG_DIR} 2>/dev/null || true; \
+		echo CASSANDRA > ${CCM_CONFIG_DIR}/ccm-type; \
+		echo ${CCM_CASSANDRA_VERSION} > ${CCM_CONFIG_DIR}/ccm-version; \
+  	fi
+
+install-cassandra-ccm: cassandra-start
+	@echo "Install CCM ${CCM_CASSANDRA_VERSION}"
+	@pip install "git+https://${CCM_CASSANDRA_REPO}.git@${CCM_CASSANDRA_VERSION}"
+	@mkdir ${CCM_CONFIG_DIR} 2>/dev/null || true
+	@echo CASSANDRA > ${CCM_CONFIG_DIR}/ccm-type
+	@echo ${CCM_CASSANDRA_VERSION} > ${CCM_CONFIG_DIR}/ccm-version
 
 .prepare-scylla-ccm:
 	@ccm --help 2>/dev/null 1>&2; if [[ $$? -lt 127 ]] && grep SCYLLA ${CCM_CONFIG_DIR}/ccm-type 2>/dev/null 1>&2 && grep ${CCM_SCYLLA_VERSION} ${CCM_CONFIG_DIR}/ccm-version 2>/dev//null  1>&2; then \
