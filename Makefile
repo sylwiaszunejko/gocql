@@ -71,7 +71,7 @@ export JAVA11_HOME=${JAVA_HOME_11_X64}
 export JAVA17_HOME=${JAVA_HOME_17_X64}
 export JAVA_HOME=${JAVA_HOME_11_X64}
 
-cassandra-start: .prepare-cassandra-ccm .prepare-java
+cassandra-start: .prepare-pki .prepare-cassandra-ccm .prepare-java
 	@if [ -d ${CCM_CONFIG_DIR}/${CCM_CASSANDRA_CLUSTER_NAME} ] && ccm switch ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 && ccm status | grep UP 2>/dev/null 1>&2; then \
 		echo "Cassandra cluster is already started"; \
   	else \
@@ -85,7 +85,7 @@ cassandra-start: .prepare-cassandra-ccm .prepare-java
 		ccm node1 nodetool status; \
   	fi
 
-scylla-start: .prepare-scylla-ccm .prepare-java
+scylla-start: .prepare-pki .prepare-scylla-ccm .prepare-java
 	@if [ -d ${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME} ] && ccm switch ${CCM_SCYLLA_CLUSTER_NAME} 2>/dev/null 1>&2 && ccm status | grep UP 2>/dev/null 1>&2; then \
 		echo "Scylla cluster is already started"; \
   	else \
@@ -114,13 +114,13 @@ scylla-stop: .prepare-scylla-ccm
 
 test-integration-cassandra: cassandra-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on cassandra ${CASSANDRA_VERSION}"
-	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
+	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -timeout=5m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
 
 test-integration-scylla: scylla-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on scylla ${SCYLLA_IMAGE}"
 	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -cluster-socket ${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME}/node1/cql.m -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
 
-test-unit:
+test-unit: .prepare-pki
 	@echo "Run unit tests"
 	go test -v -tags unit -timeout=5m -race ./...
 
@@ -182,3 +182,9 @@ install-scylla-ccm:
 	@mkdir ${CCM_CONFIG_DIR} 2>/dev/null || true
 	@echo SCYLLA > ${CCM_CONFIG_DIR}/ccm-type
 	@echo ${CCM_SCYLLA_VERSION} > ${CCM_CONFIG_DIR}/ccm-version
+
+.prepare-pki:
+	@[ -f "testdata/pki/cassandra.key" ] || (echo "Generating new PKI" && cd testdata/pki/ && bash ./generate_certs.sh)
+
+generate-pki:
+	@echo "Generating new PKI" && cd testdata/pki/ && bash ./generate_certs.sh
