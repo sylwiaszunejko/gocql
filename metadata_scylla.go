@@ -485,54 +485,24 @@ func (s *metadataDescriber) getTablets() tablets.TabletInfoList {
 }
 
 func (s *metadataDescriber) AddTablet(tablet *tablets.TabletInfo) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.addTablet(tablet)
-}
-
-func (s *metadataDescriber) addTablet(tablet *tablets.TabletInfo) {
 	s.metadata.tabletsMetadata.AddTablet(tablet)
 }
 
 // RemoveTabletsWithHost removes tablets that contains given host.
 // to be used outside the metadataDescriber
 func (s *metadataDescriber) RemoveTabletsWithHost(host *HostInfo) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.removeTabletsWithHost(host.HostID())
-}
-
-// removeTabletsWithHost removes tablets that contains given host.
-// s.mu should be locked
-func (s *metadataDescriber) removeTabletsWithHost(hostID string) {
-	s.metadata.tabletsMetadata.RemoveTabletsWithHost(hostID)
+	s.metadata.tabletsMetadata.RemoveTabletsWithHost(host.HostID())
 }
 
 // RemoveTabletsWithKeyspace removes tablets for given keyspace.
 // to be used outside the metadataDescriber
 func (s *metadataDescriber) RemoveTabletsWithKeyspace(keyspace string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.removeTabletsWithKeyspace(keyspace)
-}
-
-// removeTabletsWithKeyspace removes tablets for given keyspace.
-// s.mu should be locked
-func (s *metadataDescriber) removeTabletsWithKeyspace(keyspace string) {
 	s.metadata.tabletsMetadata.RemoveTabletsWithKeyspace(keyspace)
 }
 
 // RemoveTabletsWithTable removes tablets for given table.
 // to be used outside the metadataDescriber
 func (s *metadataDescriber) RemoveTabletsWithTable(keyspace string, table string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.removeTabletsWithTable(keyspace, table)
-}
-
-// removeTabletsWithTable removes tablets for given table.
-// s.mu should be locked
-func (s *metadataDescriber) removeTabletsWithTable(keyspace string, table string) {
 	s.metadata.tabletsMetadata.RemoveTabletsWithTableFromTabletsList(keyspace, table)
 }
 
@@ -572,7 +542,7 @@ func (s *metadataDescriber) refreshAllSchema() error {
 		err := s.refreshSchema(keyspaceName)
 		if errors.Is(err, ErrKeyspaceDoesNotExist) {
 			s.clearSchema(keyspaceName)
-			s.removeTabletsWithKeyspace(keyspaceName)
+			s.RemoveTabletsWithKeyspace(keyspaceName)
 			continue
 		} else if err != nil {
 			return err
@@ -584,13 +554,13 @@ func (s *metadataDescriber) refreshAllSchema() error {
 		}
 
 		if !compareInterfaceMaps(metadata.StrategyOptions, updatedMetadata.StrategyOptions) {
-			s.removeTabletsWithKeyspace(keyspaceName)
+			s.RemoveTabletsWithKeyspace(keyspaceName)
 			continue
 		}
 
 		for tableName, tableMetadata := range metadata.Tables {
 			if updatedTableMetadata, ok := updatedMetadata.Tables[tableName]; !ok || tableMetadata.Equals(updatedTableMetadata) {
-				s.removeTabletsWithTable(keyspaceName, tableName)
+				s.RemoveTabletsWithTable(keyspaceName, tableName)
 			}
 		}
 	}
