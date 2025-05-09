@@ -451,8 +451,10 @@ type metadataDescriber struct {
 // keyspace metadata and tablets metadata
 func newMetadataDescriber(session *Session) *metadataDescriber {
 	return &metadataDescriber{
-		session:  session,
-		metadata: &Metadata{},
+		session: session,
+		metadata: &Metadata{
+			tabletsMetadata: tablets.NewCowTabletList(),
+		},
 	}
 }
 

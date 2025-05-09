@@ -2,7 +2,7 @@ package tablets
 
 import (
 	"fmt"
-	"sync"
+	"sync/atomic"
 )
 
 type ReplicaInfo struct {
@@ -232,53 +232,46 @@ func (t TabletInfoList) FindTabletForToken(token int64, l int, r int) *TabletInf
 
 // CowTabletList implements a copy on write tablet list, its equivalent type is TabletInfoList
 type CowTabletList struct {
-	list TabletInfoList
-	mu   sync.RWMutex
+	list atomic.Value
+}
+
+func NewCowTabletList() CowTabletList {
+	list := atomic.Value{}
+	list.Store(make(TabletInfoList, 0))
+	return CowTabletList{
+		list: list,
+	}
 }
 
 func (c *CowTabletList) Get() TabletInfoList {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.list
+	return c.list.Load().(TabletInfoList)
+}
+
+func (c *CowTabletList) set(tablets TabletInfoList) {
+	c.list.Store(tablets)
 }
 
 func (c *CowTabletList) AddTablet(tablet *TabletInfo) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.list = c.list.AddTabletToTabletsList(tablet)
+	c.set(c.Get().AddTabletToTabletsList(tablet))
 }
 
 func (c *CowTabletList) RemoveTabletsWithHost(hostID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.list = c.list.RemoveTabletsWithHost(hostID)
+	c.set(c.Get().RemoveTabletsWithHost(hostID))
 }
 
 func (c *CowTabletList) RemoveTabletsWithKeyspace(keyspace string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.list = c.list.RemoveTabletsWithKeyspace(keyspace)
+	c.set(c.Get().RemoveTabletsWithKeyspace(keyspace))
 }
 
 func (c *CowTabletList) RemoveTabletsWithTableFromTabletsList(keyspace string, table string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.list = c.list.RemoveTabletsWithTableFromTabletsList(keyspace, table)
+	c.set(c.Get().RemoveTabletsWithTableFromTabletsList(keyspace, table))
 }
 
 func (c *CowTabletList) FindReplicasForToken(keyspace, table string, token int64) []ReplicaInfo {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	l, r := c.list.FindTablets(keyspace, table)
+	tablets := c.Get()
+	l, r := tablets.FindTablets(keyspace, table)
 	if l == -1 {
 		return nil
 	}
-	return c.list.FindTabletForToken(token, l, r).Replicas()
-}
-
-func (c *CowTabletList) Set(tablets TabletInfoList) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	c.list = tablets
+	return tablets.FindTabletForToken(token, l, r).Replicas()
 }
