@@ -127,7 +127,8 @@ func TestNoHangAllHostsDown(t *testing.T) {
 			}
 		}
 
-		ctx, _ := context.WithTimeout(context.Background(), 12*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+		defer cancel()
 		_ = session.Query("SELECT host_id FROM system.local").WithContext(ctx).Exec()
 		if ctx.Err() != nil {
 			t.Errorf("policy %T should be no hangups when all hosts are down", policy)
@@ -142,7 +143,8 @@ func TestNoHangAllHostsDown(t *testing.T) {
 			}
 		}
 
-		ctx, _ = context.WithTimeout(context.Background(), 12*time.Second)
+		ctx, cancel2 := context.WithTimeout(context.Background(), 12*time.Second)
+		defer cancel2()
 		_ = session.Query("SELECT host_id FROM system.local").WithContext(ctx).Exec()
 		if ctx.Err() != nil {
 			t.Errorf("policy %T should be no hangups when all hosts are down", policy)

@@ -122,7 +122,8 @@ func TestSnappyCompressor(t *testing.T) {
 		c := gocql.SnappyCompressor{}
 
 		t.Run("Encode", func(t *testing.T) {
-			for _, frame := range frameExamples.Requests {
+			for id := range frameExamples.Requests {
+				frame := frameExamples.Requests[id]
 				t.Run(frame.Name, func(t *testing.T) {
 					t.Parallel()
 
@@ -144,7 +145,8 @@ func TestSnappyCompressor(t *testing.T) {
 		})
 
 		t.Run("Decode", func(t *testing.T) {
-			for _, frame := range frameExamples.Responses {
+			for id := range frameExamples.Responses {
+				frame := frameExamples.Responses[id]
 				t.Run(frame.Name, func(t *testing.T) {
 					t.Parallel()
 
