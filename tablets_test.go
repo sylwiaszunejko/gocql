@@ -4,8 +4,9 @@
 package gocql
 
 import (
-	"github.com/gocql/gocql/internal/tests"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 var tablets = TabletInfoList{
@@ -14,112 +15,112 @@ var tablets = TabletInfoList{
 		"table1",
 		-7917529027641081857,
 		-6917529027641081857,
-		[]ReplicaInfo{{TimeUUID().String(), 9}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}},
 	},
 	{
 		"test1",
 		"table1",
 		-6917529027641081857,
 		-4611686018427387905,
-		[]ReplicaInfo{{TimeUUID().String(), 8}},
+		[]ReplicaInfo{{tests.RandomUUID(), 8}},
 	},
 	{
 		"test1",
 		"table1",
 		-4611686018427387905,
 		-2305843009213693953,
-		[]ReplicaInfo{{TimeUUID().String(), 9}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}},
 	},
 	{
 		"test1",
 		"table1",
 		-2305843009213693953,
 		-1,
-		[]ReplicaInfo{{TimeUUID().String(), 8}},
+		[]ReplicaInfo{{tests.RandomUUID(), 8}},
 	},
 	{
 		"test1",
 		"table1",
 		-1,
 		2305843009213693951,
-		[]ReplicaInfo{{TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 3}},
 	},
 	{
 		"test1",
 		"table1",
 		2305843009213693951,
 		4611686018427387903,
-		[]ReplicaInfo{{TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 3}},
 	},
 	{
 		"test1",
 		"table1",
 		4611686018427387903,
 		6917529027641081855,
-		[]ReplicaInfo{{TimeUUID().String(), 7}},
+		[]ReplicaInfo{{tests.RandomUUID(), 7}},
 	},
 	{
 		"test1",
 		"table1",
 		6917529027641081855,
 		9223372036854775807,
-		[]ReplicaInfo{{TimeUUID().String(), 7}},
+		[]ReplicaInfo{{tests.RandomUUID(), 7}},
 	},
 	{
 		"test2",
 		"table1",
 		-7917529027641081857,
 		-6917529027641081857,
-		[]ReplicaInfo{{TimeUUID().String(), 9}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}},
 	},
 	{
 		"test2",
 		"table1",
 		-6917529027641081857,
 		-4611686018427387905,
-		[]ReplicaInfo{{TimeUUID().String(), 8}},
+		[]ReplicaInfo{{tests.RandomUUID(), 8}},
 	},
 	{
 		"test2",
 		"table1",
 		-4611686018427387905,
 		-2305843009213693953,
-		[]ReplicaInfo{{TimeUUID().String(), 9}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}},
 	},
 	{
 		"test2",
 		"table1",
 		-2305843009213693953,
 		-1,
-		[]ReplicaInfo{{TimeUUID().String(), 8}},
+		[]ReplicaInfo{{tests.RandomUUID(), 8}},
 	},
 	{
 		"test2",
 		"table1",
 		-1,
 		2305843009213693951,
-		[]ReplicaInfo{{TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 3}},
 	},
 	{
 		"test2",
 		"table1",
 		2305843009213693951,
 		4611686018427387903,
-		[]ReplicaInfo{{TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 3}},
 	},
 	{
 		"test2",
 		"table1",
 		4611686018427387903,
 		6917529027641081855,
-		[]ReplicaInfo{{TimeUUID().String(), 7}},
+		[]ReplicaInfo{{tests.RandomUUID(), 7}},
 	},
 	{
 		"test2",
 		"table1",
 		6917529027641081855,
 		9223372036854775807,
-		[]ReplicaInfo{{TimeUUID().String(), 7}},
+		[]ReplicaInfo{{tests.RandomUUID(), 7}},
 	},
 }
 
@@ -360,26 +361,26 @@ func TestAddTabletIntersectingWithLast(t *testing.T) {
 func TestRemoveTabletsWithHost(t *testing.T) {
 	t.Parallel()
 
-	removed_host_id := TimeUUID().String()
+	removed_host_id := tests.RandomUUID()
 
 	tablets := TabletInfoList{{
 		"test_ks",
 		"test_tb",
 		-8611686018427387905,
 		-7917529027641081857,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}, {
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
 		-4611686018427387905,
-		[]ReplicaInfo{{removed_host_id, 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{removed_host_id, 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}, {
 		"test_ks",
 		"test_tb",
 		-4611686018427387905,
 		-2305843009213693953,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {removed_host_id, 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {removed_host_id, 8}, {tests.RandomUUID(), 3}},
 	}}
 
 	tablets = tablets.RemoveTabletsWithHostFromTabletsList(removed_host_id)
@@ -395,19 +396,19 @@ func TestRemoveTabletsWithKeyspace(t *testing.T) {
 		"test_tb",
 		-8611686018427387905,
 		-7917529027641081857,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}, {
 		"removed_ks",
 		"test_tb",
 		-6917529027641081857,
 		-4611686018427387905,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}, {
 		"test_ks",
 		"test_tb",
 		-4611686018427387905,
 		-2305843009213693953,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}}
 
 	tablets = tablets.RemoveTabletsWithKeyspaceFromTabletsList("removed_ks")
@@ -423,19 +424,19 @@ func TestRemoveTabletsWithTable(t *testing.T) {
 		"test_tb",
 		-8611686018427387905,
 		-7917529027641081857,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}, {
 		"test_ks",
 		"test_tb",
 		-6917529027641081857,
 		-4611686018427387905,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}, {
 		"test_ks",
 		"removed_tb",
 		-4611686018427387905,
 		-2305843009213693953,
-		[]ReplicaInfo{{TimeUUID().String(), 9}, {TimeUUID().String(), 8}, {TimeUUID().String(), 3}},
+		[]ReplicaInfo{{tests.RandomUUID(), 9}, {tests.RandomUUID(), 8}, {tests.RandomUUID(), 3}},
 	}}
 
 	tablets = tablets.RemoveTabletsWithTableFromTabletsList("test_ks", "removed_tb")
