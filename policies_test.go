@@ -34,6 +34,7 @@ package gocql
 import (
 	"errors"
 	"fmt"
+	"github.com/gocql/gocql/internal/tests"
 	"net"
 	"sort"
 	"strings"
@@ -155,7 +156,7 @@ func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
 
 	// The SimpleStrategy above should generate the following replicas.
 	// It's handy to have as reference here.
-	assertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
+	tests.AssertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
 		"myKeyspace": {
 			{orderedToken("00"), []*HostInfo{hosts[0], hosts[1]}},
 			{orderedToken("25"), []*HostInfo{hosts[1], hosts[2]}},
@@ -430,7 +431,7 @@ func TestLWTSimpleRetryPolicy(t *testing.T) {
 	// Verify that SimpleRetryPolicy implements both interfaces
 	var _ RetryPolicy = ebrp
 	var lwt_rt LWTRetryPolicy = ebrp
-	assertEqual(t, "retry type of LWT policy", lwt_rt.GetRetryTypeLWT(nil), Retry)
+	tests.AssertEqual(t, "retry type of LWT policy", lwt_rt.GetRetryTypeLWT(nil), Retry)
 }
 
 func TestExponentialBackoffPolicy(t *testing.T) {
@@ -470,7 +471,7 @@ func TestLWTExponentialBackoffPolicy(t *testing.T) {
 	// Verify that ExponentialBackoffRetryPolicy implements both interfaces
 	var _ RetryPolicy = ebrp
 	var lwt_rt LWTRetryPolicy = ebrp
-	assertEqual(t, "retry type of LWT policy", lwt_rt.GetRetryTypeLWT(nil), Retry)
+	tests.AssertEqual(t, "retry type of LWT policy", lwt_rt.GetRetryTypeLWT(nil), Retry)
 }
 
 func TestDowngradingConsistencyRetryPolicy(t *testing.T) {
@@ -746,7 +747,7 @@ func TestHostPolicy_TokenAware(t *testing.T) {
 
 	// The NetworkTopologyStrategy above should generate the following replicas.
 	// It's handy to have as reference here.
-	assertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
+	tests.AssertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
 		"myKeyspace": {
 			{orderedToken("05"), []*HostInfo{hosts[0], hosts[1], hosts[2]}},
 			{orderedToken("10"), []*HostInfo{hosts[1], hosts[2], hosts[3]}},
@@ -839,7 +840,7 @@ func TestHostPolicy_TokenAware_NetworkStrategy(t *testing.T) {
 
 	// The NetworkTopologyStrategy above should generate the following replicas.
 	// It's handy to have as reference here.
-	assertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
+	tests.AssertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
 		keyspace: {
 			{orderedToken("05"), []*HostInfo{hosts[0], hosts[1], hosts[2], hosts[3], hosts[4], hosts[5]}},
 			{orderedToken("10"), []*HostInfo{hosts[1], hosts[2], hosts[3], hosts[4], hosts[5], hosts[6]}},
@@ -984,7 +985,7 @@ func TestHostPolicy_TokenAware_RackAware(t *testing.T) {
 
 	// The NetworkTopologyStrategy above should generate the following replicas.
 	// It's handy to have as reference here.
-	assertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
+	tests.AssertDeepEqual(t, "replicas", map[string]tokenRingReplicas{
 		"myKeyspace": {
 			{orderedToken("05"), []*HostInfo{hosts[0], hosts[1], hosts[2], hosts[3]}},
 			{orderedToken("10"), []*HostInfo{hosts[1], hosts[2], hosts[3], hosts[4]}},
