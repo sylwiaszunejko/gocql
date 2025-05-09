@@ -17,12 +17,21 @@ type makeClusterTestFunc func() *ClusterConfig
 
 func testShardAwarePortNoReconnections(t *testing.T, makeCluster makeClusterTestFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	wg := &sync.WaitGroup{}
 
 	// Initialize 10 sessions in parallel.
 	// If shard-aware port is used and configured properly, we should get
 	// a connection to each shard without any retries.
 	// For each host, there should be N-1 connections to the special port.
+	var errs []error
+	var errLock sync.Mutex
+
+	pushErr := func(err error) {
+		errLock.Lock()
+		errs = append(errs, err)
+		errLock.Unlock()
+	}
 
 	// Run 10 sessions in parallel
 	for i := 0; i < 10; i++ {
@@ -56,7 +65,8 @@ func testShardAwarePortNoReconnections(t *testing.T, makeCluster makeClusterTest
 				t.Logf("checking host %q hostID: %q", host.hostname, host.hostId)
 				hostPool, ok := sess.pool.getPool(host)
 				if !ok {
-					t.Fatalf("host %q not found in session connection pool", host.HostID())
+					pushErr(fmt.Errorf("host %q hostID not found", host.hostname))
+					return
 				}
 
 				shardAwarePort := getShardAwarePort(hostPool, useTLS)
@@ -105,6 +115,9 @@ func testShardAwarePortNoReconnections(t *testing.T, makeCluster makeClusterTest
 	}
 
 	wg.Wait()
+	for _, err := range errs {
+		t.Error(err.Error())
+	}
 }
 
 func testShardAwarePortMaliciousNAT(t *testing.T, makeCluster makeClusterTestFunc) {
