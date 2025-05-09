@@ -26,6 +26,7 @@ package gocql
 
 import (
 	"fmt"
+	"github.com/gocql/gocql/tablets"
 	"math/rand"
 	"net"
 	"sync"
@@ -46,7 +47,7 @@ type SetPartitioner interface {
 
 // interface to implement to receive the tablets value
 type SetTablets interface {
-	SetTablets(tablets TabletInfoList)
+	SetTablets(tablets tablets.TabletInfoList)
 }
 
 type policyConnPool struct {

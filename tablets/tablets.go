@@ -1,4 +1,4 @@
-package gocql
+package tablets
 
 import (
 	"fmt"
@@ -9,6 +9,14 @@ type ReplicaInfo struct {
 	// hostId for sake of better performance, it has to be same type as HostInfo.hostId
 	hostId  string
 	shardId int
+}
+
+func (r ReplicaInfo) HostID() string {
+	return r.hostId
+}
+
+func (r ReplicaInfo) ShardID() int {
+	return r.shardId
 }
 
 type TabletInfoBuilder struct {
@@ -23,13 +31,17 @@ func NewTabletInfoBuilder() TabletInfoBuilder {
 	return TabletInfoBuilder{}
 }
 
+type toString interface {
+	String() string
+}
+
 func (b TabletInfoBuilder) Build() (*TabletInfo, error) {
 	tabletReplicas := make([]ReplicaInfo, 0, len(b.Replicas))
 	for _, replica := range b.Replicas {
 		if len(replica) != 2 {
 			return nil, fmt.Errorf("replica info should have exactly two elements, but it has %d: %v", len(replica), replica)
 		}
-		if hostId, ok := replica[0].(UUID); ok {
+		if hostId, ok := replica[0].(toString); ok {
 			if shardId, ok := replica[1].(int); ok {
 				repInfo := ReplicaInfo{hostId.String(), shardId}
 				tabletReplicas = append(tabletReplicas, repInfo)
@@ -81,7 +93,7 @@ func (t *TabletInfo) Replicas() []ReplicaInfo {
 type TabletInfoList []*TabletInfo
 
 // Search for place in tablets table with specific Keyspace and Table name
-func (t TabletInfoList) findTablets(keyspace string, table string) (int, int) {
+func (t TabletInfoList) FindTablets(keyspace string, table string) (int, int) {
 	l := -1
 	r := -1
 	for i, tablet := range t {
@@ -98,8 +110,8 @@ func (t TabletInfoList) findTablets(keyspace string, table string) (int, int) {
 	return l, r
 }
 
-func (t TabletInfoList) addTabletToTabletsList(tablet *TabletInfo) TabletInfoList {
-	l, r := t.findTablets(tablet.keyspaceName, tablet.tableName)
+func (t TabletInfoList) AddTabletToTabletsList(tablet *TabletInfo) TabletInfoList {
+	l, r := t.FindTablets(tablet.keyspaceName, tablet.tableName)
 	if l == -1 && r == -1 {
 		l = 0
 		r = 0
@@ -153,7 +165,7 @@ func (t TabletInfoList) addTabletToTabletsList(tablet *TabletInfo) TabletInfoLis
 }
 
 // Remove all tablets that have given host as a replica
-func (t TabletInfoList) removeTabletsWithHostFromTabletsList(hostID string) TabletInfoList {
+func (t TabletInfoList) RemoveTabletsWithHostFromTabletsList(hostID string) TabletInfoList {
 	filteredTablets := make([]*TabletInfo, 0, len(t)) // Preallocate for efficiency
 
 	for _, tablet := range t {
@@ -174,7 +186,7 @@ func (t TabletInfoList) removeTabletsWithHostFromTabletsList(hostID string) Tabl
 	return t
 }
 
-func (t TabletInfoList) removeTabletsWithKeyspaceFromTabletsList(keyspace string) TabletInfoList {
+func (t TabletInfoList) RemoveTabletsWithKeyspaceFromTabletsList(keyspace string) TabletInfoList {
 	filteredTablets := make([]*TabletInfo, 0, len(t))
 
 	for _, tablet := range t {
@@ -187,7 +199,7 @@ func (t TabletInfoList) removeTabletsWithKeyspaceFromTabletsList(keyspace string
 	return t
 }
 
-func (t TabletInfoList) removeTabletsWithTableFromTabletsList(keyspace string, table string) TabletInfoList {
+func (t TabletInfoList) RemoveTabletsWithTableFromTabletsList(keyspace string, table string) TabletInfoList {
 	filteredTablets := make([]*TabletInfo, 0, len(t))
 
 	for _, tablet := range t {
@@ -201,7 +213,7 @@ func (t TabletInfoList) removeTabletsWithTableFromTabletsList(keyspace string, t
 }
 
 // Search for place in tablets table for token starting from index l to index r
-func (t TabletInfoList) findTabletForToken(token int64, l int, r int) *TabletInfo {
+func (t TabletInfoList) FindTabletForToken(token int64, l int, r int) *TabletInfo {
 	for l < r {
 		var m int
 		if r*l > 0 {
@@ -219,19 +231,19 @@ func (t TabletInfoList) findTabletForToken(token int64, l int, r int) *TabletInf
 	return t[l]
 }
 
-// cowTabletList implements a copy on write tablet list, its equivalent type is TabletInfoList
-type cowTabletList struct {
+// CowTabletList implements a copy on write tablet list, its equivalent type is TabletInfoList
+type CowTabletList struct {
 	list TabletInfoList
 	mu   sync.RWMutex
 }
 
-func (c *cowTabletList) get() TabletInfoList {
+func (c *CowTabletList) Get() TabletInfoList {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.list
 }
 
-func (c *cowTabletList) set(tablets TabletInfoList) {
+func (c *CowTabletList) Set(tablets TabletInfoList) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

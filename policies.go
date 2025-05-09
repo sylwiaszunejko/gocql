@@ -743,13 +743,13 @@ func (t *tokenAwareHostPolicy) Pick(qry ExecutableQuery) NextHost {
 		tablets := session.metadataDescriber.getTablets()
 
 		// Search for tablets with Keyspace and Table from the Query
-		l, r := tablets.findTablets(qry.Keyspace(), qry.Table())
+		l, r := tablets.FindTablets(qry.Keyspace(), qry.Table())
 		if l != -1 {
-			tablet := tablets.findTabletForToken(int64(tokenCasted), l, r)
+			tablet := tablets.FindTabletForToken(int64(tokenCasted), l, r)
 			hosts := t.hosts.get()
 			for _, replica := range tablet.Replicas() {
 				for _, host := range hosts {
-					if host.hostId == replica.hostId {
+					if host.hostId == replica.HostID() {
 						replicas = append(replicas, host)
 						break
 					}

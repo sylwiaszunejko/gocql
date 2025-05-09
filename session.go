@@ -40,6 +40,7 @@ import (
 
 	"github.com/gocql/gocql/debounce"
 	"github.com/gocql/gocql/internal/lru"
+	"github.com/gocql/gocql/tablets"
 )
 
 // Session is the interface used by users to interact with the database.
@@ -332,7 +333,7 @@ func (s *Session) init() error {
 			hosts = filteredHosts
 
 			if s.tabletsRoutingV1 {
-				tablets := TabletInfoList{}
+				tablets := tablets.TabletInfoList{}
 				s.metadataDescriber.setTablets(tablets)
 			}
 		}
@@ -690,7 +691,7 @@ func (s *Session) KeyspaceMetadata(keyspace string) (*KeyspaceMetadata, error) {
 }
 
 // TabletsMetadata returns the metadata about tablets
-func (s *Session) TabletsMetadata() (TabletInfoList, error) {
+func (s *Session) TabletsMetadata() (tablets.TabletInfoList, error) {
 	// fail fast
 	if s.Closed() {
 		return nil, ErrSessionClosed
@@ -721,7 +722,7 @@ func (s *Session) getConn() *Conn {
 	return nil
 }
 
-func (s *Session) getTablets() TabletInfoList {
+func (s *Session) getTablets() tablets.TabletInfoList {
 	return s.metadataDescriber.getTablets()
 }
 

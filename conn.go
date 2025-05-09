@@ -30,6 +30,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/gocql/gocql/tablets"
 	"io"
 	"io/ioutil"
 	"net"
@@ -1519,7 +1520,7 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 
 	if len(framer.customPayload) > 0 {
 		if tabletInfo, ok := framer.customPayload["tablets-routing-v1"]; ok {
-			tabletBuilder := NewTabletInfoBuilder()
+			tabletBuilder := tablets.NewTabletInfoBuilder()
 			err = Unmarshal(TupleTypeInfo{
 				NativeType: NativeType{proto: c.version, typ: TypeTuple},
 				Elems: []TypeInfo{
