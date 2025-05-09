@@ -378,18 +378,9 @@ func (p *scyllaConnPicker) Pick(t Token, qry ExecutableQuery) *Conn {
 		}
 
 		if qry != nil && conn.isTabletSupported() {
-			tablets := conn.session.getTablets()
-
-			// Search for tablets with Keyspace and Table from the Query
-			l, r := tablets.FindTablets(qry.Keyspace(), qry.Table())
-
-			if l != -1 {
-				tablet := tablets.FindTabletForToken(int64(mmt), l, r)
-
-				for _, replica := range tablet.Replicas() {
-					if replica.HostID() == p.hostId {
-						idx = replica.ShardID()
-					}
+			for _, replica := range conn.session.findTabletReplicasForToken(qry.Keyspace(), qry.Table(), int64(mmt)) {
+				if replica.HostID() == p.hostId {
+					idx = replica.ShardID()
 				}
 			}
 		}

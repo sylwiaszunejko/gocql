@@ -266,6 +266,16 @@ func (c *CowTabletList) RemoveTabletsWithTableFromTabletsList(keyspace string, t
 	c.list = c.list.RemoveTabletsWithTableFromTabletsList(keyspace, table)
 }
 
+func (c *CowTabletList) FindReplicasForToken(keyspace, table string, token int64) []ReplicaInfo {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	l, r := c.list.FindTablets(keyspace, table)
+	if l == -1 {
+		return nil
+	}
+	return c.list.FindTabletForToken(token, l, r).Replicas()
+}
+
 func (c *CowTabletList) Set(tablets TabletInfoList) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

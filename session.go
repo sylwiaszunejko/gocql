@@ -717,8 +717,8 @@ func (s *Session) getConn() *Conn {
 	return nil
 }
 
-func (s *Session) getTablets() tablets.TabletInfoList {
-	return s.metadataDescriber.getTablets()
+func (s *Session) findTabletReplicasForToken(keyspace, table string, token int64) []tablets.ReplicaInfo {
+	return s.metadataDescriber.metadata.tabletsMetadata.FindReplicasForToken(keyspace, table, token)
 }
 
 // returns routing key indexes and type info
