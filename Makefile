@@ -133,6 +133,18 @@ else
 	go test -v -tags unit -timeout=5m -race ./...
 endif
 
+test-bench:
+	@echo "Run benchmark tests"
+ifeq ($(shell if [[ -n "$${GITHUB_STEP_SUMMARY}" ]]; then echo "running-in-workflow"; else echo "running-in-shell"; fi), running-in-workflow)
+	@echo "### Benchmark Results" >>$${GITHUB_STEP_SUMMARY}
+	@echo '```' >>$${GITHUB_STEP_SUMMARY}
+	@echo go test -bench=. -benchmem -run=^$ ./...
+	@go test -bench=. -benchmem -run=^$ ./... | tee -a >>$${GITHUB_STEP_SUMMARY}
+	@echo '```' >>$${GITHUB_STEP_SUMMARY}
+else
+	go test -bench=. -benchmem -run=^$ ./...
+endif
+
 check:
 	@echo "Run go vet linter"
 	go vet --tags "unit all ccm cassandra integration" ./...
