@@ -7,11 +7,12 @@ package gocql
 import (
 	"errors"
 	"fmt"
-	"github.com/gocql/gocql/tablets"
 	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/gocql/gocql/tablets"
 )
 
 // schema metadata for a keyspace
@@ -178,11 +179,15 @@ type TypeMetadata struct {
 }
 
 type IndexMetadata struct {
-	Name         string
-	KeyspaceName string
-	TableName    string
-	Kind         string
-	Options      map[string]string
+	Name              string
+	KeyspaceName      string
+	TableName         string // Name of corresponding view.
+	Kind              string
+	Options           map[string]string
+	Columns           map[string]*ColumnMetadata
+	OrderedColumns    []string
+	PartitionKey      []*ColumnMetadata
+	ClusteringColumns []*ColumnMetadata
 }
 
 func (t *TableMetadata) Equals(other *TableMetadata) bool {
@@ -656,7 +661,9 @@ func compileMetadata(
 	}
 	keyspace.Indexes = make(map[string]*IndexMetadata, len(indexes))
 	for i := range indexes {
+		indexes[i].Columns = make(map[string]*ColumnMetadata)
 		keyspace.Indexes[indexes[i].Name] = &indexes[i]
+
 	}
 	keyspace.Views = make(map[string]*ViewMetadata, len(views))
 	for i := range views {
@@ -679,6 +686,17 @@ func compileMetadata(
 
 		table, ok := keyspace.Tables[col.Table]
 		if !ok {
+			// If column owned by a table that the table name ends with `_index`
+			// suffix then the table is a view corresponding to some index.
+			if indexName, found := strings.CutSuffix(col.Table, "_index"); found {
+				ix, ok := keyspace.Indexes[indexName]
+				if ok {
+					ix.Columns[col.Name] = col
+					ix.OrderedColumns = append(ix.OrderedColumns, col.Name)
+					continue
+				}
+			}
+
 			view, ok := keyspace.Views[col.Table]
 			if !ok {
 				// if the schema is being updated we will race between seeing
@@ -704,6 +722,10 @@ func compileMetadata(
 	for i := range views {
 		v := &views[i]
 		v.PartitionKey, v.ClusteringColumns, v.OrderedColumns = compileColumns(v.Columns, v.OrderedColumns)
+	}
+	for i := range indexes {
+		ix := &indexes[i]
+		ix.PartitionKey, ix.ClusteringColumns, ix.OrderedColumns = compileColumns(ix.Columns, ix.OrderedColumns)
 	}
 
 	keyspace.CreateStmts = string(createStmts)
