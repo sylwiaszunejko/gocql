@@ -168,9 +168,8 @@ func TestHostPolicy_TokenAware_SimpleStrategy(t *testing.T) {
 	// now the token ring is configured
 	query.RoutingKey([]byte("20"))
 	iter = policy.Pick(query)
-	// first token-aware hosts
-	expectHosts(t, "hosts[0]", iter, "1")
-	expectHosts(t, "hosts[1]", iter, "2")
+	// shuffling is enabled by default, expecfing
+	expectHosts(t, "hosts[0]", iter, "1", "2")
 	// then rest of the hosts
 	expectHosts(t, "rest", iter, "0", "3")
 	expectNoMoreHosts(t, iter)
