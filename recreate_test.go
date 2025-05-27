@@ -6,6 +6,7 @@
 package gocql
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -101,6 +102,15 @@ func TestRecreateSchema(t *testing.T) {
 				qr.Release()
 			}
 
+			err = session.AwaitSchemaAgreement(context.Background())
+			if err != nil {
+				t.Fatal("failed to await for schema agreement", err)
+			}
+			err = session.metadataDescriber.refreshSchema(test.Keyspace)
+			if err != nil {
+				t.Fatal("failed to read schema for keyspace", err)
+			}
+
 			if tabletsAutoEnabled && test.FailWithTablets {
 				if err == nil {
 					t.Errorf("did not get expected error or tablets")
@@ -172,6 +182,14 @@ func TestRecreateSchema(t *testing.T) {
 			}
 
 			// Check if new dump is the same as previous
+			err = session.AwaitSchemaAgreement(context.Background())
+			if err != nil {
+				t.Fatal("failed to await for schema agreement", err)
+			}
+			err = session.metadataDescriber.refreshSchema(test.Keyspace)
+			if err != nil {
+				t.Fatal("failed to read schema for keyspace", err)
+			}
 			km, err = session.KeyspaceMetadata(test.Keyspace)
 			if err != nil {
 				t.Fatal("dump schema", err)
