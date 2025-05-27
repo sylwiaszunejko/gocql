@@ -122,7 +122,16 @@ test-integration-scylla: scylla-start
 
 test-unit: .prepare-pki
 	@echo "Run unit tests"
+	@go clean -testcache
+ifeq ($(shell if [[ -n "$${GITHUB_STEP_SUMMARY}" ]]; then echo "running-in-workflow"; else echo "running-in-shell"; fi), running-in-workflow)
+	@echo "### Unit Test Results" >>$${GITHUB_STEP_SUMMARY}
+	@echo '```' >>$${GITHUB_STEP_SUMMARY}
+	@echo go test -tags unit -timeout=5m -race ./...
+	@go test -tags unit -timeout=5m -race ./... | tee -a $${GITHUB_STEP_SUMMARY}
+	@echo '```' >>$${GITHUB_STEP_SUMMARY}
+else
 	go test -v -tags unit -timeout=5m -race ./...
+endif
 
 check:
 	@echo "Run go vet linter"
@@ -187,4 +196,6 @@ install-scylla-ccm:
 	@[ -f "testdata/pki/cassandra.key" ] || (echo "Generating new PKI" && cd testdata/pki/ && bash ./generate_certs.sh)
 
 generate-pki:
-	@echo "Generating new PKI" && cd testdata/pki/ && bash ./generate_certs.sh
+	@echo "Generating new PKI"
+	@rm -f testdata/pki/.keystore testdata/pki/.truststore testdata/pki/*.p12 testdata/pki/*.key testdata/pki/*.crt || true
+	@cd testdata/pki/ && bash ./generate_certs.sh
