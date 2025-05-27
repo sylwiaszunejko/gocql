@@ -606,10 +606,6 @@ func (s *Session) Close() {
 		s.cancel()
 	}
 
-	if s.policy != nil {
-		s.policy.Reset()
-	}
-
 	s.sessionStateMu.Lock()
 	s.isClosed = true
 	s.sessionStateMu.Unlock()
