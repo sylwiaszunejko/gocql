@@ -2373,6 +2373,8 @@ func TestRoutingKey(t *testing.T) {
 		t.Fatalf("failed to create table with error '%v'", err)
 	}
 
+	initCacheSize := session.routingKeyInfoCache.lru.Len()
+
 	routingKeyInfo, err := session.routingKeyInfo(context.Background(), "SELECT * FROM test_single_routing_key WHERE second_id=? AND first_id=?")
 	if err != nil {
 		t.Fatalf("failed to get routing key info due to error: %v", err)
@@ -2417,8 +2419,8 @@ func TestRoutingKey(t *testing.T) {
 		t.Fatalf("Expected routing key types[0] to be %v but was %v", TypeInt, routingKeyInfo.types[0].Type())
 	}
 	cacheSize := session.routingKeyInfoCache.lru.Len()
-	if cacheSize != 1 {
-		t.Errorf("Expected cache size to be 1 but was %d", cacheSize)
+	if cacheSize != initCacheSize+1 {
+		t.Errorf("Expected cache size to be %d but was %d", initCacheSize+1, cacheSize)
 	}
 
 	query := session.Query("SELECT * FROM test_single_routing_key WHERE second_id=? AND first_id=?", 1, 2)
@@ -2475,8 +2477,8 @@ func TestRoutingKey(t *testing.T) {
 
 	// verify the cache is working
 	cacheSize = session.routingKeyInfoCache.lru.Len()
-	if cacheSize != 2 {
-		t.Errorf("Expected cache size to be 2 but was %d", cacheSize)
+	if cacheSize != initCacheSize+2 {
+		t.Errorf("Expected cache size to be %d but was %d", initCacheSize+2, cacheSize)
 	}
 }
 
