@@ -37,7 +37,7 @@ import (
 func TestUsesAllStreams(t *testing.T) {
 	t.Parallel()
 
-	streams := New(1)
+	streams := New()
 
 	got := make(map[int]struct{})
 
@@ -78,7 +78,7 @@ func TestUsesAllStreams(t *testing.T) {
 func TestFullStreams(t *testing.T) {
 	t.Parallel()
 
-	streams := New(1)
+	streams := New()
 	for i := range streams.streams {
 		streams.streams[i] = math.MaxUint64
 	}
@@ -92,7 +92,7 @@ func TestFullStreams(t *testing.T) {
 func TestClearStreams(t *testing.T) {
 	t.Parallel()
 
-	streams := New(1)
+	streams := New()
 	for i := range streams.streams {
 		streams.streams[i] = math.MaxUint64
 	}
@@ -112,7 +112,7 @@ func TestClearStreams(t *testing.T) {
 func TestDoubleClear(t *testing.T) {
 	t.Parallel()
 
-	streams := New(1)
+	streams := New()
 	stream, ok := streams.GetStream()
 	if !ok {
 		t.Fatal("did not get stream")
@@ -127,7 +127,7 @@ func TestDoubleClear(t *testing.T) {
 }
 
 func BenchmarkConcurrentUse(b *testing.B) {
-	streams := New(2)
+	streams := New()
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {

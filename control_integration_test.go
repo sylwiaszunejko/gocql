@@ -29,7 +29,7 @@ func TestUnixSockets(t *testing.T) {
 	c := createCluster()
 	c.NumConns = 1
 	c.DisableInitialHostLookup = true
-	c.ProtoVersion = 3
+	c.ProtoVersion = protoVersion3
 	c.ReconnectInterval = 0
 	c.WriteCoalesceWaitTime = 0
 

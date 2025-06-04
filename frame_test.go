@@ -116,7 +116,7 @@ func TestFrameReadTooLong(t *testing.T) {
 	framer := newFramer(nil, 3)
 
 	head := frameHeader{
-		version: 3,
+		version: protoVersion3,
 		op:      opReady,
 		length:  r.Len() - 9,
 	}

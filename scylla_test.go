@@ -25,7 +25,7 @@ func TestScyllaConnPickerPickNilToken(t *testing.T) {
 
 	t.Run("no conns", func(t *testing.T) {
 		s.conns = []*Conn{{
-			streams: streams.New(protoVersion4),
+			streams: streams.New(),
 		}}
 		if s.Pick(Token(nil), nil) != s.conns[0] {
 			t.Fatal("expected connection")
@@ -34,7 +34,7 @@ func TestScyllaConnPickerPickNilToken(t *testing.T) {
 
 	t.Run("one shard", func(t *testing.T) {
 		s.conns = []*Conn{{
-			streams: streams.New(protoVersion4),
+			streams: streams.New(),
 		}}
 		if s.Pick(Token(nil), nil) != s.conns[0] {
 			t.Fatal("expected connection")
@@ -43,7 +43,7 @@ func TestScyllaConnPickerPickNilToken(t *testing.T) {
 
 	t.Run("multiple shards", func(t *testing.T) {
 		s.conns = []*Conn{nil, {
-			streams: streams.New(protoVersion4),
+			streams: streams.New(),
 		}}
 		if s.Pick(Token(nil), nil) != s.conns[1] {
 			t.Fatal("expected connection")
@@ -87,7 +87,7 @@ func TestScyllaConnPickerHammerPickNilToken(t *testing.T) {
 			continue
 		}
 		s.conns[i] = &Conn{
-			streams: streams.New(protoVersion4),
+			streams: streams.New(),
 		}
 	}
 
@@ -130,7 +130,7 @@ func TestScyllaConnPickerRemove(t *testing.T) {
 
 func mockConn(shard int) *Conn {
 	return &Conn{
-		streams: streams.New(protoVersion4),
+		streams: streams.New(),
 		scyllaSupported: scyllaSupported{
 			shard:             shard,
 			nrShards:          4,

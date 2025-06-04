@@ -312,10 +312,6 @@ func TestPaging(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("Paging not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, "CREATE TABLE gocql_test.paging (id int primary key)"); err != nil {
 		t.Fatal("create table:", err)
 	}
@@ -348,10 +344,6 @@ func TestPagingWithAllowFiltering(t *testing.T) {
 		}
 		session.Close()
 	})
-
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("Paging not supported. Please use Cassandra >= 2.0")
-	}
 
 	const (
 		targetP1             = 50
@@ -480,10 +472,6 @@ func TestPagingWithBind(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("Paging not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, "CREATE TABLE gocql_test.paging_bind (id int, val int, primary key(id,val))"); err != nil {
 		t.Fatal("create table:", err)
 	}
@@ -525,10 +513,6 @@ func TestCAS(t *testing.T) {
 	cluster.SerialConsistency = LocalSerial
 	session := createSessionFromClusterTabletsDisabled(cluster, t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("lightweight transactions not supported. Please use Cassandra >= 2.0")
-	}
 
 	if err := createTable(session, `CREATE TABLE cas_table (
 			title         varchar,
@@ -781,7 +765,7 @@ func TestDurationType(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion < 5 {
+	if session.cfg.ProtoVersion < protoVersion5 {
 		t.Skip("Duration type is not supported. Please use protocol version >= 4 and cassandra version >= 3.11")
 	}
 
@@ -833,10 +817,6 @@ func TestMapScanCAS(t *testing.T) {
 	session := createSessionFromClusterTabletsDisabled(createCluster(), t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("lightweight transactions not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, `CREATE TABLE cas_table2 (
 			title         varchar,
 			revid   	  timeuuid,
@@ -875,10 +855,6 @@ func TestBatch(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, `CREATE TABLE gocql_test.batch_table (id int primary key)`); err != nil {
 		t.Fatal("create table:", err)
 	}
@@ -905,20 +881,11 @@ func TestUnpreparedBatch(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, `CREATE TABLE gocql_test.batch_unprepared (id int primary key, c counter)`); err != nil {
 		t.Fatal("create table:", err)
 	}
 
-	var batch *Batch
-	if session.cfg.ProtoVersion == 2 {
-		batch = session.Batch(CounterBatch)
-	} else {
-		batch = session.Batch(UnloggedBatch)
-	}
+	batch := session.Batch(UnloggedBatch)
 
 	for i := 0; i < 100; i++ {
 		batch.Query(`UPDATE batch_unprepared SET c = c + 1 WHERE id = 1`)
@@ -947,10 +914,6 @@ func TestUnpreparedBatch(t *testing.T) {
 func TestBatchLimit(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
 
 	if err := createTable(session, `CREATE TABLE gocql_test.batch_table2 (id int primary key)`); err != nil {
 		t.Fatal("create table:", err)
@@ -996,10 +959,6 @@ func TestTooManyQueryArgs(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, `CREATE TABLE gocql_test.too_many_query_args (id int primary key, value int)`); err != nil {
 		t.Fatal("create table:", err)
 	}
@@ -1027,10 +986,6 @@ func TestTooManyQueryArgs(t *testing.T) {
 func TestNotEnoughQueryArgs(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
 
 	if err := createTable(session, `CREATE TABLE gocql_test.not_enough_query_args (id int, cluster int, value int, primary key (id, cluster))`); err != nil {
 		t.Fatal("create table:", err)
@@ -1399,10 +1354,6 @@ func TestSmallInt(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion < protoVersion4 {
-		t.Skip("smallint is only supported in cassandra 2.2+")
-	}
-
 	if err := createTable(session, `CREATE TABLE gocql_test.smallint_table (
 			testsmallint  smallint PRIMARY KEY,
 		)`); err != nil {
@@ -1459,10 +1410,6 @@ func TestScanWithNilArguments(t *testing.T) {
 func TestScanCASWithNilArguments(t *testing.T) {
 	session := createSessionFromClusterTabletsDisabled(createCluster(), t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("lightweight transactions not supported. Please use Cassandra >= 2.0")
-	}
 
 	if err := createTable(session, `CREATE TABLE scan_cas_with_nil_arguments (
 		foo   varchar,
@@ -1655,10 +1602,6 @@ func TestBatchQueryInfo(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, "CREATE TABLE gocql_test.batch_query_info (id int, cluster int, value text, PRIMARY KEY (id, cluster))"); err != nil {
 		t.Fatalf("failed to create table with error '%v'", err)
 	}
@@ -1794,10 +1737,6 @@ func TestPrepare_ReprepareBatch(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
-
 	stmt, conn := injectInvalidPreparedStatement(t, session, "test_reprepare_statement_batch")
 	batch := session.Batch(UnloggedBatch)
 	batch.Query(stmt, "bar")
@@ -1821,10 +1760,8 @@ func TestQueryInfo(t *testing.T) {
 		t.Fatalf("Was not expecting meta data for %d query arguments, but got %d\n", 1, x)
 	}
 
-	if session.cfg.ProtoVersion > 1 {
-		if x := len(info.response.columns); x != 2 {
-			t.Fatalf("Was not expecting meta data for %d result columns, but got %d\n", 2, x)
-		}
+	if x := len(info.response.columns); x != 2 {
+		t.Fatalf("Was not expecting meta data for %d result columns, but got %d\n", 2, x)
 	}
 }
 
@@ -2175,10 +2112,6 @@ func TestBatchStats(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
-
 	if err := createTable(session, "CREATE TABLE gocql_test.batchStats (id int, PRIMARY KEY (id))"); err != nil {
 		t.Fatalf("failed to create table with error '%v'", err)
 	}
@@ -2208,10 +2141,6 @@ func (f funcBatchObserver) ObserveBatch(ctx context.Context, o ObservedBatch) {
 func TestBatchObserve(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion == 1 {
-		t.Skip("atomic batches not supported. Please use Cassandra >= 2.0")
-	}
 
 	if err := createTable(session, `CREATE TABLE gocql_test.batch_observe_table (id int, other int, PRIMARY KEY (id))`); err != nil {
 		t.Fatal("create table:", err)
@@ -2636,7 +2565,7 @@ func TestJSONSupport(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion < 4 {
+	if session.cfg.ProtoVersion < protoVersion4 {
 		t.Skip("skipping JSON support on proto < 4")
 	}
 
@@ -2679,10 +2608,6 @@ func TestJSONSupport(t *testing.T) {
 func TestUnmarshallNestedTypes(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion < protoVersion3 {
-		t.Skip("can not have frozen types in cassandra < 2.1.3")
-	}
 
 	if err := createTable(session, `CREATE TABLE gocql_test.test_557 (
 		    id text PRIMARY KEY,
@@ -2813,7 +2738,7 @@ func TestUnsetCol(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion < 4 {
+	if session.cfg.ProtoVersion < protoVersion4 {
 		t.Skip("Unset Values are not supported in protocol < 4")
 	}
 
@@ -2842,7 +2767,7 @@ func TestUnsetColBatch(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if session.cfg.ProtoVersion < 4 {
+	if session.cfg.ProtoVersion < protoVersion4 {
 		t.Skip("Unset Values are not supported in protocol < 4")
 	}
 
@@ -2883,10 +2808,6 @@ func TestUnsetColBatch(t *testing.T) {
 func TestQuery_NamedValues(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion < 3 {
-		t.Skip("named Values are not supported in protocol < 3")
-	}
 
 	if err := createTable(session, "CREATE TABLE gocql_test.named_query(id int, value text, PRIMARY KEY (id))"); err != nil {
 		t.Fatal(err)

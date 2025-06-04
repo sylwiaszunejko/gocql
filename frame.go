@@ -299,8 +299,6 @@ var (
 	ErrFrameTooBig = errors.New("frame length is bigger than the maximum allowed")
 )
 
-const maxFrameHeaderSize = 9
-
 func readInt(p []byte) int32 {
 	return int32(p[0])<<24 | int32(p[1])<<16 | int32(p[2])<<8 | int32(p[3])
 }
@@ -358,13 +356,14 @@ type framerInterface interface {
 	GetHeaderWarnings() []string
 }
 
+const headSize = 9
+
 // a framer is responsible for reading, writing and parsing frames on a single stream
 type framer struct {
 	proto byte
 	// flags are for outgoing flags, enabling compression and tracing etc
-	flags    byte
-	compres  Compressor
-	headSize int
+	flags   byte
+	compres Compressor
 	// if this frame was read then the header will be here
 	header *frameHeader
 
@@ -399,14 +398,9 @@ func newFramer(compressor Compressor, version byte) *framer {
 	}
 
 	version &= protoVersionMask
-
-	headSize := 9
-
 	f.compres = compressor
 	f.proto = version
 	f.flags = flags
-	f.headSize = headSize
-
 	f.header = nil
 	f.traceID = nil
 
@@ -467,11 +461,9 @@ func readHeader(r io.Reader, p []byte) (head frameHeader, err error) {
 
 	version := p[0] & protoVersionMask
 
-	if version < protoVersion1 || version > protoVersion5 {
+	if version < protoVersion3 || version > protoVersion5 {
 		return frameHeader{}, fmt.Errorf("gocql: unsupported protocol response version: %d", version)
 	}
-
-	headSize := 9
 
 	_, err = io.ReadFull(r, p[1:headSize])
 	if err != nil {
@@ -747,12 +739,10 @@ func (f *framer) writeHeader(flags byte, op frameOp, stream int) {
 }
 
 func (f *framer) setLength(length int) {
-	p := 5
-
-	f.buf[p+0] = byte(length >> 24)
-	f.buf[p+1] = byte(length >> 16)
-	f.buf[p+2] = byte(length >> 8)
-	f.buf[p+3] = byte(length)
+	f.buf[5] = byte(length >> 24)
+	f.buf[6] = byte(length >> 16)
+	f.buf[7] = byte(length >> 8)
+	f.buf[8] = byte(length)
 }
 
 func (f *framer) finish() error {
@@ -768,14 +758,14 @@ func (f *framer) finish() error {
 		}
 
 		// TODO: only compress frames which are big enough
-		compressed, err := f.compres.Encode(f.buf[f.headSize:])
+		compressed, err := f.compres.Encode(f.buf[headSize:])
 		if err != nil {
 			return err
 		}
 
-		f.buf = append(f.buf[:f.headSize], compressed...)
+		f.buf = append(f.buf[:headSize], compressed...)
 	}
-	length := len(f.buf) - f.headSize
+	length := len(f.buf) - headSize
 	f.setLength(length)
 
 	return nil
@@ -1450,10 +1440,6 @@ func (q queryParams) String() string {
 func (f *framer) writeQueryParams(opts *queryParams) {
 	f.writeConsistency(opts.consistency)
 
-	if f.proto == protoVersion1 {
-		return
-	}
-
 	var flags byte
 	if len(opts.values) > 0 {
 		flags |= flagValues
@@ -1601,20 +1587,7 @@ func (f *framer) writeExecuteFrame(streamID int, preparedID []byte, params *quer
 	f.writeHeader(f.flags, opExecute, streamID)
 	f.writeCustomPayload(customPayload)
 	f.writeShortBytes(preparedID)
-	if f.proto > protoVersion1 {
-		f.writeQueryParams(params)
-	} else {
-		n := len(params.values)
-		f.writeShort(uint16(n))
-		for i := 0; i < n; i++ {
-			if params.values[i].isUnset {
-				f.writeUnset()
-			} else {
-				f.writeBytes(params.values[i].value)
-			}
-		}
-		f.writeConsistency(params.consistency)
-	}
+	f.writeQueryParams(params)
 
 	return f.finish()
 }
