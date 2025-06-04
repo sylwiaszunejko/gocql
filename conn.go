@@ -199,7 +199,7 @@ type Conn struct {
 	frameObserver  FrameHeaderObserver
 	streamObserver StreamObserver
 
-	headerBuf [maxFrameHeaderSize]byte
+	headerBuf [headSize]byte
 
 	streams *streams.IDGenerator
 	mu      sync.Mutex
@@ -324,7 +324,7 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		errorHandler:  errorHandler,
 		compressor:    cfg.Compressor,
 		session:       s,
-		streams:       s.streamIDGenerator(cfg.ProtoVersion),
+		streams:       s.streamIDGenerator(),
 		host:          host,
 		isSchemaV2:    true, // Try using "system.peers_v2" until proven otherwise
 		frameObserver: s.frameObserver,
@@ -350,11 +350,11 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 	return c, nil
 }
 
-func (s *Session) streamIDGenerator(protocol int) *streams.IDGenerator {
+func (s *Session) streamIDGenerator() *streams.IDGenerator {
 	if s.cfg.MaxRequestsPerConn > 0 {
 		return streams.NewLimited(s.cfg.MaxRequestsPerConn)
 	}
-	return streams.New(protocol)
+	return streams.New()
 }
 
 func (c *Conn) init(ctx context.Context, dialedHost *DialedHost) error {
@@ -1674,10 +1674,6 @@ func (c *Conn) executeBatch(ctx context.Context, batch *Batch) (iter *Iter) {
 			c.session.warningHandler.HandleWarnings(batch, iter.host, warnings)
 		}
 	}()
-
-	if c.version == protoVersion1 {
-		return &Iter{err: ErrUnsupported}
-	}
 
 	n := len(batch.Entries)
 	req := &writeBatchFrame{

@@ -51,7 +51,7 @@ func NewSingleHostQueryExecutor(cfg *ClusterConfig) (e SingleHostQueryExecutor, 
 
 	// If protocol version not set assume 4 and skip discovery
 	if c.ProtoVersion == 0 {
-		c.ProtoVersion = 4
+		c.ProtoVersion = protoVersion4
 	}
 
 	// Close in case of error

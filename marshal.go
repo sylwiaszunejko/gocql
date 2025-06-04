@@ -30,7 +30,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"strings"
 	"unsafe"
 
 	"github.com/gocql/gocql/serialization/ascii"
@@ -231,11 +230,6 @@ func Marshal(info TypeInfo, value interface{}) ([]byte, error) {
 		return marshalDuration(value)
 	}
 
-	// detect protocol 2 UDT
-	if strings.HasPrefix(info.Custom(), "org.apache.cassandra.db.marshal.UserType") && info.Version() < 3 {
-		return nil, ErrorUDTUnavailable
-	}
-
 	// TODO(tux21b): add the remaining types
 	return nil, fmt.Errorf("can not marshal %T into %s", value, info)
 }
@@ -341,11 +335,6 @@ func Unmarshal(info TypeInfo, data []byte, value interface{}) error {
 		return unmarshalDate(data, value)
 	case TypeDuration:
 		return unmarshalDuration(data, value)
-	}
-
-	// detect protocol 2 UDT
-	if strings.HasPrefix(info.Custom(), "org.apache.cassandra.db.marshal.UserType") && info.Version() < 3 {
-		return ErrorUDTUnavailable
 	}
 
 	// TODO(tux21b): add the remaining types

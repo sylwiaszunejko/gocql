@@ -73,7 +73,7 @@ func TestParseProtocol(t *testing.T) {
 					message: "Invalid or unsupported protocol version (5); the lowest supported version is 3 and the greatest is 4",
 				},
 			},
-			proto: 4,
+			proto: protoVersion4,
 		},
 		{
 			err: &protocolError{
@@ -85,7 +85,7 @@ func TestParseProtocol(t *testing.T) {
 					message: "Invalid or unsupported protocol version: 5",
 				},
 			},
-			proto: 3,
+			proto: protoVersion3,
 		},
 	}
 

@@ -629,7 +629,7 @@ func BenchmarkSingleConn(b *testing.B) {
 	srv := NewTestServer(b, 3, context.Background())
 	defer srv.Stop()
 
-	cluster := testCluster(3, srv.Address)
+	cluster := testCluster(protoVersion3, srv.Address)
 	// Set the timeout arbitrarily low so that the query hits the timeout in a
 	// timely manner.
 	cluster.Timeout = 500 * time.Millisecond
@@ -733,7 +733,7 @@ func TestStream0(t *testing.T) {
 
 	conn := &Conn{
 		r:       bufio.NewReader(&buf),
-		streams: streams.New(protoVersion4),
+		streams: streams.New(),
 		logger:  &defaultLogger{},
 	}
 
@@ -809,17 +809,17 @@ func TestInitialRetryPolicy(t *testing.T) {
 			ExpectedErr:              "gocql: unable to create session: unable to connect to the cluster, last error: unable to discover protocol version:"},
 		{
 			NumRetries:               1,
-			ProtoVersion:             4,
+			ProtoVersion:             protoVersion4,
 			ExpectedGetIntervalCalls: nil,
 			ExpectedErr:              "gocql: unable to create session: unable to connect to the cluster, last error: unable to create control connection: unable to connect to initial hosts:"},
 		{
 			NumRetries:               2,
-			ProtoVersion:             4,
+			ProtoVersion:             protoVersion4,
 			ExpectedGetIntervalCalls: []int{1},
 			ExpectedErr:              "gocql: unable to create session: unable to connect to the cluster, last error: unable to create control connection: unable to connect to initial hosts:"},
 		{
 			NumRetries:               3,
-			ProtoVersion:             4,
+			ProtoVersion:             protoVersion4,
 			ExpectedGetIntervalCalls: []int{1, 2},
 			ExpectedErr:              "gocql: unable to create session: unable to connect to the cluster, last error: unable to create control connection: unable to connect to initial hosts:"},
 	}

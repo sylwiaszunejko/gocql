@@ -33,9 +33,6 @@ import (
 )
 
 func TestBatch_Errors(t *testing.T) {
-	if *flagProto == 1 {
-	}
-
 	session := createSession(t)
 	defer session.Close()
 
@@ -53,10 +50,6 @@ func TestBatch_Errors(t *testing.T) {
 func TestBatch_WithTimestamp(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
-
-	if session.cfg.ProtoVersion < protoVersion3 {
-		t.Skip("Batch timestamps are only available on protocol >= 3")
-	}
 
 	if err := createTable(session, `CREATE TABLE gocql_test.batch_ts (id int primary key, val text)`); err != nil {
 		t.Fatal(err)

@@ -40,10 +40,6 @@ import (
 // TestAuthentication verifies that gocql will work with a host configured to only accept authenticated connections
 func TestAuthentication(t *testing.T) {
 
-	if *flagProto < 2 {
-		t.Skip("Authentication is not supported with protocol < 2")
-	}
-
 	if !*flagRunAuthTest {
 		t.Skip("Authentication is not configured in the target cluster")
 	}
@@ -168,7 +164,7 @@ func TestWriteFailure(t *testing.T) {
 	if err := session.Query(`INSERT INTO test.test (id, value) VALUES (1, 1)`).Exec(); err != nil {
 		errWrite, ok := err.(*RequestErrWriteFailure)
 		if ok {
-			if session.cfg.ProtoVersion >= 5 {
+			if session.cfg.ProtoVersion >= protoVersion5 {
 				// ErrorMap should be filled with some hosts that should've errored
 				if len(errWrite.ErrorMap) == 0 {
 					t.Fatal("errWrite.ErrorMap should have some failed hosts but it didn't have any")
