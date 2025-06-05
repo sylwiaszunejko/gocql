@@ -314,10 +314,18 @@ type ClusterConfig struct {
 	disableInit        bool
 
 	DNSResolver DNSResolver
+
+	ApplicationInfo ApplicationInfo
 }
 
 type DNSResolver interface {
 	LookupIP(host string) ([]net.IP, error)
+}
+
+type ApplicationInfo struct {
+	ApplicationName    string
+	ApplicationVersion string
+	ClientID           string
 }
 
 type SimpleDNSResolver struct {
