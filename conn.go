@@ -507,15 +507,15 @@ func (s *startupCoordinator) options(ctx context.Context) error {
 }
 
 func (s *startupCoordinator) startup(ctx context.Context) error {
-	m := map[string]string{
-		"CQL_VERSION":    s.conn.cfg.CQLVersion,
-		"DRIVER_NAME":    s.conn.session.cfg.DriverName,
-		"DRIVER_VERSION": s.conn.session.cfg.DriverVersion,
-	}
+	m := map[string]string{}
 
 	if s.conn.session.cfg.ApplicationInfo != nil {
 		s.conn.session.cfg.ApplicationInfo.UpdateStartupOptions(m)
 	}
+
+	m["CQL_VERSION"] = s.conn.cfg.CQLVersion
+	m["DRIVER_NAME"] = s.conn.session.cfg.DriverName
+	m["DRIVER_VERSION"] = s.conn.session.cfg.DriverVersion
 
 	if s.conn.compressor != nil {
 		comp := s.conn.supported["COMPRESSION"]
