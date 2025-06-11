@@ -532,6 +532,13 @@ func (s *Session) SetTrace(trace Tracer) {
 	s.mu.Unlock()
 }
 
+// QueryWithContext same as Query, but adds context to it.
+func (s *Session) QueryWithContext(ctx context.Context, stmt string, values ...interface{}) *Query {
+	q := s.Query(stmt, values...)
+	q.context = ctx
+	return q
+}
+
 // Query generates a new query object for interacting with the database.
 // Further details of the query may be tweaked using the resulting query
 // value before the query is executed. Query is automatically prepared
@@ -2012,6 +2019,13 @@ type Batch struct {
 // Deprecated: use session.Batch instead
 func (s *Session) NewBatch(typ BatchType) *Batch {
 	return s.Batch(typ)
+}
+
+// BatchWithContext creates a new batch operation using defaults defined in the cluster, with context
+func (s *Session) BatchWithContext(ctx context.Context, typ BatchType) *Batch {
+	b := s.Batch(typ)
+	b.context = ctx
+	return b
 }
 
 // Batch creates a new batch operation using defaults defined in the cluster
