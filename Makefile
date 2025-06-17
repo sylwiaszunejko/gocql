@@ -179,7 +179,7 @@ install-java:
 		echo ${CCM_CASSANDRA_VERSION} > ${CCM_CONFIG_DIR}/ccm-version; \
   	fi
 
-install-cassandra-ccm: cassandra-start
+install-cassandra-ccm:
 	@echo "Install CCM ${CCM_CASSANDRA_VERSION}"
 	@pip install "git+https://${CCM_CASSANDRA_REPO}.git@${CCM_CASSANDRA_VERSION}"
 	@mkdir ${CCM_CONFIG_DIR} 2>/dev/null || true
