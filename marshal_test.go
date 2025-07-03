@@ -427,23 +427,22 @@ func TestMarshalTuple(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			data, err := Marshal(info, tc.value)
 			if err != nil {
-				t.Errorf("marshalTest: %v", err)
+				t.Errorf("marshalTest[%d]: %v", i, err)
 				return
 			}
-
 			if !bytes.Equal(data, tc.expected) {
-				t.Errorf("marshalTest: expected %x (%v), got %x (%v)",
-					tc.expected, decBigInt(tc.expected), data, decBigInt(data))
+				t.Errorf("marshalTest[%d]: expected %x, got %x",
+					i, tc.expected, data)
 				return
 			}
 
 			err = Unmarshal(info, data, tc.checkValue)
 			if err != nil {
-				t.Errorf("unmarshalTest: %v", err)
+				t.Errorf("unmarshalTest[%d]: %v", i, err)
 				return
 			}
 

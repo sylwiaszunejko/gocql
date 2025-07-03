@@ -531,14 +531,14 @@ func marshalVarint(value interface{}) ([]byte, error) {
 	return data, nil
 }
 
-func decBigInt(data []byte) int64 {
+func decBigInt(data []byte) (int64, error) {
 	if len(data) != 8 {
-		return 0
+		return 0, fmt.Errorf("expected 8 bytes, got %d", len(data))
 	}
 	return int64(data[0])<<56 | int64(data[1])<<48 |
 		int64(data[2])<<40 | int64(data[3])<<32 |
 		int64(data[4])<<24 | int64(data[5])<<16 |
-		int64(data[6])<<8 | int64(data[7])
+		int64(data[6])<<8 | int64(data[7]), nil
 }
 
 func marshalBool(value interface{}) ([]byte, error) {
@@ -868,6 +868,13 @@ func unmarshalVector(info VectorType, data []byte, value interface{}) error {
 	}
 	rv = rv.Elem()
 	t := rv.Type()
+	if t.Kind() == reflect.Interface {
+		if t.NumMethod() != 0 {
+			return unmarshalErrorf("can not unmarshal into non-empty interface %T", value)
+		}
+		t = reflect.TypeOf(info.Zero())
+	}
+
 	k := t.Kind()
 	switch k {
 	case reflect.Slice, reflect.Array:
@@ -887,6 +894,9 @@ func unmarshalVector(info VectorType, data []byte, value interface{}) error {
 			}
 		} else {
 			rv.Set(reflect.MakeSlice(t, info.Dimensions, info.Dimensions))
+			if rv.Kind() == reflect.Interface {
+				rv = rv.Elem()
+			}
 		}
 		elemSize := len(data) / info.Dimensions
 		for i := 0; i < info.Dimensions; i++ {
@@ -917,7 +927,7 @@ func unmarshalVector(info VectorType, data []byte, value interface{}) error {
 		}
 		return nil
 	}
-	return unmarshalErrorf("can not unmarshal %s into %T. Accepted types: slice, array.", info, value)
+	return unmarshalErrorf("can not unmarshal %s into %T. Accepted types: *slice, *array, *interface{}.", info, value)
 }
 
 // isVectorVariableLengthType determines if a type requires explicit length serialization within a vector.
@@ -1724,6 +1734,15 @@ type VectorType struct {
 	SubType TypeInfo
 	NativeType
 	Dimensions int
+}
+
+// Zero returns the zero value for the vector CQL type.
+func (v VectorType) Zero() interface{} {
+	t, e := v.SubType.NewWithError()
+	if e != nil {
+		return nil
+	}
+	return reflect.Zero(reflect.SliceOf(reflect.TypeOf(t))).Interface()
 }
 
 func (t CollectionType) NewWithError() (interface{}, error) {
