@@ -159,7 +159,12 @@ func hostInfo(resolver DNSResolver, translateAddressPort func(addr net.IP, port 
 	// Check if host is a literal IP address
 	if ip := net.ParseIP(host); ip != nil {
 		if validIpAddr(ip) {
-			hosts = append(hosts, &HostInfo{hostname: host, connectAddress: ip, port: port})
+			hh := &HostInfo{hostname: host, connectAddress: ip, port: port}
+			hh.untranslatedConnectAddress = ip
+			if translateAddressPort != nil {
+				hh.connectAddress, hh.port = translateAddressPort(ip, port)
+			}
+			hosts = append(hosts, hh)
 			return hosts, nil
 		}
 	}
