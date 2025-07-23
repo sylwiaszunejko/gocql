@@ -71,6 +71,10 @@ export JAVA11_HOME=${JAVA_HOME_11_X64}
 export JAVA17_HOME=${JAVA_HOME_17_X64}
 export JAVA_HOME=${JAVA_HOME_11_X64}
 
+clean-old-temporary-docker-images:
+	@echo "Running Docker Hub image cleanup script..."
+	python ci/clean-old-temporary-docker-images.py
+
 cassandra-start: .prepare-pki .prepare-cassandra-ccm .prepare-java
 	@if [ -d ${CCM_CONFIG_DIR}/${CCM_CASSANDRA_CLUSTER_NAME} ] && ccm switch ${CCM_CASSANDRA_CLUSTER_NAME} 2>/dev/null 1>&2 && ccm status | grep UP 2>/dev/null 1>&2; then \
 		echo "Cassandra cluster is already started"; \
