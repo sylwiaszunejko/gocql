@@ -400,20 +400,49 @@ func TestSimpleRetryPolicy(t *testing.T) {
 	// this should allow a total of 3 tries.
 	rt := &SimpleRetryPolicy{NumRetries: 2}
 
+	regular_error := errors.New("regular error")
+
+	qe1 := &QueryError{
+		err:                 errors.New("connection error"),
+		potentiallyExecuted: false,
+		isIdempotent:        false,
+	}
+
+	qe2 := &QueryError{
+		err:                 errors.New("timeout error"),
+		potentiallyExecuted: true,
+		isIdempotent:        true,
+	}
+
+	qe3 := &QueryError{
+		err:                 errors.New("write timeout"),
+		potentiallyExecuted: true,
+		isIdempotent:        false,
+	}
+
 	cases := []struct {
-		attempts int
-		allow    bool
+		attempts     int
+		allow        bool
+		err          error
+		retryType    RetryType
+		LWTRetryType RetryType
 	}{
-		{0, true},
-		{1, true},
-		{2, true},
-		{3, false},
-		{4, false},
-		{5, false},
+		{0, true, qe1, RetryNextHost, Retry},
+		{1, true, qe2, RetryNextHost, Retry},
+		{2, true, qe3, Rethrow, Rethrow},
+		{3, false, regular_error, RetryNextHost, Retry},
+		{4, false, regular_error, RetryNextHost, Retry},
+		{5, false, regular_error, RetryNextHost, Retry},
 	}
 
 	for _, c := range cases {
 		q.metrics = preFilledQueryMetrics(map[string]*hostMetrics{"127.0.0.1": {Attempts: c.attempts}})
+		if c.retryType != rt.GetRetryType(c.err) {
+			t.Fatalf("retry type for %v should be %v", c.err, c.retryType)
+		}
+		if c.LWTRetryType != rt.GetRetryTypeLWT(c.err) {
+			t.Fatalf("LWT retry type for %v should be %v", c.err, c.LWTRetryType)
+		}
 		if c.allow && !rt.Attempt(q) {
 			t.Fatalf("should allow retry after %d attempts", c.attempts)
 		}
@@ -439,17 +468,45 @@ func TestExponentialBackoffPolicy(t *testing.T) {
 	// test with defaults
 	sut := &ExponentialBackoffRetryPolicy{NumRetries: 2}
 
-	cases := []struct {
-		attempts int
-		delay    time.Duration
-	}{
+	regular_error := errors.New("regular error")
 
-		{1, 100 * time.Millisecond},
-		{2, (2) * 100 * time.Millisecond},
-		{3, (2 * 2) * 100 * time.Millisecond},
-		{4, (2 * 2 * 2) * 100 * time.Millisecond},
+	qe1 := &QueryError{
+		err:                 errors.New("connection error"),
+		potentiallyExecuted: false,
+		isIdempotent:        false,
+	}
+
+	qe2 := &QueryError{
+		err:                 errors.New("timeout error"),
+		potentiallyExecuted: true,
+		isIdempotent:        true,
+	}
+
+	qe3 := &QueryError{
+		err:                 errors.New("write timeout"),
+		potentiallyExecuted: true,
+		isIdempotent:        false,
+	}
+
+	cases := []struct {
+		attempts     int
+		delay        time.Duration
+		err          error
+		retryType    RetryType
+		LWTRetryType RetryType
+	}{
+		{1, 100 * time.Millisecond, qe1, RetryNextHost, Retry},
+		{2, (2) * 100 * time.Millisecond, qe2, RetryNextHost, Retry},
+		{3, (2 * 2) * 100 * time.Millisecond, qe3, Rethrow, Rethrow},
+		{4, (2 * 2 * 2) * 100 * time.Millisecond, regular_error, RetryNextHost, Retry},
 	}
 	for _, c := range cases {
+		if c.retryType != sut.GetRetryType(c.err) {
+			t.Fatalf("retry type for %v should be %v", c.err, c.retryType)
+		}
+		if c.LWTRetryType != sut.GetRetryTypeLWT(c.err) {
+			t.Fatalf("LWT retry type for %v should be %v", c.err, c.LWTRetryType)
+		}
 		// test 100 times for each case
 		for i := 0; i < 100; i++ {
 			d := sut.napTime(c.attempts)
