@@ -143,7 +143,7 @@ type ClusterConfig struct {
 	AuthProvider func(h *HostInfo) (Authenticator, error)
 
 	// Default retry policy to use for queries.
-	// Default: no retries.
+	// Default: SimpleRetryPolicy{NumRetries: 3}.
 	RetryPolicy RetryPolicy
 
 	// ConvictionPolicy decides whether to mark host as down based on the error and host info.
