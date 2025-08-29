@@ -108,9 +108,9 @@ func TestTabletsShardAwareness(t *testing.T) {
 		t.Skip("Tablets are not supported by this server")
 	}
 	cluster := createCluster()
+	_ = createSessionFromCluster(cluster, t)
 
-	fallback := RoundRobinHostPolicy()
-	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(fallback)
+	cluster.PoolConfig.HostSelectionPolicy = TokenAwareHostPolicy(RoundRobinHostPolicy())
 
 	session := createSessionFromCluster(cluster, t)
 	defer session.Close()
@@ -122,29 +122,43 @@ func TestTabletsShardAwareness(t *testing.T) {
 
 	ctx := context.Background()
 
-	i := 0
-	for i < 50 {
-		i = i + 1
+	for i := 0; i < 50; i++ {
 		err := session.Query(`INSERT INTO test_tablets_shard_awarness (pk, ck, v) VALUES (?, ?, ?);`, i, i%5, i%2).WithContext(ctx).Exec()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
 
-	trace := NewTracer(session)
-	i = 0
-	for i < 50 {
-		i = i + 1
+	for i := 0; i < 50; i++ {
+		// After 2025.2 tablet migration can happen in the middle of tests
+		// When it happens queries can hit wrong tablet despite tablet been just learned
+		// Here we go for second attempt when it happens
+		// Assumption is that having second tablet migration right away is impossible
+		for attempt := 1; true; attempt++ {
+			trace := NewTracer(session)
+			var pk int
+			var ck int
+			var v int
+			query := session.Query(`SELECT pk, ck, v FROM test_tablets_shard_awarness WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace)
+			err := query.Scan(&pk, &ck, &v)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		var pk int
-		var ck int
-		var v int
-
-		err := session.Query(`SELECT pk, ck, v FROM test_tablets_shard_awarness WHERE pk = ?;`, i).WithContext(ctx).Consistency(One).Trace(trace).Scan(&pk, &ck, &v)
-		if err != nil {
-			t.Fatal(err)
+			shardsParticipated := getNumberOfShardsParticipated(t, trace)
+			if len(shardsParticipated) == 1 {
+				break
+			}
+			if attempt >= 2 {
+				t.Fatalf("trace should show only one shard but it showed %d shards, shards: %s", len(shardsParticipated), shardsParticipated)
+			}
 		}
 	}
+}
+
+func getNumberOfShardsParticipated(t *testing.T, trace *TracerEnhanced) []string {
+	allShards := make(map[string]bool)
+	shardList := []string{}
 
 	for _, traceID := range trace.AllTraceIDs() {
 		var (
@@ -164,17 +178,12 @@ func TestTabletsShardAwareness(t *testing.T) {
 		}
 
 		// find duplicates to check how many shards are used
-		allShards := make(map[string]bool)
-		shardList := []string{}
 		for _, item := range activities {
 			if !allShards[item.Thread] {
 				allShards[item.Thread] = true
 				shardList = append(shardList, item.Thread)
 			}
 		}
-
-		if len(shardList) != 1 {
-			t.Fatalf("trace should show only one shard but it showed %d shards, shards: %s", len(shardList), shardList)
-		}
 	}
+	return shardList
 }
