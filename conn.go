@@ -308,11 +308,6 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		return nil, err
 	}
 
-	writeTimeout := cfg.Timeout
-	if cfg.WriteTimeout > 0 {
-		writeTimeout = cfg.WriteTimeout
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
 	c := &Conn{
 		conn:          dialedHost.Conn,
@@ -330,7 +325,7 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		frameObserver: s.frameObserver,
 		w: &deadlineContextWriter{
 			w:         dialedHost.Conn,
-			timeout:   writeTimeout,
+			timeout:   cfg.WriteTimeout,
 			semaphore: make(chan struct{}, 1),
 			quit:      make(chan struct{}),
 		},
@@ -338,7 +333,7 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		cancel:         cancel,
 		logger:         cfg.logger(),
 		streamObserver: s.streamObserver,
-		writeTimeout:   writeTimeout,
+		writeTimeout:   cfg.WriteTimeout,
 	}
 
 	if err := c.init(ctx, dialedHost); err != nil {
