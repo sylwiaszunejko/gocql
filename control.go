@@ -476,7 +476,7 @@ func (c *controlConn) HandleError(conn *Conn, err error, closed bool) {
 		return
 	}
 
-	c.reconnect()
+	go c.reconnect()
 }
 
 func (c *controlConn) getConn() *connHost {
