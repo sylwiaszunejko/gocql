@@ -31,10 +31,11 @@ package gocql
 import (
 	"context"
 	"errors"
-	"github.com/gocql/gocql/internal/tests"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 // TestAuthentication verifies that gocql will work with a host configured to only accept authenticated connections
@@ -378,4 +379,56 @@ func TestSessionAwaitSchemaAgreementContextCanceled(t *testing.T) {
 		t.Fatalf("expected session.AwaitSchemaAgreement to return 'context canceled' but got '%v'", err)
 	}
 
+}
+
+func TestNewConnectWithLowTimeout(t *testing.T) {
+	// Point of these tests to make sure that with low timeout connection creation will gracefully fail
+
+	for _, lowTimeout := range []time.Duration{1 * time.Nanosecond, 10 * time.Nanosecond, 100 * time.Nanosecond, 1 * time.Microsecond, 10 * time.Microsecond} {
+		shouldFail := lowTimeout < 500*time.Nanosecond
+		t.Run("Timeout"+lowTimeout.String(), func(t *testing.T) {
+			t.Run("LowTimeout", func(t *testing.T) {
+				cluster := createCluster()
+
+				cluster.Timeout = lowTimeout
+
+				s, err := cluster.CreateSession()
+				if shouldFail && err == nil {
+					t.Fatal("expected session to not connect to low timeout")
+				}
+				if s != nil {
+					s.Close()
+				}
+			})
+
+			t.Run("LowWriteTimeout", func(t *testing.T) {
+				cluster := createCluster()
+
+				cluster.WriteTimeout = lowTimeout
+
+				s, err := cluster.CreateSession()
+				if shouldFail && err == nil {
+					t.Fatal("expected session to not connect to low timeout")
+				}
+				if s != nil {
+					s.Close()
+				}
+			})
+
+			t.Run("BothTimeoutsLow", func(t *testing.T) {
+				cluster := createCluster()
+
+				cluster.Timeout = lowTimeout
+				cluster.WriteTimeout = lowTimeout
+
+				s, err := cluster.CreateSession()
+				if shouldFail && err == nil {
+					t.Fatal("expected session to not connect to low timeout")
+				}
+				if s != nil {
+					s.Close()
+				}
+			})
+		})
+	}
 }
