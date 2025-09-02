@@ -30,7 +30,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/gocql/gocql/tablets"
 	"io"
 	"io/ioutil"
 	"net"
@@ -39,6 +38,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/gocql/gocql/tablets"
 
 	"github.com/gocql/gocql/internal/lru"
 	"github.com/gocql/gocql/internal/streams"
@@ -243,29 +244,42 @@ func (c *Conn) setSchemaV2(s bool) {
 	c.isSchemaV2 = s
 }
 
+func (c *Conn) finalizeConnection() {
+	// When connection just created all timeouts are set to `cfg.ConnectTimeout`
+	// It is done to make sure that connection is easy to establish when users set very low `WriteTimeout` and/or `Timeout`
+	// This method sets timeouts to `operational` values after connection successfully created
+	c.writeTimeout = c.cfg.WriteTimeout
+	c.w.setFinalWriteTimeout(c.cfg.WriteTimeout)
+	c.timeout = c.cfg.Timeout
+}
+
 func (c *Conn) getScyllaSupported() scyllaSupported {
 	return c.scyllaSupported
 }
 
 // connect establishes a connection to a Cassandra node using session's connection config.
+// note: every connection needs to get `conn.finalizeConnection` called ont it when initialization process is done
 func (s *Session) connect(ctx context.Context, host *HostInfo, errorHandler ConnErrorHandler) (*Conn, error) {
 	return s.dial(ctx, host, s.connCfg, errorHandler)
 }
 
 // connectShard establishes a connection to a shard.
 // If nrShards is zero, shard-aware dialing is disabled.
+// note: every connection needs to get `conn.finalizeConnection` called ont it when initialization process is done
 func (s *Session) connectShard(ctx context.Context, host *HostInfo, errorHandler ConnErrorHandler,
 	shardID, nrShards int) (*Conn, error) {
 	return s.dialShard(ctx, host, s.connCfg, errorHandler, shardID, nrShards)
 }
 
 // dial establishes a connection to a Cassandra node and notifies the session's connectObserver.
+// note: every connection needs to get `conn.finalizeConnection` called on it when initialization process is done
 func (s *Session) dial(ctx context.Context, host *HostInfo, connConfig *ConnConfig, errorHandler ConnErrorHandler) (*Conn, error) {
 	return s.dialShard(ctx, host, connConfig, errorHandler, 0, 0)
 }
 
 // dialShard establishes a connection to a host/shard and notifies the session's connectObserver.
 // If nrShards is zero, shard-aware dialing is disabled.
+// note: every connection needs to get `conn.finalizeConnection` called on it when initialization process is done
 func (s *Session) dialShard(ctx context.Context, host *HostInfo, connConfig *ConnConfig, errorHandler ConnErrorHandler,
 	shardID, nrShards int) (*Conn, error) {
 	var obs ObservedConnect
@@ -325,7 +339,7 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		frameObserver: s.frameObserver,
 		w: &deadlineContextWriter{
 			w:         dialedHost.Conn,
-			timeout:   cfg.WriteTimeout,
+			timeout:   cfg.ConnectTimeout,
 			semaphore: make(chan struct{}, 1),
 			quit:      make(chan struct{}),
 		},
@@ -333,7 +347,8 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		cancel:         cancel,
 		logger:         cfg.logger(),
 		streamObserver: s.streamObserver,
-		writeTimeout:   cfg.WriteTimeout,
+		writeTimeout:   cfg.ConnectTimeout,
+		timeout:        cfg.ConnectTimeout,
 	}
 
 	if err := c.init(ctx, dialedHost); err != nil {
@@ -368,16 +383,13 @@ func (c *Conn) init(ctx context.Context, dialedHost *DialedHost) error {
 		conn:        c,
 	}
 
-	c.timeout = c.cfg.ConnectTimeout
 	if err := startup.setupConn(ctx); err != nil {
 		return err
 	}
 
-	c.timeout = c.cfg.Timeout
-
 	// dont coalesce startup frames
 	if c.session.cfg.WriteCoalesceWaitTime > 0 && !c.cfg.disableCoalesce && !dialedHost.DisableCoalesce {
-		c.w = newWriteCoalescer(c.conn, c.writeTimeout, c.session.cfg.WriteCoalesceWaitTime, ctx.Done())
+		c.w = newWriteCoalescer(c.conn, c.cfg.ConnectTimeout, c.session.cfg.WriteCoalesceWaitTime, ctx.Done())
 	}
 
 	if c.isScyllaConn() { // ScyllaDB does not support system.peers_v2
@@ -896,6 +908,8 @@ type contextWriter interface {
 	// early. writeContext must return a non-nil error if it returns n < len(p). writeContext must not modify the
 	// data in p, even temporarily.
 	writeContext(ctx context.Context, p []byte) (n int, err error)
+
+	setFinalWriteTimeout(timeout time.Duration)
 }
 
 type deadlineWriter interface {
@@ -912,6 +926,10 @@ type deadlineContextWriter struct {
 
 	// quit closed once the connection is closed.
 	quit chan struct{}
+}
+
+func (c *deadlineContextWriter) setFinalWriteTimeout(timeout time.Duration) {
+	c.timeout = timeout
 }
 
 // writeContext implements contextWriter.
@@ -963,6 +981,10 @@ type writeCoalescer struct {
 
 	testEnqueuedHook func()
 	testFlushedHook  func()
+}
+
+func (w *writeCoalescer) setFinalWriteTimeout(timeout time.Duration) {
+	w.timeout = timeout
 }
 
 type writeRequest struct {

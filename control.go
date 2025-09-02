@@ -247,6 +247,7 @@ func (c *controlConn) discoverProtocol(hosts []*HostInfo) (int, error) {
 	for _, host := range hosts {
 		var conn *Conn
 		conn, err = c.session.dial(c.session.ctx, host, &connCfg, handler)
+		// not need to call conn.finalizeConnection since this connection to be terminated right away
 		if conn != nil {
 			conn.Close()
 		}
@@ -279,6 +280,7 @@ func (c *controlConn) connect(hosts []*HostInfo) error {
 	var err error
 	for _, host := range hosts {
 		conn, err = c.session.dial(c.session.ctx, host, &cfg, c)
+		// conn.finalizeConnection() to be called outside of this function, since initialization process is not completed yet
 		if err != nil {
 			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
 			continue
@@ -461,6 +463,7 @@ func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) error {
 			conn.Close()
 			continue
 		}
+		conn.finalizeConnection()
 		return nil
 	}
 	return fmt.Errorf("unable to connect to any known node: %v", hosts)
