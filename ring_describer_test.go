@@ -6,9 +6,10 @@ package gocql
 import (
 	"context"
 	"fmt"
-	"github.com/gocql/gocql/internal/tests"
 	"net"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests"
 
 	"github.com/gocql/gocql/internal/tests/mock"
 )
@@ -294,6 +295,10 @@ func (*mockConnection) query(ctx context.Context, statement string, values ...in
 func (*mockConnection) getScyllaSupported() scyllaSupported { return scyllaSupported{} }
 
 type mockControlConn struct{}
+
+func (m *mockControlConn) reconnect() error {
+	return nil
+}
 
 func (m *mockControlConn) getConn() *connHost {
 	return &connHost{

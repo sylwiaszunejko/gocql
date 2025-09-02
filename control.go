@@ -66,6 +66,7 @@ type controlConnection interface {
 	connect(hosts []*HostInfo) error
 	close()
 	getSession() *Session
+	reconnect() error
 }
 
 // Ensure that the atomic variable is aligned to a 64bit boundary
@@ -382,19 +383,20 @@ func (c *controlConn) registerEvents(conn *Conn) error {
 	return nil
 }
 
-func (c *controlConn) reconnect() {
+func (c *controlConn) reconnect() error {
 	if atomic.LoadInt32(&c.state) == controlConnClosing {
-		return
+		return fmt.Errorf("control connection is closing")
 	}
 	if !atomic.CompareAndSwapInt32(&c.reconnecting, 0, 1) {
-		return
+		return fmt.Errorf("control connection is reconnecting")
 	}
 	defer atomic.StoreInt32(&c.reconnecting, 0)
 
 	err := c.attemptReconnect()
 	if err != nil {
-		c.session.logger.Printf("gocql: unable to reconnect control connection: %v\n", err)
-		return
+		err = fmt.Errorf("gocql: unable to reconnect control connection: %w\n", err)
+		c.session.logger.Printf(err.Error())
+		return err
 	}
 
 	err = c.session.refreshRingNow()
@@ -406,6 +408,7 @@ func (c *controlConn) reconnect() {
 	if err != nil {
 		c.session.logger.Printf("gocql: unable to refresh the schema: %v\n", err)
 	}
+	return nil
 }
 
 func (c *controlConn) attemptReconnect() error {
