@@ -90,6 +90,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 		CQLVersion:     cfg.CQLVersion,
 		Timeout:        cfg.Timeout,
 		WriteTimeout:   cfg.WriteTimeout,
+		ReadTimeout:    cfg.ReadTimeout,
 		ConnectTimeout: cfg.ConnectTimeout,
 		Dialer:         cfg.Dialer,
 		HostDialer:     hostDialer,
