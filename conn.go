@@ -185,6 +185,8 @@ type ConnInterface interface {
 	query(ctx context.Context, statement string, values ...interface{}) (iter *Iter)
 	getScyllaSupported() scyllaSupported
 	finalizeConnection()
+	getTimeout() time.Duration
+	getWriteTimeout() time.Duration
 }
 
 // Conn is a single connection to a Cassandra node. It can be used to execute
@@ -256,6 +258,14 @@ func (c *Conn) finalizeConnection() {
 
 func (c *Conn) getScyllaSupported() scyllaSupported {
 	return c.scyllaSupported
+}
+
+func (c *Conn) getTimeout() time.Duration {
+	return c.timeout
+}
+
+func (c *Conn) getWriteTimeout() time.Duration {
+	return c.writeTimeout
 }
 
 // connect establishes a connection to a Cassandra node using session's connection config.
