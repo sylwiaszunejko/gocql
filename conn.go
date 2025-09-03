@@ -144,6 +144,7 @@ type ConnConfig struct {
 	CQLVersion     string
 	Timeout        time.Duration
 	WriteTimeout   time.Duration
+	ReadTimeout    time.Duration
 	ConnectTimeout time.Duration
 	Dialer         Dialer
 	HostDialer     HostDialer
@@ -195,6 +196,7 @@ type Conn struct {
 	w    contextWriter
 
 	timeout        time.Duration
+	readTimeout    time.Duration
 	writeTimeout   time.Duration
 	cfg            *ConnConfig
 	frameObserver  FrameHeaderObserver
@@ -249,6 +251,7 @@ func (c *Conn) finalizeConnection() {
 	// It is done to make sure that connection is easy to establish when users set very low `WriteTimeout` and/or `Timeout`
 	// This method sets timeouts to `operational` values after connection successfully created
 	c.writeTimeout = c.cfg.WriteTimeout
+	c.readTimeout = c.cfg.ReadTimeout
 	c.w.setFinalWriteTimeout(c.cfg.WriteTimeout)
 	c.timeout = c.cfg.Timeout
 }
@@ -348,6 +351,7 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		logger:         cfg.logger(),
 		streamObserver: s.streamObserver,
 		writeTimeout:   cfg.ConnectTimeout,
+		readTimeout:    cfg.ConnectTimeout,
 		timeout:        cfg.ConnectTimeout,
 	}
 
@@ -411,8 +415,11 @@ func (c *Conn) Read(p []byte) (n int, err error) {
 
 	for i := 0; i < maxAttempts; i++ {
 		var nn int
-		if c.timeout > 0 {
-			c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+		if c.readTimeout > 0 {
+			err = c.conn.SetReadDeadline(time.Now().Add(c.readTimeout))
+			if err != nil {
+				return 0, err
+			}
 		}
 
 		nn, err = io.ReadFull(c.r, p[n:])

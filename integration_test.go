@@ -389,8 +389,11 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 
 		t.Run("Timeout"+lowTimeout.String(), func(t *testing.T) {
 			for _, tcase := range []struct {
-				name       string
-				getCluster func() *ClusterConfig
+				name                           string
+				getCluster                     func() *ClusterConfig
+				regularQueryFail               bool
+				controlQueryFail               bool
+				controlQueryAfterReconnectFail bool
 			}{
 				{
 					name: "LowTimeout",
@@ -399,6 +402,9 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 						cluster.Timeout = lowTimeout
 						return cluster
 					},
+					regularQueryFail:               shouldFail,
+					controlQueryFail:               shouldFail,
+					controlQueryAfterReconnectFail: shouldFail,
 				},
 				{
 					name: "LowWriteTimeout",
@@ -407,14 +413,35 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 						cluster.WriteTimeout = lowTimeout
 						return cluster
 					},
+					regularQueryFail:               shouldFail,
+					controlQueryFail:               shouldFail,
+					controlQueryAfterReconnectFail: shouldFail,
 				},
 				{
-					name: "LowBothTimeouts",
+					name: "LowReadTimeout",
+					getCluster: func() *ClusterConfig {
+						cluster := createCluster()
+						cluster.ReadTimeout = lowTimeout
+						return cluster
+					},
+					// When data is available immediately reading from socket is not failing,
+					// despite that deadline is in the past
+					regularQueryFail:               false,
+					controlQueryFail:               false,
+					controlQueryAfterReconnectFail: false,
+				},
+				{
+					name: "AllTimeoutsLow",
 					getCluster: func() *ClusterConfig {
 						cluster := createCluster()
 						cluster.Timeout = lowTimeout
+						cluster.ReadTimeout = lowTimeout
+						cluster.WriteTimeout = lowTimeout
 						return cluster
 					},
+					regularQueryFail:               shouldFail,
+					controlQueryFail:               shouldFail,
+					controlQueryAfterReconnectFail: shouldFail,
 				},
 			} {
 				t.Run(tcase.name, func(t *testing.T) {
@@ -426,14 +453,15 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 
 					t.Run("Regular Query", func(t *testing.T) {
 						err = s.Query("SELECT key FROM system.local WHERE key='local'").Exec()
-						if shouldFail && err == nil {
+						//time.Sleep(100000 * time.Second)
+						if tcase.regularQueryFail && err == nil {
 							t.Fatal("expected query to fail on low timeout")
 						}
 					})
 
 					t.Run("Query from control connection", func(t *testing.T) {
 						err = s.control.query("SELECT key FROM system.local WHERE key='local'").err
-						if shouldFail && err == nil {
+						if tcase.controlQueryFail && err == nil {
 							t.Fatal("expected query to fail on low timeout")
 						}
 					})
@@ -445,7 +473,7 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 							t.Fatalf("failed to reconnect to control connection: %v", err)
 						}
 						err = s.control.query("SELECT key FROM system.local WHERE key='local'").err
-						if shouldFail && err == nil {
+						if tcase.controlQueryAfterReconnectFail && err == nil {
 							t.Fatal("expected query to fail on low timeout")
 						}
 					})
