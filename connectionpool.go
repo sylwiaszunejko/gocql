@@ -26,11 +26,12 @@ package gocql
 
 import (
 	"fmt"
-	"github.com/gocql/gocql/tablets"
 	"math/rand"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/gocql/gocql/tablets"
 
 	"github.com/gocql/gocql/debounce"
 )
@@ -547,6 +548,7 @@ func (pool *hostConnPool) connect() (err error) {
 	// lazily initialize the connPicker when we know the required type
 	pool.initConnPicker(conn)
 	pool.connPicker.Put(conn)
+	conn.finalizeConnection()
 
 	return nil
 }

@@ -386,49 +386,71 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 
 	for _, lowTimeout := range []time.Duration{1 * time.Nanosecond, 10 * time.Nanosecond, 100 * time.Nanosecond, 1 * time.Microsecond, 10 * time.Microsecond} {
 		shouldFail := lowTimeout < 500*time.Nanosecond
+
 		t.Run("Timeout"+lowTimeout.String(), func(t *testing.T) {
-			t.Run("LowTimeout", func(t *testing.T) {
-				cluster := createCluster()
+			for _, tcase := range []struct {
+				name       string
+				getCluster func() *ClusterConfig
+			}{
+				{
+					name: "LowTimeout",
+					getCluster: func() *ClusterConfig {
+						cluster := createCluster()
+						cluster.Timeout = lowTimeout
+						return cluster
+					},
+				},
+				{
+					name: "LowWriteTimeout",
+					getCluster: func() *ClusterConfig {
+						cluster := createCluster()
+						cluster.WriteTimeout = lowTimeout
+						return cluster
+					},
+				},
+				{
+					name: "LowBothTimeouts",
+					getCluster: func() *ClusterConfig {
+						cluster := createCluster()
+						cluster.Timeout = lowTimeout
+						return cluster
+					},
+				},
+			} {
+				t.Run(tcase.name, func(t *testing.T) {
+					s, err := tcase.getCluster().CreateSession()
+					if err != nil {
+						t.Fatal("failed to create session", err.Error())
+					}
+					defer s.Close()
 
-				cluster.Timeout = lowTimeout
+					t.Run("Regular Query", func(t *testing.T) {
+						err = s.Query("SELECT key FROM system.local WHERE key='local'").Exec()
+						if shouldFail && err == nil {
+							t.Fatal("expected query to fail on low timeout")
+						}
+					})
 
-				s, err := cluster.CreateSession()
-				if shouldFail && err == nil {
-					t.Fatal("expected session to not connect to low timeout")
-				}
-				if s != nil {
-					s.Close()
-				}
-			})
+					t.Run("Query from control connection", func(t *testing.T) {
+						err = s.control.query("SELECT key FROM system.local WHERE key='local'").err
+						if shouldFail && err == nil {
+							t.Fatal("expected query to fail on low timeout")
+						}
+					})
 
-			t.Run("LowWriteTimeout", func(t *testing.T) {
-				cluster := createCluster()
-
-				cluster.WriteTimeout = lowTimeout
-
-				s, err := cluster.CreateSession()
-				if shouldFail && err == nil {
-					t.Fatal("expected session to not connect to low timeout")
-				}
-				if s != nil {
-					s.Close()
-				}
-			})
-
-			t.Run("BothTimeoutsLow", func(t *testing.T) {
-				cluster := createCluster()
-
-				cluster.Timeout = lowTimeout
-				cluster.WriteTimeout = lowTimeout
-
-				s, err := cluster.CreateSession()
-				if shouldFail && err == nil {
-					t.Fatal("expected session to not connect to low timeout")
-				}
-				if s != nil {
-					s.Close()
-				}
-			})
+					t.Run("Query from control connection after reconnect", func(t *testing.T) {
+						t.Skip("Enable it when https://github.com/scylladb/gocql/issues/528 is fixed")
+						err = s.control.reconnect()
+						if err != nil {
+							t.Fatalf("failed to reconnect to control connection: %v", err)
+						}
+						err = s.control.query("SELECT key FROM system.local WHERE key='local'").err
+						if shouldFail && err == nil {
+							t.Fatal("expected query to fail on low timeout")
+						}
+					})
+				})
+			}
 		})
 	}
 }

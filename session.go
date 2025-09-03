@@ -335,6 +335,7 @@ func (s *Session) init() error {
 
 		newer, _ := checkSystemSchema(s.control)
 		s.useSystemSchema = newer
+		defer conn.finalizeConnection()
 	}
 
 	if partitioner != "" {

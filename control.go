@@ -66,6 +66,7 @@ type controlConnection interface {
 	connect(hosts []*HostInfo) error
 	close()
 	getSession() *Session
+	reconnect() error
 }
 
 // Ensure that the atomic variable is aligned to a 64bit boundary
@@ -246,6 +247,7 @@ func (c *controlConn) discoverProtocol(hosts []*HostInfo) (int, error) {
 	for _, host := range hosts {
 		var conn *Conn
 		conn, err = c.session.dial(c.session.ctx, host, &connCfg, handler)
+		// not need to call conn.finalizeConnection since this connection to be terminated right away
 		if conn != nil {
 			conn.Close()
 		}
@@ -278,6 +280,7 @@ func (c *controlConn) connect(hosts []*HostInfo) error {
 	var err error
 	for _, host := range hosts {
 		conn, err = c.session.dial(c.session.ctx, host, &cfg, c)
+		// conn.finalizeConnection() to be called outside of this function, since initialization process is not completed yet
 		if err != nil {
 			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
 			continue
@@ -382,19 +385,20 @@ func (c *controlConn) registerEvents(conn *Conn) error {
 	return nil
 }
 
-func (c *controlConn) reconnect() {
+func (c *controlConn) reconnect() error {
 	if atomic.LoadInt32(&c.state) == controlConnClosing {
-		return
+		return fmt.Errorf("control connection is closing")
 	}
 	if !atomic.CompareAndSwapInt32(&c.reconnecting, 0, 1) {
-		return
+		return fmt.Errorf("control connection is reconnecting")
 	}
 	defer atomic.StoreInt32(&c.reconnecting, 0)
 
 	err := c.attemptReconnect()
 	if err != nil {
-		c.session.logger.Printf("gocql: unable to reconnect control connection: %v\n", err)
-		return
+		err = fmt.Errorf("gocql: unable to reconnect control connection: %w\n", err)
+		c.session.logger.Printf(err.Error())
+		return err
 	}
 
 	err = c.session.refreshRingNow()
@@ -406,6 +410,7 @@ func (c *controlConn) reconnect() {
 	if err != nil {
 		c.session.logger.Printf("gocql: unable to refresh the schema: %v\n", err)
 	}
+	return nil
 }
 
 func (c *controlConn) attemptReconnect() error {
@@ -458,6 +463,7 @@ func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) error {
 			conn.Close()
 			continue
 		}
+		conn.finalizeConnection()
 		return nil
 	}
 	return fmt.Errorf("unable to connect to any known node: %v", hosts)

@@ -583,6 +583,10 @@ func (cfg *ClusterConfig) Validate() error {
 		return fmt.Errorf("DNSResolver is empty")
 	}
 
+	if cfg.WriteTimeout == 0 {
+		cfg.WriteTimeout = cfg.Timeout
+	}
+
 	return cfg.ValidateAndInitSSL()
 }
 
