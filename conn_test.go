@@ -735,6 +735,7 @@ func TestStream0(t *testing.T) {
 		r:       bufio.NewReader(&buf),
 		streams: streams.New(),
 		logger:  &defaultLogger{},
+		cfg:     &ConnConfig{},
 	}
 
 	err := conn.recv(context.Background())

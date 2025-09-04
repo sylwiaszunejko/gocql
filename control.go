@@ -62,6 +62,7 @@ type controlConnection interface {
 	getConn() *connHost
 	awaitSchemaAgreement() error
 	query(statement string, values ...interface{}) (iter *Iter)
+	querySystem(statement string, values ...interface{}) (iter *Iter)
 	discoverProtocol(hosts []*HostInfo) (int, error)
 	connect(hosts []*HostInfo) error
 	close()
@@ -370,7 +371,7 @@ func (c *controlConn) registerEvents(conn *Conn) error {
 	framer, err := conn.exec(context.Background(),
 		&writeRegisterFrame{
 			events: events,
-		}, nil, c.session.cfg.ConnectTimeout)
+		}, nil, conn.cfg.ConnectTimeout)
 	if err != nil {
 		return err
 	}
@@ -504,20 +505,33 @@ func (c *controlConn) writeFrame(w frameBuilder) (frame, error) {
 }
 
 // query will return nil if the connection is closed or nil
-func (c *controlConn) query(statement string, values ...interface{}) (iter *Iter) {
-	q := c.session.Query(statement, values...).Consistency(One).RoutingKey([]byte{}).Trace(nil)
+func (c *controlConn) querySystem(statement string, values ...interface{}) (iter *Iter) {
+	conn := c.getConn().conn.(*Conn)
+	return c.runQuery(c.session.Query(statement+conn.usingTimeoutClause, values...).
+		Consistency(One).
+		SetRequestTimeout(conn.systemRequestTimeout).
+		RoutingKey([]byte{}).
+		Trace(nil))
+}
 
+// query will return nil if the connection is closed or nil
+func (c *controlConn) query(statement string, values ...interface{}) (iter *Iter) {
+	return c.runQuery(c.session.Query(statement, values...).Consistency(One).RoutingKey([]byte{}).Trace(nil))
+}
+
+// query will return nil if the connection is closed or nil
+func (c *controlConn) runQuery(qry *Query) (iter *Iter) {
 	for {
 		ch := c.getConn()
-		q.conn = ch.conn.(*Conn)
-		iter = ch.conn.executeQuery(context.TODO(), q)
+		qry.conn = ch.conn
+		iter = ch.conn.executeQuery(context.TODO(), qry)
 
 		if gocqlDebug && iter.err != nil {
-			c.session.logger.Printf("control: error executing %q: %v\n", statement, iter.err)
+			c.session.logger.Printf("control: error executing %q: %v\n", qry.stmt, iter.err)
 		}
 
-		q.AddAttempts(1, c.getConn().host)
-		if iter.err == nil || !c.retry.Attempt(q) {
+		qry.AddAttempts(1, ch.host)
+		if iter.err == nil || !c.retry.Attempt(qry) {
 			break
 		}
 	}

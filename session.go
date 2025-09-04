@@ -31,7 +31,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -107,8 +106,7 @@ type Session struct {
 
 	tabletsRoutingV1 bool
 
-	usingTimeoutClause string
-	warningHandler     WarningHandler
+	warningHandler WarningHandler
 }
 
 var queryPool = &sync.Pool{
@@ -309,9 +307,6 @@ func (s *Session) init() error {
 		conn := s.control.getConn().conn.(*Conn)
 		conn.mu.Lock()
 		s.tabletsRoutingV1 = conn.isTabletSupported()
-		if s.cfg.MetadataSchemaRequestTimeout > time.Duration(0) && conn.isScyllaConn() {
-			s.usingTimeoutClause = " USING TIMEOUT " + strconv.FormatInt(int64(s.cfg.MetadataSchemaRequestTimeout.Milliseconds()), 10) + "ms"
-		}
 		conn.mu.Unlock()
 
 		s.hostSource.setControlConn(s.control)
@@ -1527,8 +1522,9 @@ func (b *Query) GetRequestTimeout() time.Duration {
 
 // SetRequestTimeout sets time driver waits for server to respond
 // This timeout is applied to preparing statement request and for query execution requests
-func (b *Query) SetRequestTimeout(timeout time.Duration) {
+func (b *Query) SetRequestTimeout(timeout time.Duration) *Query {
 	b.requestTimeout = timeout
+	return b
 }
 
 func isUseStatement(stmt string) bool {
@@ -2316,8 +2312,9 @@ func (b *Batch) GetRequestTimeout() time.Duration {
 
 // SetRequestTimeout sets time driver waits for single server response
 // This timeout is applied to preparing statement request and for query execution requests
-func (b *Batch) SetRequestTimeout(timeout time.Duration) {
+func (b *Batch) SetRequestTimeout(timeout time.Duration) *Batch {
 	b.requestTimeout = timeout
+	return b
 }
 
 func createRoutingKey(routingKeyInfo *routingKeyInfo, values []interface{}) ([]byte, error) {

@@ -110,6 +110,7 @@ type ClusterConfig struct {
 
 	// ReadTimeout limits the time the driver waits for data from the connection.
 	// It has only one purpose, identify faulty connection early and drop it.
+	// Default: 11 Seconds
 	ReadTimeout time.Duration
 
 	// Port used when dialing.
@@ -412,6 +413,8 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		CQLVersion:                   "3.0.0",
 		Timeout:                      11 * time.Second,
 		ConnectTimeout:               11 * time.Second,
+		ReadTimeout:                  11 * time.Second,
+		WriteTimeout:                 11 * time.Second,
 		Port:                         9042,
 		NumConns:                     2,
 		Consistency:                  Quorum,
@@ -590,10 +593,6 @@ func (cfg *ClusterConfig) Validate() error {
 
 	if cfg.DNSResolver == nil {
 		return fmt.Errorf("DNSResolver is empty")
-	}
-
-	if cfg.WriteTimeout == 0 {
-		cfg.WriteTimeout = cfg.Timeout
 	}
 
 	return cfg.ValidateAndInitSSL()

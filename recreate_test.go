@@ -158,7 +158,7 @@ func TestRecreateSchema(t *testing.T) {
 			dumpQueries := trimQueries(sortQueries(strings.Split(dump, ";")))
 
 			if len(goldenQueries) != len(dumpQueries) {
-				t.Errorf("Expected len(dumpQueries) to be %d, got %d", len(goldenQueries), len(dumpQueries))
+				t.Fatalf("Expected len(dumpQueries) to be %d, got %d", len(goldenQueries), len(dumpQueries))
 			}
 			// Compare with golden
 			for i, dq := range dumpQueries {

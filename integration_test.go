@@ -31,6 +31,7 @@ package gocql
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -384,99 +385,177 @@ func TestSessionAwaitSchemaAgreementContextCanceled(t *testing.T) {
 func TestNewConnectWithLowTimeout(t *testing.T) {
 	// Point of these tests to make sure that with low timeout connection creation will gracefully fail
 
-	for _, lowTimeout := range []time.Duration{1 * time.Nanosecond, 10 * time.Nanosecond, 100 * time.Nanosecond, 1 * time.Microsecond, 10 * time.Microsecond} {
-		shouldFail := lowTimeout < 500*time.Nanosecond
+	type TestExpectation int
+	const (
+		DontRun TestExpectation = iota
+		Fail    TestExpectation = iota
+		Pass    TestExpectation = iota
+		CanPass TestExpectation = iota
+	)
 
-		t.Run("Timeout"+lowTimeout.String(), func(t *testing.T) {
+	match := func(t *testing.T, e TestExpectation, result error) {
+		t.Helper()
+
+		switch e {
+		case DontRun:
+			t.Fatal("should not be run")
+		case Fail:
+			if result == nil {
+				t.Fatal("should return an error")
+			}
+		case Pass:
+			if result != nil {
+				t.Fatalf("should pass, but returned an error: %s", result.Error())
+			}
+		case CanPass:
+			if result == nil {
+				t.Log("test passed due to high timeout")
+			}
+		default:
+			panic(fmt.Sprintf("unknown test expectation: %v", e))
+		}
+	}
+
+	for _, lowTimeout := range []time.Duration{1 * time.Nanosecond, 10 * time.Nanosecond, 100 * time.Nanosecond, 1 * time.Microsecond, 10 * time.Microsecond} {
+		canPassOnHighTimeout := Fail
+		if lowTimeout >= 100*time.Nanosecond {
+			canPassOnHighTimeout = CanPass
+		}
+
+		t.Run(lowTimeout.String(), func(t *testing.T) {
 			for _, tcase := range []struct {
-				name                           string
-				getCluster                     func() *ClusterConfig
-				regularQueryFail               bool
-				controlQueryFail               bool
-				controlQueryAfterReconnectFail bool
+				name                       string
+				getCluster                 func() *ClusterConfig
+				connect                    TestExpectation
+				regularQuery               TestExpectation
+				controlQuery               TestExpectation
+				controlQueryAfterReconnect TestExpectation
 			}{
 				{
-					name: "LowTimeout",
+					name: "Timeout",
 					getCluster: func() *ClusterConfig {
 						cluster := createCluster()
 						cluster.Timeout = lowTimeout
 						return cluster
 					},
-					regularQueryFail:               shouldFail,
-					controlQueryFail:               shouldFail,
-					controlQueryAfterReconnectFail: shouldFail,
+					connect:                    Pass,
+					regularQuery:               Fail,
+					controlQuery:               Pass,
+					controlQueryAfterReconnect: Pass,
 				},
 				{
-					name: "LowWriteTimeout",
+					name: "MetadataSchemaRequestTimeout",
+					getCluster: func() *ClusterConfig {
+						cluster := createCluster()
+						cluster.MetadataSchemaRequestTimeout = lowTimeout
+						return cluster
+					},
+					connect:      Pass,
+					regularQuery: Pass,
+					controlQuery: Fail,
+					// It breaks control connection, then it can start reconnecting in any moment
+					// As result test is not stable
+					controlQueryAfterReconnect: Fail,
+				},
+				{
+					name: "WriteTimeout",
 					getCluster: func() *ClusterConfig {
 						cluster := createCluster()
 						cluster.WriteTimeout = lowTimeout
 						return cluster
 					},
-					regularQueryFail:               shouldFail,
-					controlQueryFail:               shouldFail,
-					controlQueryAfterReconnectFail: shouldFail,
+					connect:      Pass,
+					regularQuery: canPassOnHighTimeout,
+					controlQuery: canPassOnHighTimeout,
+					// It breaks control connection, then it can start reconnecting in any moment
+					// As result test is not stable
+					controlQueryAfterReconnect: canPassOnHighTimeout,
 				},
 				{
-					name: "LowReadTimeout",
+					name: "ReadTimeout",
 					getCluster: func() *ClusterConfig {
 						cluster := createCluster()
 						cluster.ReadTimeout = lowTimeout
 						return cluster
 					},
+					connect: Pass,
 					// When data is available immediately reading from socket is not failing,
 					// despite that deadline is in the past
-					regularQueryFail:               false,
-					controlQueryFail:               false,
-					controlQueryAfterReconnectFail: false,
+					// Because of that even with low read timeout it can pass
+					regularQuery: CanPass,
+					controlQuery: CanPass,
+					// It breaks control connection, then it can start reconnecting in any moment
+					// As result test is not stable
+					controlQueryAfterReconnect: CanPass,
 				},
 				{
-					name: "AllTimeoutsLow",
+					name: "AllTimeouts",
 					getCluster: func() *ClusterConfig {
 						cluster := createCluster()
 						cluster.Timeout = lowTimeout
 						cluster.ReadTimeout = lowTimeout
 						cluster.WriteTimeout = lowTimeout
+						cluster.MetadataSchemaRequestTimeout = lowTimeout
 						return cluster
 					},
-					regularQueryFail:               shouldFail,
-					controlQueryFail:               shouldFail,
-					controlQueryAfterReconnectFail: shouldFail,
+					connect:                    Pass,
+					regularQuery:               canPassOnHighTimeout,
+					controlQuery:               canPassOnHighTimeout,
+					controlQueryAfterReconnect: canPassOnHighTimeout,
 				},
 			} {
 				t.Run(tcase.name, func(t *testing.T) {
-					s, err := tcase.getCluster().CreateSession()
-					if err != nil {
-						t.Fatal("failed to create session", err.Error())
-					}
-					defer s.Close()
+					var (
+						s   *Session
+						err error
+					)
 
-					t.Run("Regular Query", func(t *testing.T) {
-						err = s.Query("SELECT key FROM system.local WHERE key='local'").Exec()
-						//time.Sleep(100000 * time.Second)
-						if tcase.regularQueryFail && err == nil {
-							t.Fatal("expected query to fail on low timeout")
-						}
-					})
-
-					t.Run("Query from control connection", func(t *testing.T) {
-						err = s.control.query("SELECT key FROM system.local WHERE key='local'").err
-						if tcase.controlQueryFail && err == nil {
-							t.Fatal("expected query to fail on low timeout")
-						}
-					})
-
-					t.Run("Query from control connection after reconnect", func(t *testing.T) {
-						t.Skip("Enable it when https://github.com/scylladb/gocql/issues/528 is fixed")
-						err = s.control.reconnect()
+					t.Run("Connect", func(t *testing.T) {
+						s, err = tcase.getCluster().CreateSession()
+						match(t, tcase.connect, err)
 						if err != nil {
-							t.Fatalf("failed to reconnect to control connection: %v", err)
-						}
-						err = s.control.query("SELECT key FROM system.local WHERE key='local'").err
-						if tcase.controlQueryAfterReconnectFail && err == nil {
-							t.Fatal("expected query to fail on low timeout")
+							t.Fatal("failed to create session", err.Error())
 						}
 					})
+					if s != nil {
+						defer s.Close()
+					} else {
+						if tcase.connect == Fail {
+							t.FailNow()
+						} else {
+							t.Fatal("session was not created")
+						}
+					}
+
+					if tcase.regularQuery != DontRun {
+						t.Run("Regular Query", func(t *testing.T) {
+							err = s.Query("SELECT key FROM system.local WHERE key='local'").Exec()
+							match(t, tcase.regularQuery, err)
+						})
+					}
+
+					if tcase.controlQuery != DontRun {
+						t.Run("Query from control connection", func(t *testing.T) {
+							err = s.control.querySystem("SELECT key FROM system.local WHERE key='local'").err
+							match(t, tcase.controlQuery, err)
+						})
+					}
+
+					if tcase.controlQueryAfterReconnect != DontRun {
+						t.Run("Query from control connection after reconnect", func(t *testing.T) {
+							s, err = tcase.getCluster().CreateSession()
+							if err != nil {
+								t.Fatal("failed to create session", err.Error())
+							}
+							defer s.Close()
+							err = s.control.reconnect()
+							if err != nil {
+								t.Fatalf("failed to reconnect to control connection: %v", err)
+							}
+							err = s.control.querySystem("SELECT key FROM system.local WHERE key='local'").err
+							match(t, tcase.controlQueryAfterReconnect, err)
+						})
+					}
 				})
 			}
 		})
