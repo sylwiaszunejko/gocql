@@ -370,7 +370,7 @@ func (c *controlConn) registerEvents(conn *Conn) error {
 	framer, err := conn.exec(context.Background(),
 		&writeRegisterFrame{
 			events: events,
-		}, nil)
+		}, nil, c.session.cfg.ConnectTimeout)
 	if err != nil {
 		return err
 	}
@@ -495,7 +495,7 @@ func (c *controlConn) writeFrame(w frameBuilder) (frame, error) {
 		return nil, errNoControl
 	}
 
-	framer, err := ch.conn.exec(context.Background(), w, nil)
+	framer, err := ch.conn.exec(context.Background(), w, nil, c.session.cfg.MetadataSchemaRequestTimeout)
 	if err != nil {
 		return nil, err
 	}

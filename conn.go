@@ -142,7 +142,6 @@ type SslOptions struct {
 type ConnConfig struct {
 	ProtoVersion   int
 	CQLVersion     string
-	Timeout        time.Duration
 	WriteTimeout   time.Duration
 	ReadTimeout    time.Duration
 	ConnectTimeout time.Duration
@@ -177,13 +176,12 @@ func (fn connErrorHandlerFn) HandleError(conn *Conn, err error, closed bool) {
 
 type ConnInterface interface {
 	Close()
-	exec(ctx context.Context, req frameBuilder, tracer Tracer) (*framer, error)
+	exec(ctx context.Context, req frameBuilder, tracer Tracer, requestTimeout time.Duration) (*framer, error)
 	awaitSchemaAgreement(ctx context.Context) error
 	executeQuery(ctx context.Context, qry *Query) *Iter
-	querySystem(ctx context.Context, query string) *Iter
+	querySystem(ctx context.Context, query string, values ...interface{}) *Iter
 	getIsSchemaV2() bool
 	setSchemaV2(s bool)
-	query(ctx context.Context, statement string, values ...interface{}) (iter *Iter)
 	getScyllaSupported() scyllaSupported
 }
 
@@ -195,7 +193,6 @@ type Conn struct {
 	r    *bufio.Reader
 	w    contextWriter
 
-	timeout        time.Duration
 	readTimeout    time.Duration
 	writeTimeout   time.Duration
 	cfg            *ConnConfig
@@ -253,7 +250,6 @@ func (c *Conn) finalizeConnection() {
 	c.writeTimeout = c.cfg.WriteTimeout
 	c.readTimeout = c.cfg.ReadTimeout
 	c.w.setFinalWriteTimeout(c.cfg.WriteTimeout)
-	c.timeout = c.cfg.Timeout
 }
 
 func (c *Conn) getScyllaSupported() scyllaSupported {
@@ -352,7 +348,6 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 		streamObserver: s.streamObserver,
 		writeTimeout:   cfg.ConnectTimeout,
 		readTimeout:    cfg.ConnectTimeout,
-		timeout:        cfg.ConnectTimeout,
 	}
 
 	if err := c.init(ctx, dialedHost); err != nil {
@@ -443,8 +438,8 @@ type startupCoordinator struct {
 
 func (s *startupCoordinator) setupConn(ctx context.Context) error {
 	var cancel context.CancelFunc
-	if s.conn.timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, s.conn.timeout)
+	if s.conn.cfg.ConnectTimeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, s.conn.cfg.ConnectTimeout)
 	} else {
 		ctx, cancel = context.WithCancel(ctx)
 	}
@@ -493,7 +488,7 @@ func (s *startupCoordinator) write(ctx context.Context, frame frameBuilder) (fra
 		return nil, ctx.Err()
 	}
 
-	framer, err := s.conn.exec(ctx, frame, nil)
+	framer, err := s.conn.exec(ctx, frame, nil, s.conn.cfg.ConnectTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -733,7 +728,7 @@ func (c *Conn) heartBeat(ctx context.Context) {
 		case <-timer.C:
 		}
 
-		framer, err := c.exec(context.Background(), &writeOptionsFrame{}, nil)
+		framer, err := c.exec(context.Background(), &writeOptionsFrame{}, nil, c.cfg.ConnectTimeout)
 		if err != nil {
 			failures++
 			continue
@@ -764,7 +759,7 @@ func (c *Conn) recv(ctx context.Context) error {
 
 	// read a full header, ignore timeouts, as this is being ran in a loop
 	// TODO: TCP level deadlines? or just query level deadlines?
-	if c.timeout > 0 {
+	if c.cfg.ReadTimeout > 0 {
 		c.conn.SetReadDeadline(time.Time{})
 	}
 
@@ -1138,7 +1133,7 @@ func (c *Conn) addCall(call *callReq) error {
 	return nil
 }
 
-func (c *Conn) exec(ctx context.Context, req frameBuilder, tracer Tracer) (*framer, error) {
+func (c *Conn) exec(ctx context.Context, req frameBuilder, tracer Tracer, requestTimeout time.Duration) (*framer, error) {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return nil, &QueryError{err: ctxErr, potentiallyExecuted: false}
 	}
@@ -1228,7 +1223,7 @@ func (c *Conn) exec(ctx context.Context, req frameBuilder, tracer Tracer) (*fram
 	}
 
 	var timeoutCh <-chan time.Time
-	if c.timeout > 0 {
+	if requestTimeout > 0 {
 		if call.timer == nil {
 			call.timer = time.NewTimer(0)
 			<-call.timer.C
@@ -1241,7 +1236,7 @@ func (c *Conn) exec(ctx context.Context, req frameBuilder, tracer Tracer) (*fram
 			}
 		}
 
-		call.timer.Reset(c.timeout)
+		call.timer.Reset(requestTimeout)
 		timeoutCh = call.timer.C
 	}
 
@@ -1348,7 +1343,7 @@ type inflightPrepare struct {
 	preparedStatment *preparedStatment
 }
 
-func (c *Conn) prepareStatement(ctx context.Context, stmt string, tracer Tracer) (*preparedStatment, error) {
+func (c *Conn) prepareStatement(ctx context.Context, stmt string, tracer Tracer, requestTimeout time.Duration) (*preparedStatment, error) {
 	stmtCacheKey := c.session.stmtsLRU.keyFor(c.host.HostID(), c.currentKeyspace, stmt)
 	flight, ok := c.session.stmtsLRU.execIfMissing(stmtCacheKey, func(lru *lru.Cache) *inflightPrepare {
 		flight := &inflightPrepare{
@@ -1372,7 +1367,7 @@ func (c *Conn) prepareStatement(ctx context.Context, stmt string, tracer Tracer)
 			// we won the race to do the load, if our context is canceled we shouldnt
 			// stop the load as other callers are waiting for it but this caller should get
 			// their context cancelled error.
-			framer, err := c.exec(c.ctx, prep, tracer)
+			framer, err := c.exec(c.ctx, prep, tracer, requestTimeout)
 			if err != nil {
 				flight.err = err
 				c.session.stmtsLRU.remove(stmtCacheKey)
@@ -1480,7 +1475,7 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 	if !qry.skipPrepare && qry.shouldPrepare() {
 		// Prepare all DML queries. Other queries can not be prepared.
 		var err error
-		info, err = c.prepareStatement(ctx, qry.stmt, qry.trace)
+		info, err = c.prepareStatement(ctx, qry.stmt, qry.trace, qry.GetRequestTimeout())
 		if err != nil {
 			return &Iter{err: err}
 		}
@@ -1536,7 +1531,7 @@ func (c *Conn) executeQuery(ctx context.Context, qry *Query) (iter *Iter) {
 		}
 	}
 
-	framer, err := c.exec(ctx, frame, qry.trace)
+	framer, err := c.exec(ctx, frame, qry.trace, qry.GetRequestTimeout())
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -1669,7 +1664,7 @@ func (c *Conn) UseKeyspace(keyspace string) error {
 	q := &writeQueryFrame{statement: `USE "` + keyspace + `"`}
 	q.params.consistency = c.session.cons
 
-	framer, err := c.exec(c.ctx, q, nil)
+	framer, err := c.exec(c.ctx, q, nil, c.cfg.ConnectTimeout)
 	if err != nil {
 		return err
 	}
@@ -1723,7 +1718,7 @@ func (c *Conn) executeBatch(ctx context.Context, batch *Batch) (iter *Iter) {
 		b := &req.statements[i]
 
 		if len(entry.Args) > 0 || entry.binding != nil {
-			info, err := c.prepareStatement(batch.Context(), entry.Stmt, batch.trace)
+			info, err := c.prepareStatement(batch.Context(), entry.Stmt, batch.trace, batch.GetRequestTimeout())
 			if err != nil {
 				return &Iter{err: err}
 			}
@@ -1776,7 +1771,7 @@ func (c *Conn) executeBatch(ctx context.Context, batch *Batch) (iter *Iter) {
 	batch.routingInfo.mu.Unlock()
 
 	// TODO: should batch support tracing?
-	framer, err := c.exec(batch.Context(), req, batch.trace)
+	framer, err := c.exec(batch.Context(), req, batch.trace, batch.GetRequestTimeout())
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -1815,22 +1810,18 @@ func (c *Conn) executeBatch(ctx context.Context, batch *Batch) (iter *Iter) {
 	}
 }
 
-func (c *Conn) query(ctx context.Context, statement string, values ...interface{}) (iter *Iter) {
-	q := c.session.Query(statement, values...).Consistency(One).Trace(nil)
-	q.skipPrepare = true
-	q.disableSkipMetadata = true
-	// we want to keep the query on this connection
-	q.conn = c
-	return c.executeQuery(ctx, q)
-}
-
-func (c *Conn) querySystem(ctx context.Context, query string) *Iter {
+func (c *Conn) querySystem(ctx context.Context, query string, values ...interface{}) *Iter {
 	usingClause := ""
 	if c.session.control != nil {
 		usingClause = c.session.usingTimeoutClause
 	}
-	queryStmt := query + usingClause
-	return c.query(ctx, queryStmt)
+	q := c.session.Query(query+usingClause, values...).Consistency(One).Trace(nil)
+	q.skipPrepare = true
+	q.disableSkipMetadata = true
+	// we want to keep the query on this connection
+	q.conn = c
+	q.SetRequestTimeout(c.session.cfg.MetadataSchemaRequestTimeout)
+	return c.executeQuery(ctx, q)
 }
 
 const qrySystemPeers = "SELECT * FROM system.peers"

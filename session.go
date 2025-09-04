@@ -552,6 +552,7 @@ func (s *Session) Query(stmt string, values ...interface{}) *Query {
 	qry.hostID = ""
 	qry.defaultsFromSession()
 	qry.routingInfo.lwt = false
+	qry.SetRequestTimeout(s.cfg.Timeout)
 	return qry
 }
 
@@ -575,6 +576,7 @@ func (s *Session) Bind(stmt string, b func(q *QueryInfo) ([]interface{}, error))
 	qry.binding = b
 	qry.defaultsFromSession()
 	qry.routingInfo.lwt = false
+	qry.SetRequestTimeout(s.cfg.Timeout)
 	return qry
 }
 
@@ -726,7 +728,7 @@ func (s *Session) findTabletReplicasForToken(keyspace, table string, token int64
 }
 
 // returns routing key indexes and type info
-func (s *Session) routingKeyInfo(ctx context.Context, stmt string) (*routingKeyInfo, error) {
+func (s *Session) routingKeyInfo(ctx context.Context, stmt string, requestTimeout time.Duration) (*routingKeyInfo, error) {
 	s.routingKeyInfoCache.mu.Lock()
 
 	entry, cached := s.routingKeyInfoCache.lru.Get(stmt)
@@ -769,7 +771,7 @@ func (s *Session) routingKeyInfo(ctx context.Context, stmt string) (*routingKeyI
 	}
 
 	// get the query info for the statement
-	info, inflight.err = conn.prepareStatement(ctx, stmt, nil)
+	info, inflight.err = conn.prepareStatement(ctx, stmt, nil, requestTimeout)
 	if inflight.err != nil {
 		// don't cache this error
 		s.routingKeyInfoCache.Remove(stmt)
@@ -1117,6 +1119,9 @@ type Query struct {
 	// hostID specifies the host on which the query should be executed.
 	// If it is empty, then the host is picked by HostSelectionPolicy
 	hostID string
+
+	// Timeout on waiting for response from server
+	requestTimeout time.Duration
 }
 
 type queryRoutingInfo struct {
@@ -1379,7 +1384,7 @@ func (q *Query) GetRoutingKey() ([]byte, error) {
 	}
 
 	// try to determine the routing key
-	routingKeyInfo, err := q.session.routingKeyInfo(q.Context(), q.stmt)
+	routingKeyInfo, err := q.session.routingKeyInfo(q.Context(), q.stmt, q.requestTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -1512,6 +1517,18 @@ func (q *Query) NoSkipMetadata() *Query {
 // Exec executes the query without returning any rows.
 func (q *Query) Exec() error {
 	return q.Iter().Close()
+}
+
+// GetRequestTimeout returns time driver waits for single server response
+// This timeout is applied to preparing statement request and for query execution requests
+func (b *Query) GetRequestTimeout() time.Duration {
+	return b.requestTimeout
+}
+
+// SetRequestTimeout sets time driver waits for server to respond
+// This timeout is applied to preparing statement request and for query execution requests
+func (b *Query) SetRequestTimeout(timeout time.Duration) {
+	b.requestTimeout = timeout
 }
 
 func isUseStatement(stmt string) bool {
@@ -2013,6 +2030,9 @@ type Batch struct {
 	// hostID specifies the host on which the query should be executed.
 	// If it is empty, then the host is picked by HostSelectionPolicy
 	hostID string
+
+	// Timeout on waiting for response from server
+	requestTimeout time.Duration
 }
 
 // NewBatch creates a new batch operation using defaults defined in the cluster
@@ -2045,6 +2065,7 @@ func (s *Session) Batch(typ BatchType) *Batch {
 		metrics:          &queryMetrics{m: make(map[string]*hostMetrics)},
 		spec:             &NonSpeculativeExecution{},
 		routingInfo:      &queryRoutingInfo{},
+		requestTimeout:   s.cfg.Timeout,
 	}
 
 	s.mu.RUnlock()
@@ -2273,7 +2294,7 @@ func (b *Batch) GetRoutingKey() ([]byte, error) {
 		return nil, nil
 	}
 	// try to determine the routing key
-	routingKeyInfo, err := b.session.routingKeyInfo(b.Context(), entry.Stmt)
+	routingKeyInfo, err := b.session.routingKeyInfo(b.Context(), entry.Stmt, b.GetRequestTimeout())
 	if err != nil {
 		return nil, err
 	}
@@ -2285,6 +2306,18 @@ func (b *Batch) GetRoutingKey() ([]byte, error) {
 	}
 
 	return createRoutingKey(routingKeyInfo, entry.Args)
+}
+
+// GetRequestTimeout returns time driver waits for single server response
+// This timeout is applied to preparing statement request and for query execution requests
+func (b *Batch) GetRequestTimeout() time.Duration {
+	return b.requestTimeout
+}
+
+// SetRequestTimeout sets time driver waits for single server response
+// This timeout is applied to preparing statement request and for query execution requests
+func (b *Batch) SetRequestTimeout(timeout time.Duration) {
+	b.requestTimeout = timeout
 }
 
 func createRoutingKey(routingKeyInfo *routingKeyInfo, values []interface{}) ([]byte, error) {
