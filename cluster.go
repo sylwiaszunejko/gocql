@@ -79,13 +79,19 @@ type ClusterConfig struct {
 	// versions the protocol selected is not defined (ie, it can be any of the supported in the cluster)
 	ProtoVersion int
 
-	// Timeout limits the time spent on the client side while executing a query.
-	// Specifically, query or batch execution will return an error if the client does not receive a response
-	// from the server within the Timeout period.
-	// Client Timeout should always be higher than the request timeouts configured on the server,
-	// so that retries don't overload the server.
-	// Timeout has a default value of 11 seconds, which is higher than default server timeout for most query types.
-	// Timeout is not applied to requests during initial connection setup, see ConnectTimeout.
+	// Timeout defines the maximum time to wait for a single server response.
+	// The default is 11 seconds, which is slightly higher than the default
+	// server-side timeout for most query types.
+	//
+	// When a session creates a Query or Batch, it inherits this timeout as
+	// the request timeout.
+	//
+	// Important notes:
+	// 1. This value should be greater than the server timeout for all queries
+	//    you execute. Otherwise, you risk creating retry storms: the server
+	//    may still be processing the request while the client times out and retries.
+	// 2. This timeout does not apply during initial connection setup.
+	//    For that, see ConnectTimeout.
 	Timeout time.Duration
 
 	// ConnectTimeout limits the time spent during connection setup.
