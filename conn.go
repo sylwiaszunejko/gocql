@@ -868,12 +868,6 @@ func (c *Conn) releaseStream(call *callReq) {
 	}
 }
 
-func (c *Conn) handleTimeout() {
-	if atomic.AddInt64(&c.timeouts, 1) > 0 {
-		c.closeWithError(ErrTooManyTimeouts)
-	}
-}
-
 type callReq struct {
 	// resp will receive the frame that was sent as a response to this stream.
 	resp     chan callResp
@@ -1273,7 +1267,6 @@ func (c *Conn) exec(ctx context.Context, req frameBuilder, tracer Tracer, reques
 		return resp.framer, nil
 	case <-timeoutCh:
 		close(call.timeout)
-		c.handleTimeout()
 		return nil, &QueryError{err: ErrTimeoutNoResponse, potentiallyExecuted: true}
 	case <-ctxDone:
 		close(call.timeout)
