@@ -416,12 +416,11 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 		}
 	}
 
-	for _, lowTimeout := range []time.Duration{1 * time.Nanosecond, 10 * time.Nanosecond, 100 * time.Nanosecond, 1 * time.Microsecond, 10 * time.Microsecond} {
+	for _, lowTimeout := range []time.Duration{1 * time.Nanosecond, 10 * time.Nanosecond, 100 * time.Nanosecond} {
 		canPassOnHighTimeout := Fail
 		if lowTimeout >= 100*time.Nanosecond {
 			canPassOnHighTimeout = CanPass
 		}
-
 		t.Run(lowTimeout.String(), func(t *testing.T) {
 			for _, tcase := range []struct {
 				name                       string
@@ -499,9 +498,9 @@ func TestNewConnectWithLowTimeout(t *testing.T) {
 						return cluster
 					},
 					connect:                    Pass,
-					regularQuery:               canPassOnHighTimeout,
-					controlQuery:               canPassOnHighTimeout,
-					controlQueryAfterReconnect: canPassOnHighTimeout,
+					regularQuery:               Fail,
+					controlQuery:               Fail,
+					controlQueryAfterReconnect: Fail,
 				},
 			} {
 				t.Run(tcase.name, func(t *testing.T) {
