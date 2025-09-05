@@ -294,6 +294,10 @@ func (*mockConnection) getScyllaSupported() scyllaSupported { return scyllaSuppo
 
 type mockControlConn struct{}
 
+func (m *mockControlConn) querySystem(statement string, values ...interface{}) (iter *Iter) {
+	return nil
+}
+
 func (m *mockControlConn) reconnect() error {
 	return nil
 }

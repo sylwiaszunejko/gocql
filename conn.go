@@ -193,11 +193,13 @@ type Conn struct {
 	r    *bufio.Reader
 	w    contextWriter
 
-	readTimeout    time.Duration
-	writeTimeout   time.Duration
-	cfg            *ConnConfig
-	frameObserver  FrameHeaderObserver
-	streamObserver StreamObserver
+	systemRequestTimeout time.Duration
+	usingTimeoutClause   string
+	readTimeout          time.Duration
+	writeTimeout         time.Duration
+	cfg                  *ConnConfig
+	frameObserver        FrameHeaderObserver
+	streamObserver       StreamObserver
 
 	headerBuf [headSize]byte
 
@@ -243,12 +245,24 @@ func (c *Conn) setSchemaV2(s bool) {
 	c.isSchemaV2 = s
 }
 
+func (c *Conn) setSystemRequestTimeout(t time.Duration) {
+	c.systemRequestTimeout = t
+	c.recalculateSystemRequestTimeout()
+}
+
+func (c *Conn) recalculateSystemRequestTimeout() {
+	if c.systemRequestTimeout > time.Duration(0) && c.isScyllaConn() {
+		c.usingTimeoutClause = " USING TIMEOUT " + strconv.FormatInt(c.systemRequestTimeout.Milliseconds(), 10) + "ms"
+	}
+}
+
 func (c *Conn) finalizeConnection() {
 	// When connection just created all timeouts are set to `cfg.ConnectTimeout`
 	// It is done to make sure that connection is easy to establish when users set very low `WriteTimeout` and/or `Timeout`
 	// This method sets timeouts to `operational` values after connection successfully created
 	c.writeTimeout = c.cfg.WriteTimeout
 	c.readTimeout = c.cfg.ReadTimeout
+	c.setSystemRequestTimeout(c.session.cfg.MetadataSchemaRequestTimeout)
 	c.w.setFinalWriteTimeout(c.cfg.WriteTimeout)
 }
 
@@ -342,12 +356,13 @@ func (s *Session) dialWithoutObserver(ctx context.Context, host *HostInfo, cfg *
 			semaphore: make(chan struct{}, 1),
 			quit:      make(chan struct{}),
 		},
-		ctx:            ctx,
-		cancel:         cancel,
-		logger:         cfg.logger(),
-		streamObserver: s.streamObserver,
-		writeTimeout:   cfg.ConnectTimeout,
-		readTimeout:    cfg.ConnectTimeout,
+		ctx:                  ctx,
+		cancel:               cancel,
+		logger:               cfg.logger(),
+		streamObserver:       s.streamObserver,
+		writeTimeout:         cfg.ConnectTimeout,
+		readTimeout:          cfg.ConnectTimeout,
+		systemRequestTimeout: cfg.ConnectTimeout,
 	}
 
 	if err := c.init(ctx, dialedHost); err != nil {
@@ -509,6 +524,7 @@ func (s *startupCoordinator) options(ctx context.Context) error {
 	// Keep raw supported multimap for debug purposes
 	s.conn.supported = v.supported
 	s.conn.scyllaSupported = parseSupported(s.conn.supported, s.conn.logger)
+	s.conn.recalculateSystemRequestTimeout()
 	s.conn.host.setScyllaSupported(s.conn.scyllaSupported)
 	s.conn.cqlProtoExts = parseCQLProtocolExtensions(s.conn.supported, s.conn.logger)
 
@@ -759,7 +775,7 @@ func (c *Conn) recv(ctx context.Context) error {
 
 	// read a full header, ignore timeouts, as this is being ran in a loop
 	// TODO: TCP level deadlines? or just query level deadlines?
-	if c.cfg.ReadTimeout > 0 {
+	if c.readTimeout > 0 {
 		c.conn.SetReadDeadline(time.Time{})
 	}
 
@@ -1804,16 +1820,12 @@ func (c *Conn) executeBatch(ctx context.Context, batch *Batch) (iter *Iter) {
 }
 
 func (c *Conn) querySystem(ctx context.Context, query string, values ...interface{}) *Iter {
-	usingClause := ""
-	if c.session.control != nil {
-		usingClause = c.session.usingTimeoutClause
-	}
-	q := c.session.Query(query+usingClause, values...).Consistency(One).Trace(nil)
+	q := c.session.Query(query+c.usingTimeoutClause, values...).Consistency(One).Trace(nil)
 	q.skipPrepare = true
 	q.disableSkipMetadata = true
 	// we want to keep the query on this connection
 	q.conn = c
-	q.SetRequestTimeout(c.session.cfg.MetadataSchemaRequestTimeout)
+	q.SetRequestTimeout(c.systemRequestTimeout)
 	return c.executeQuery(ctx, q)
 }
 
