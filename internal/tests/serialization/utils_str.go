@@ -2,11 +2,12 @@ package serialization
 
 import (
 	"fmt"
-	"gopkg.in/inf.v0"
 	"math/big"
 	"net"
 	"reflect"
 	"time"
+
+	"gopkg.in/inf.v0"
 )
 
 const printLimit = 100
