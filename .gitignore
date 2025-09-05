@@ -4,6 +4,8 @@ fuzz-work
 gocql.test
 .idea
 
+bin/
+
 testdata/pki/.keystore
 testdata/pki/.truststore
 testdata/pki/*.crt

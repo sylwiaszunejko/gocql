@@ -1,9 +1,11 @@
 SHELL := bash
 MAKEFILE_PATH := $(abspath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 KEY_PATH = ${MAKEFILE_PATH}/testdata/pki
+BIN_DIR := "${MAKEFILE_PATH}/bin"
 
 CASSANDRA_VERSION ?= 4.1.6
 SCYLLA_VERSION ?= release:6.1.1
+GOLANGCI_VERSION = 2.1.6
 
 TEST_CQL_PROTOCOL ?= 4
 TEST_COMPRESSOR ?= snappy
@@ -149,9 +151,15 @@ else
 	go test -bench=. -benchmem ./...
 endif
 
-check:
-	@echo "Run go vet linter"
-	go vet --tags "unit all ccm cassandra integration" ./...
+check: .prepare-golangci
+	@echo "Build"
+	@go build -tags all .
+	@echo "Check linting"
+	@${BIN_DIR}/golangci-lint run
+
+fix: .prepare-golangci
+	@echo "Fix linting"
+	@${BIN_DIR}/golangci-lint run --fix
 
 .prepare-java:
 ifeq ($(shell if [ -f ~/.sdkman/bin/sdkman-init.sh ]; then echo "installed"; else echo "not-installed"; fi), not-installed)
@@ -215,3 +223,10 @@ generate-pki:
 	@echo "Generating new PKI"
 	@rm -f testdata/pki/.keystore testdata/pki/.truststore testdata/pki/*.p12 testdata/pki/*.key testdata/pki/*.crt || true
 	@cd testdata/pki/ && bash ./generate_certs.sh
+
+.prepare-golangci:
+	@if ! "${BIN_DIR}/golangci-lint" --version | grep '${GOLANGCI_VERSION}' >/dev/null 2>&1 ; then \
+		mkdir -p "${BIN_DIR}"; \
+  		echo "Installing golangci-lint to '${BIN_DIR}'"; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b bin/ v$(GOLANGCI_VERSION); \
+	fi
