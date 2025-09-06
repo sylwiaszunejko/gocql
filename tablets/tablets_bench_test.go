@@ -2,11 +2,12 @@ package tablets
 
 import (
 	"fmt"
-	"github.com/gocql/gocql/internal/tests"
 	"math"
 	"runtime"
 	"sync/atomic"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 const tabletsCountMedium = 1500

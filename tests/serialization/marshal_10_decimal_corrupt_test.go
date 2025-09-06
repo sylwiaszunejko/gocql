@@ -1,8 +1,9 @@
 package serialization_test
 
 import (
-	"gopkg.in/inf.v0"
 	"testing"
+
+	"gopkg.in/inf.v0"
 
 	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/internal/tests/serialization"

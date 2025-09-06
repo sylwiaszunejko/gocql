@@ -1,11 +1,12 @@
 package valcases
 
 import (
-	"gopkg.in/inf.v0"
 	"math"
 	"math/big"
 	"net"
 	"time"
+
+	"gopkg.in/inf.v0"
 
 	"github.com/gocql/gocql/serialization/duration"
 )

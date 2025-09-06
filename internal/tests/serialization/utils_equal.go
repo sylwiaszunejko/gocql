@@ -3,11 +3,13 @@ package serialization
 import (
 	"bytes"
 	"fmt"
-	"github.com/gocql/gocql/internal/tests/serialization/mod"
-	"gopkg.in/inf.v0"
 	"math/big"
 	"reflect"
 	"unsafe"
+
+	"gopkg.in/inf.v0"
+
+	"github.com/gocql/gocql/internal/tests/serialization/mod"
 )
 
 func equalData(in1, in2 []byte) bool {
