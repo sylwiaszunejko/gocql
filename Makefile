@@ -133,8 +133,7 @@ ifeq ($(shell if [[ -n "$${GITHUB_STEP_SUMMARY}" ]]; then echo "running-in-workf
 	@echo "### Unit Test Results" >>$${GITHUB_STEP_SUMMARY}
 	@echo '```' >>$${GITHUB_STEP_SUMMARY}
 	@echo go test -tags unit -timeout=5m -race ./...
-	@go test -tags unit -timeout=5m -race ./... | tee -a $${GITHUB_STEP_SUMMARY}
-	@echo '```' >>$${GITHUB_STEP_SUMMARY}
+	@go test -tags unit -timeout=5m -race ./... | tee -a $${GITHUB_STEP_SUMMARY}; TEST_STATUS=$${PIPESTATUS[0]}; echo '```' >>$${GITHUB_STEP_SUMMARY}; exit $${TEST_STATUS}
 else
 	go test -v -tags unit -timeout=5m -race ./...
 endif
