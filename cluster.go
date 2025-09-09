@@ -412,7 +412,7 @@ func NewCluster(hosts ...string) *ClusterConfig {
 		Hosts:                        hosts,
 		CQLVersion:                   "3.0.0",
 		Timeout:                      11 * time.Second,
-		ConnectTimeout:               11 * time.Second,
+		ConnectTimeout:               60 * time.Second,
 		ReadTimeout:                  11 * time.Second,
 		WriteTimeout:                 11 * time.Second,
 		Port:                         9042,
