@@ -61,7 +61,7 @@ jobs:
           fi
 
       - name: Start Jenkins job
-        uses: scylladb-actions/jenkins-client@v0.1.0
+        uses: scylladb-actions/jenkins-client@v0.2.0
         with:
           job_name: scylla-drivers/job/gocql/job/extended-ci/job/longevity-large-partitions-with-network-nemesis-1h-test
           job_parameters: '{"email_recipients": "scylla-drivers@scylladb.com", "scylla_version": "${{ steps.scylla-version.outputs.value }}", "extra_environment_variables": "SCT_STRESS_IMAGE.scylla-bench=scylladb/gocql-extended-ci:scylla-bench-${{ github.event.pull_request.head.sha }}"}'
