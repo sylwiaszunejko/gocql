@@ -47,7 +47,7 @@ runs:
     #         echo "JAVA_HOME=$JAVA_HOME_11_X64" >> $GITHUB_ENV
     #         echo "PATH=$PATH" >> $GITHUB_ENV
     - name: Install Java
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: ${{ inputs.java_version }}
         distribution: 'temurin'
