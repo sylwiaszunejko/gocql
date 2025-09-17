@@ -14,3 +14,7 @@ testdata/pki/*.p12
 
 docs/_build/
 docs/source/.doctrees
+
+# Claude / AI assistant metadata
+CLAUDE.md
+.claude/
