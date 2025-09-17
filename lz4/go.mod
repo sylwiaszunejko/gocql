@@ -21,5 +21,5 @@ go 1.16
 
 require (
 	github.com/pierrec/lz4/v4 v4.1.22
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.11.1
 )
