@@ -28,11 +28,12 @@
 package gocql
 
 import (
-	"github.com/gocql/gocql/internal/tests"
 	"net"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 func TestNewCluster_Defaults(t *testing.T) {

@@ -34,12 +34,13 @@ package gocql
 import (
 	"errors"
 	"fmt"
-	"github.com/gocql/gocql/internal/tests"
 	"net"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gocql/gocql/internal/tests"
 
 	"github.com/google/go-cmp/cmp"
 )

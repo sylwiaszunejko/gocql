@@ -32,3 +32,8 @@ linters:
       allow-no-explanation: [ golines ]
       require-explanation: true
       require-specific: true
+
+run:
+  build-tags:
+    - integration
+    - unit

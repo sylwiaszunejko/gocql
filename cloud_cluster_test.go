@@ -16,9 +16,10 @@ import (
 	"testing"
 	"time"
 
+	"sigs.k8s.io/yaml"
+
 	"github.com/gocql/gocql"
 	"github.com/gocql/gocql/scyllacloud"
-	"sigs.k8s.io/yaml"
 )
 
 func TestCloudConnection(t *testing.T) {

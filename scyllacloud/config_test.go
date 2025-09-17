@@ -11,8 +11,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/gocql/gocql"
 	"sigs.k8s.io/yaml"
+
+	"github.com/gocql/gocql/internal/tests"
+
+	"github.com/gocql/gocql"
 )
 
 func TestCloudCluster(t *testing.T) {
@@ -217,7 +220,7 @@ func TestCloudCluster(t *testing.T) {
 			defer os.RemoveAll(path)
 
 			cloudConfig, err := NewCloudCluster(path)
-			if !reflect.DeepEqual(test.expectedError, err) {
+			if !tests.ErrEqual(err, test.expectedError) {
 				t.Errorf("expected error %#v, got %#v", test.expectedError, err)
 			}
 			if test.verifyClusterConfig != nil {
@@ -275,7 +278,7 @@ func TestConnectionConfig_GetCurrentContextConfig(t *testing.T) {
 		tc := tt[i]
 		t.Run(tc.name, func(t *testing.T) {
 			contextConf, err := tc.connConfig.GetCurrentContextConfig()
-			if !reflect.DeepEqual(tc.expectedError, err) {
+			if !tests.ErrEqual(err, tc.expectedError) {
 				t.Errorf("expected error %#v, got %#v", tc.expectedError, err)
 			}
 			if !reflect.DeepEqual(tc.expectedContext, contextConf) {
@@ -368,7 +371,7 @@ func TestConnectionConfig_GetCurrentAuthInfo(t *testing.T) {
 		tc := tt[i]
 		t.Run(tc.name, func(t *testing.T) {
 			ai, err := tc.connConfig.GetCurrentAuthInfo()
-			if !reflect.DeepEqual(tc.expectedError, err) {
+			if !tests.ErrEqual(err, tc.expectedError) {
 				t.Errorf("expected error %#v, got %#v", tc.expectedError, err)
 			}
 			if !reflect.DeepEqual(tc.expectedAuthInfo, ai) {
@@ -465,7 +468,7 @@ func TestConnectionConfig_GetCurrentDatacenterConfig(t *testing.T) {
 		tc := tt[i]
 		t.Run(tc.name, func(t *testing.T) {
 			dc, err := tc.connConfig.GetCurrentDatacenterConfig()
-			if !reflect.DeepEqual(tc.expectedError, err) {
+			if !tests.ErrEqual(err, tc.expectedError) {
 				t.Errorf("expected error %#v, got %#v", tc.expectedError, err)
 			}
 			if !reflect.DeepEqual(tc.expectedDatacenter, dc) {
