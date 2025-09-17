@@ -39,13 +39,13 @@ func TestUnmarshalCassVersion(t *testing.T) {
 		data    string
 		version cassVersion
 	}{
-		{"3.2", cassVersion{3, 2, 0, ""}},
-		{"2.10.1-SNAPSHOT", cassVersion{2, 10, 1, ""}},
-		{"1.2.3", cassVersion{1, 2, 3, ""}},
-		{"4.0-rc2", cassVersion{4, 0, 0, "rc2"}},
-		{"4.3.2-rc1", cassVersion{4, 3, 2, "rc1"}},
-		{"4.3.2-rc1-qualifier1", cassVersion{4, 3, 2, "rc1-qualifier1"}},
-		{"4.3-rc1-qualifier1", cassVersion{4, 3, 0, "rc1-qualifier1"}},
+		{"3.2", cassVersion{Major: 3, Minor: 2, Patch: 0, Qualifier: ""}},
+		{"2.10.1-SNAPSHOT", cassVersion{Major: 2, Minor: 10, Patch: 1, Qualifier: ""}},
+		{"1.2.3", cassVersion{Major: 1, Minor: 2, Patch: 3, Qualifier: ""}},
+		{"4.0-rc2", cassVersion{Major: 4, Minor: 0, Patch: 0, Qualifier: "rc2"}},
+		{"4.3.2-rc1", cassVersion{Major: 4, Minor: 3, Patch: 2, Qualifier: "rc1"}},
+		{"4.3.2-rc1-qualifier1", cassVersion{Major: 4, Minor: 3, Patch: 2, Qualifier: "rc1-qualifier1"}},
+		{"4.3-rc1-qualifier1", cassVersion{Major: 4, Minor: 3, Patch: 0, Qualifier: "rc1-qualifier1"}},
 	}
 
 	for i, test := range tests {
@@ -66,15 +66,15 @@ func TestCassVersionBefore(t *testing.T) {
 		major, minor, patch int
 		Qualifier           string
 	}{
-		{cassVersion{1, 0, 0, ""}, 0, 0, 0, ""},
-		{cassVersion{0, 1, 0, ""}, 0, 0, 0, ""},
-		{cassVersion{0, 0, 1, ""}, 0, 0, 0, ""},
+		{cassVersion{Major: 1, Minor: 0, Patch: 0, Qualifier: ""}, 0, 0, 0, ""},
+		{cassVersion{Major: 0, Minor: 1, Patch: 0, Qualifier: ""}, 0, 0, 0, ""},
+		{cassVersion{Major: 0, Minor: 0, Patch: 1, Qualifier: ""}, 0, 0, 0, ""},
 
-		{cassVersion{1, 0, 0, ""}, 0, 1, 0, ""},
-		{cassVersion{0, 1, 0, ""}, 0, 0, 1, ""},
-		{cassVersion{4, 1, 0, ""}, 3, 1, 2, ""},
+		{cassVersion{Major: 1, Minor: 0, Patch: 0, Qualifier: ""}, 0, 1, 0, ""},
+		{cassVersion{Major: 0, Minor: 1, Patch: 0, Qualifier: ""}, 0, 0, 1, ""},
+		{cassVersion{Major: 4, Minor: 1, Patch: 0, Qualifier: ""}, 3, 1, 2, ""},
 
-		{cassVersion{4, 1, 0, ""}, 3, 1, 2, ""},
+		{cassVersion{Major: 4, Minor: 1, Patch: 0, Qualifier: ""}, 3, 1, 2, ""},
 	}
 
 	for i, test := range tests {

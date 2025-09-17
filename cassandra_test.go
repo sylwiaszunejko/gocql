@@ -1077,7 +1077,7 @@ func TestMapScanWithRefMap(t *testing.T) {
 	}
 	m := make(map[string]interface{})
 	m["testtext"] = "testtext"
-	m["testfullname"] = FullName{"John", "Doe"}
+	m["testfullname"] = FullName{FirstName: "John", LastName: "Doe"}
 	m["testint"] = 100
 
 	if err := session.Query(`INSERT INTO scan_map_ref_table (testtext, testfullname, testint) values (?,?,?)`,

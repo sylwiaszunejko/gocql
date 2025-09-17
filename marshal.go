@@ -1499,7 +1499,7 @@ type NativeType struct {
 }
 
 func NewNativeType(proto byte, typ Type, custom string) NativeType {
-	return NativeType{proto, typ, custom}
+	return NativeType{proto: proto, typ: typ, custom: custom}
 }
 
 func (t NativeType) NewWithError() (interface{}, error) {
@@ -1604,7 +1604,7 @@ type UDTField struct {
 
 func NewUDTType(proto byte, name, keySpace string, elems ...UDTField) UDTTypeInfo {
 	return UDTTypeInfo{
-		NativeType: NativeType{proto, TypeUDT, ""},
+		NativeType: NativeType{proto: proto, typ: TypeUDT, custom: ""},
 		Name:       name,
 		KeySpace:   keySpace,
 		Elements:   elems,
