@@ -74,7 +74,7 @@ func connConfig(cfg *ClusterConfig) (*ConnConfig, error) {
 			if cfg.SocketKeepalive > 0 {
 				d.KeepAlive = cfg.SocketKeepalive
 			}
-			dialer = &ScyllaShardAwareDialer{d}
+			dialer = &ScyllaShardAwareDialer{Dialer: d}
 		}
 
 		hostDialer = &scyllaDialer{
