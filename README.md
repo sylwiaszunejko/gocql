@@ -237,6 +237,28 @@ In case of range and `ALLOW FILTERING` queries server can send empty responses f
 That is why you should never consider empty response as the end of the result set.
 Always check `iter.Scan()` result to know if there are more results, or `Iter.LastPage()` to know if the last page was reached.
 
+### 5.3 Compression
+
+To control network costs and traffic, you can enable compression.
+
+Use `ClusterConfig.Compressor` to enable compression (either Snappy or LZ4):
+
+```go
+...
+import (
+    ...
+    "github.com/gocql/gocql"
+    "github.com/gocql/gocql/lz4"
+    ...
+)
+
+config := gocql.NewCluster("10.0.12.83", "10.0.13.04", "10.0.14.12")
+config.Compressor = &gocql.SnappyCompressor{}
+//or LZ4
+config.Compressor = &lz4.LZ4Compressor{}
+...
+```
+
 ## 6. Contributing
 
 If you have any interest to be contributing in this GoCQL Fork, please read the [CONTRIBUTING.md](CONTRIBUTING.md) before initialize any Issue or Pull Request.
