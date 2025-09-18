@@ -4,8 +4,9 @@
 package gocql
 
 import (
-	"github.com/gocql/gocql/internal/tests"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 func TestSchemaQueries(t *testing.T) {

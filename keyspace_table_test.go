@@ -30,8 +30,9 @@ package gocql
 import (
 	"context"
 	"fmt"
-	"github.com/gocql/gocql/internal/tests"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 // Keyspace_table checks if Query.Keyspace() is updated based on prepared statement

@@ -6,11 +6,12 @@ package gocql
 import (
 	"bytes"
 	"fmt"
-	"gopkg.in/inf.v0"
 	"math/big"
 	"reflect"
 	"testing"
 	"unsafe"
+
+	"gopkg.in/inf.v0"
 
 	"github.com/gocql/gocql/internal/tests/serialization/valcases"
 )

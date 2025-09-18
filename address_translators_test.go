@@ -28,9 +28,10 @@
 package gocql
 
 import (
-	"github.com/gocql/gocql/internal/tests"
 	"net"
 	"testing"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 func TestIdentityAddressTranslator_NilAddrAndZeroPort(t *testing.T) {

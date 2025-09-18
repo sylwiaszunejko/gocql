@@ -17,12 +17,12 @@ import (
 	"net"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/gocql/gocql"
+	"github.com/gocql/gocql/internal/tests"
 )
 
 const (
@@ -125,7 +125,7 @@ func TestHostSNIDialer_InvalidConnectionConfig(t *testing.T) {
 
 			hostDialer := NewSniHostDialer(tc.connConfig, dialer)
 			_, err := hostDialer.DialHost(ctx, tc.hostInfo)
-			if !reflect.DeepEqual(err, tc.expectedError) {
+			if !tests.ErrEqual(err, tc.expectedError) {
 				t.Errorf("expected error to be %#v, got %#v", tc.expectedError, err)
 			}
 		})
