@@ -124,8 +124,8 @@ test-integration-cassandra: cassandra-start
 
 test-integration-scylla: scylla-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on scylla ${SCYLLA_IMAGE}"
-	@if [[ -f "${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME}/node1/cql.m" ]]; then \
-  		CLUSTER_SOCKET = "-cluster-socket ${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME}/node1/cql.m"; \
+	@if [ -S "${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME}/node1/cql.m" ]; then \
+  		CLUSTER_SOCKET="-cluster-socket ${CCM_CONFIG_DIR}/${CCM_SCYLLA_CLUSTER_NAME}/node1/cql.m"; \
   	else \
   		echo "Cluster socket is not found"; \
 	fi; \
