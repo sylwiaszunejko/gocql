@@ -120,7 +120,7 @@ scylla-stop: .prepare-scylla-ccm
 
 test-integration-cassandra: cassandra-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on cassandra ${CASSANDRA_VERSION}"
-	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -timeout=5m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
+	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -distribution cassandra -timeout=5m -runauth -gocql.timeout=60s -runssl -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
 
 test-integration-scylla: scylla-start
 	@echo "Run integration tests for proto ${TEST_CQL_PROTOCOL} on scylla ${SCYLLA_IMAGE}"
@@ -129,7 +129,7 @@ test-integration-scylla: scylla-start
   	else \
   		echo "Cluster socket is not found"; \
 	fi; \
-	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" $${CLUSTER_SOCKET} -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
+	go test -v ${TEST_OPTS} -tags "${TEST_INTEGRATION_TAGS}" -distribution scylla $${CLUSTER_SOCKET} -timeout=5m -gocql.timeout=60s -proto=${TEST_CQL_PROTOCOL} -rf=3 -clusterSize=3 -autowait=2000ms -compressor=${TEST_COMPRESSOR} -gocql.cversion=$$(ccm node1 versionfrombuild) -cluster=$$(ccm liveset) ./...
 
 test-unit: .prepare-pki
 	@echo "Run unit tests"
