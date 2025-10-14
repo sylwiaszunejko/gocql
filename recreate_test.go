@@ -22,6 +22,11 @@ import (
 var updateGolden = flag.Bool("update-golden", false, "update golden files")
 
 func TestRecreateSchema(t *testing.T) {
+	failsOnOldScylla := false
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2024, 0, 0) {
+		failsOnOldScylla = true
+	}
+
 	session := createSessionFromClusterTabletsDisabled(createCluster(), t)
 	defer session.Close()
 
@@ -50,21 +55,21 @@ func TestRecreateSchema(t *testing.T) {
 		{
 			Name:            "Materialized Views",
 			Keyspace:        "gocqlx_mv",
-			FailWithTablets: true,
+			FailWithTablets: failsOnOldScylla,
 			Input:           "testdata/recreate/materialized_views.cql",
 			Golden:          "testdata/recreate/materialized_views_golden.cql",
 		},
 		{
 			Name:            "Index",
 			Keyspace:        "gocqlx_idx",
-			FailWithTablets: true,
+			FailWithTablets: failsOnOldScylla,
 			Input:           "testdata/recreate/index.cql",
 			Golden:          "testdata/recreate/index_golden.cql",
 		},
 		{
 			Name:            "Secondary Index",
 			Keyspace:        "gocqlx_sec_idx",
-			FailWithTablets: true,
+			FailWithTablets: failsOnOldScylla,
 			Input:           "testdata/recreate/secondary_index.cql",
 			Golden:          "testdata/recreate/secondary_index_golden.cql",
 		},

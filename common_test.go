@@ -48,6 +48,7 @@ var (
 	flagCompressTest  = flag.String("compressor", "", "compressor to use")
 	flagTimeout       = flag.Duration("gocql.timeout", 5*time.Second, "sets the connection `timeout` for all operations")
 	flagClusterSocket = flag.String("cluster-socket", "", "nodes socket files separated by comma")
+	flagDistribution  = flag.String("distribution", "scylla", "database distribution - scylla or cassandra")
 	flagCassVersion   cassVersion
 )
 
@@ -381,7 +382,7 @@ func createFunctions(t *testing.T, session *Session) {
 		CALLED ON NULL INPUT
 		RETURNS double
 		LANGUAGE java AS
-		$$double r = 0; if (state.getInt(0) == 0) return null; r = state.getLong(1); r/= state.getInt(0); return Double.valueOf(r);$$ 
+		$$double r = 0; if (state.getInt(0) == 0) return null; r = state.getLong(1); r/= state.getInt(0); return Double.valueOf(r);$$
 	`).Exec(); err != nil {
 		t.Fatalf("failed to create function with err: %v", err)
 	}
