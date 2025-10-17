@@ -29,12 +29,13 @@ package gocql
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/inf.v0"
 	"net"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+	"gopkg.in/inf.v0"
 )
 
 type person struct {
@@ -345,9 +346,9 @@ func TestVector_SubTypeParsing(t *testing.T) {
 			name:   "vector_vector_inet",
 			custom: "org.apache.cassandra.db.marshal.VectorType(org.apache.cassandra.db.marshal.VectorType(org.apache.cassandra.db.marshal.InetAddressType, 2), 3)",
 			expected: VectorType{
-				NativeType{typ: TypeCustom, custom: VECTOR_TYPE},
+				NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
 				VectorType{
-					NativeType{typ: TypeCustom, custom: VECTOR_TYPE},
+					NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
 					NativeType{typ: TypeInet},
 					2,
 				},
@@ -361,7 +362,7 @@ func TestVector_SubTypeParsing(t *testing.T) {
 				NativeType{typ: TypeMap},
 				NativeType{typ: TypeInt},
 				VectorType{
-					NativeType{typ: TypeCustom, custom: VECTOR_TYPE},
+					NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
 					NativeType{typ: TypeVarchar},
 					10,
 				},
@@ -376,7 +377,7 @@ func TestVector_SubTypeParsing(t *testing.T) {
 				CollectionType{
 					NativeType{typ: TypeMap},
 					VectorType{
-						NativeType{typ: TypeCustom, custom: VECTOR_TYPE},
+						NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
 						NativeType{typ: TypeInt},
 						10,
 					},
