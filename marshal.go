@@ -29,6 +29,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/bits"
 	"reflect"
 	"unsafe"
 
