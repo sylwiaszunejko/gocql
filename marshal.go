@@ -1721,8 +1721,8 @@ type CollectionType struct {
 }
 
 type VectorType struct {
+	SubType TypeInfo
 	NativeType
-	SubType    TypeInfo
 	Dimensions int
 }
 
