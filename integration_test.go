@@ -840,12 +840,12 @@ func mustCreateDuration(months int32, days int32, timeDuration time.Duration) Du
 // TestSliceMapMapScanCounterTypes tests counter types separately since they have special restrictions
 // (counter columns can't be mixed with other column types in the same table)
 func TestSliceMapMapScanCounterTypes(t *testing.T) {
-	session := createSession(t)
+	session := createSessionFromClusterTabletsDisabled(createCluster(), t)
 	defer session.Close()
 
 	// Create separate table for counter types
 	if err := createTable(session, `
-		CREATE TABLE IF NOT EXISTS gocql_test.slicemap_counter_test (
+		CREATE TABLE IF NOT EXISTS gocql_test_tablets_disabled.slicemap_counter_test (
 			id int PRIMARY KEY,
 			counter_col counter
 		)
@@ -854,7 +854,7 @@ func TestSliceMapMapScanCounterTypes(t *testing.T) {
 	}
 
 	// Clear existing data
-	if err := session.Query("TRUNCATE gocql_test.slicemap_counter_test").Exec(); err != nil {
+	if err := session.Query("TRUNCATE gocql_test_tablets_disabled.slicemap_counter_test").Exec(); err != nil {
 		t.Fatal("Failed to truncate counter test table:", err)
 	}
 
@@ -862,7 +862,7 @@ func TestSliceMapMapScanCounterTypes(t *testing.T) {
 	expectedValue := int64(42)
 
 	// Increment counter (can't INSERT into counter, must UPDATE)
-	err := session.Query("UPDATE gocql_test.slicemap_counter_test SET counter_col = counter_col + 42 WHERE id = ?", testID).Exec()
+	err := session.Query("UPDATE gocql_test_tablets_disabled.slicemap_counter_test SET counter_col = counter_col + 42 WHERE id = ?", testID).Exec()
 	if err != nil {
 		t.Fatalf("Failed to increment counter: %v", err)
 	}
@@ -872,7 +872,7 @@ func TestSliceMapMapScanCounterTypes(t *testing.T) {
 		t.Run(method, func(t *testing.T) {
 			var result interface{}
 
-			selectQuery := "SELECT counter_col FROM gocql_test.slicemap_counter_test WHERE id = ?"
+			selectQuery := "SELECT counter_col FROM gocql_test_tablets_disabled.slicemap_counter_test WHERE id = ?"
 			if method == "SliceMap" {
 				iter := session.Query(selectQuery, testID).Iter()
 				sliceResults, err := iter.SliceMap()
