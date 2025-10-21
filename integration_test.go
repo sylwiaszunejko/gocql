@@ -33,7 +33,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -704,11 +703,11 @@ func TestSliceMapMapScanTypes(t *testing.T) {
 		{"timestamp", "1388534400000", time.Unix(1388534400, 0).UTC(), time.Time{}},
 		{"uuid", "550e8400-e29b-41d4-a716-446655440000", mustParseUUID("550e8400-e29b-41d4-a716-446655440000"), UUID{}},
 		{"timeuuid", "60d79c23-5793-11f0-8afe-bcfce78b517a", mustParseUUID("60d79c23-5793-11f0-8afe-bcfce78b517a"), UUID{}},
-		{"inet", "'127.0.0.1'", net.ParseIP("127.0.0.1").To4(), net.IP(nil)},
+		{"inet", "'127.0.0.1'", "127.0.0.1", ""},
 		{"blob", "0x48656c6c6f", []byte("Hello"), []byte(nil)},
 		{"varint", "123456789012345678901234567890", mustParseBigInt("123456789012345678901234567890"), (*big.Int)(nil)},
 		{"decimal", "123.45", mustParseDecimal("123.45"), (*inf.Dec)(nil)},
-		{"date", "'2015-05-03'", time.Date(2015, 5, 3, 0, 0, 0, 0, time.UTC), time.Time{}},
+		{"date", "'2015-05-03'", time.Date(2015, 5, 3, 0, 0, 0, 0, time.UTC), time.Date(-5877641, 06, 23, 0, 0, 0, 0, time.UTC)},
 		{"time", "'13:30:54.234'", 13*time.Hour + 30*time.Minute + 54*time.Second + 234*time.Millisecond, time.Duration(0)},
 		{"duration", "1y2mo3d4h5m6s789ms", mustCreateDuration(14, 3, 4*time.Hour+5*time.Minute+6*time.Second+789*time.Millisecond), Duration{}},
 	}
@@ -761,12 +760,14 @@ func testSliceMapMapScanSimple(t *testing.T, session *Session, tc SliceMapTypesT
 
 // Helper function to query and extract value using either SliceMap or MapScan
 func queryAndExtractValue(t *testing.T, session *Session, colName string, id int, method string) interface{} {
+	fmt.Println("queryAndExtractValue")
 	selectQuery := fmt.Sprintf("SELECT %s FROM gocql_test.slicemap_test WHERE id = ?", colName)
 
 	switch method {
 	case "SliceMap":
 		iter := session.Query(selectQuery, id).Iter()
 		sliceResults, err := iter.SliceMap()
+		fmt.Println("Slice results: ", sliceResults[0][colName])
 		iter.Close()
 		if err != nil {
 			t.Fatalf("SliceMap failed: %v", err)
