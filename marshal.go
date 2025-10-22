@@ -531,16 +531,6 @@ func marshalVarint(value interface{}) ([]byte, error) {
 	return data, nil
 }
 
-func decBigInt(data []byte) (int64, error) {
-	if len(data) != 8 {
-		return 0, fmt.Errorf("expected 8 bytes, got %d", len(data))
-	}
-	return int64(data[0])<<56 | int64(data[1])<<48 |
-		int64(data[2])<<40 | int64(data[3])<<32 |
-		int64(data[4])<<24 | int64(data[5])<<16 |
-		int64(data[6])<<8 | int64(data[7]), nil
-}
-
 func marshalBool(value interface{}) ([]byte, error) {
 	data, err := boolean.Marshal(value)
 	if err != nil {
