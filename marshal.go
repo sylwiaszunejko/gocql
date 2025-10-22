@@ -836,12 +836,13 @@ func marshalVector(info VectorType, value interface{}) ([]byte, error) {
 			return nil, marshalErrorf("expected vector with %d dimensions, received %d", info.Dimensions, n)
 		}
 
+		isLengthType := isVectorVariableLengthType(info.SubType)
 		for i := 0; i < n; i++ {
 			item, err := Marshal(info.SubType, rv.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
-			if isVectorVariableLengthType(info.SubType) {
+			if isLengthType {
 				writeUnsignedVInt(buf, uint64(len(item)))
 			}
 			buf.Write(item)
@@ -889,9 +890,10 @@ func unmarshalVector(info VectorType, data []byte, value interface{}) error {
 			}
 		}
 		elemSize := len(data) / info.Dimensions
+		isLengthType := isVectorVariableLengthType(info.SubType)
 		for i := 0; i < info.Dimensions; i++ {
 			offset := 0
-			if isVectorVariableLengthType(info.SubType) {
+			if isLengthType {
 				m, p, err := readUnsignedVInt(data)
 				if err != nil {
 					return err
