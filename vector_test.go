@@ -36,6 +36,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/inf.v0"
+
+	"github.com/gocql/gocql/internal/tests"
 )
 
 type person struct {
@@ -76,9 +78,9 @@ func TestVector_Marshaler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertDeepEqual(t, "fixed size element vector", insertFixVec, selectFixVec)
+	tests.AssertDeepEqual(t, "fixed size element vector", insertFixVec, selectFixVec)
 
-	longText := randomText(500)
+	longText := tests.RandomText(500)
 	insertVarVec := []string{"apache", "cassandra", longText, "gocql"}
 	err = session.Query("INSERT INTO vector_variable(id, vec) VALUES(?, ?)", 1, insertVarVec).Exec()
 	if err != nil {
@@ -89,7 +91,7 @@ func TestVector_Marshaler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertDeepEqual(t, "variable size element vector", insertVarVec, selectVarVec)
+	tests.AssertDeepEqual(t, "variable size element vector", insertVarVec, selectVarVec)
 }
 
 func TestVector_Types(t *testing.T) {
@@ -124,7 +126,7 @@ func TestVector_Types(t *testing.T) {
 	map2["abc"] = 123
 	map3 := make(map[string]int)
 
-	tests := []struct {
+	testCases := []struct {
 		name       string
 		cqlType    string
 		value      interface{}
@@ -152,9 +154,9 @@ func TestVector_Types(t *testing.T) {
 			comparator: func(e interface{}, a interface{}) {
 				expected := e.([]net.IP)
 				actual := a.([]net.IP)
-				assertEqual(t, "vector size", len(expected), len(actual))
+				tests.AssertEqual(t, "vector size", len(expected), len(actual))
 				for i, _ := range expected {
-					assertTrue(t, "vector", expected[i].Equal(actual[i]))
+					tests.AssertTrue(t, "vector", expected[i].Equal(actual[i]))
 				}
 			},
 		},
@@ -176,7 +178,7 @@ func TestVector_Types(t *testing.T) {
 		{name: "vector_map_text_int", cqlType: "map<text, int>", value: []map[string]int{map1, map2, map3}},
 	}
 
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tableName := fmt.Sprintf("vector_%s", test.name)
 			err := createTable(session, fmt.Sprintf(`CREATE TABLE IF NOT EXISTS gocql_test.%s(id int primary key, vec vector<%s, 3>);`, tableName, test.cqlType))
@@ -197,7 +199,7 @@ func TestVector_Types(t *testing.T) {
 			if test.comparator != nil {
 				test.comparator(test.value, v.Elem().Interface())
 			} else {
-				assertDeepEqual(t, "vector", test.value, v.Elem().Interface())
+				tests.AssertDeepEqual(t, "vector", test.value, v.Elem().Interface())
 			}
 		})
 	}
@@ -244,7 +246,7 @@ func TestVector_MarshalerUDT(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertDeepEqual(t, "udt", &insVec, &selVec)
+	tests.AssertDeepEqual(t, "udt", &insVec, &selVec)
 }
 
 func TestVector_Empty(t *testing.T) {
@@ -274,7 +276,7 @@ func TestVector_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertTrue(t, "fixed size element vector is empty", selectFixVec == nil)
+	tests.AssertTrue(t, "fixed size element vector is empty", selectFixVec == nil)
 
 	err = session.Query("INSERT INTO vector_variable_null(id) VALUES(?)", 1).Exec()
 	if err != nil {
@@ -285,7 +287,7 @@ func TestVector_Empty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertTrue(t, "variable size element vector is empty", selectVarVec == nil)
+	tests.AssertTrue(t, "variable size element vector is empty", selectVarVec == nil)
 }
 
 func TestVector_MissingDimension(t *testing.T) {
@@ -309,7 +311,7 @@ func TestVector_MissingDimension(t *testing.T) {
 }
 
 func TestVector_SubTypeParsing(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name     string
 		custom   string
 		expected TypeInfo
@@ -320,13 +322,13 @@ func TestVector_SubTypeParsing(t *testing.T) {
 			name:   "udt",
 			custom: "org.apache.cassandra.db.marshal.UserType(gocql_test,706572736f6e,66697273745f6e616d65:org.apache.cassandra.db.marshal.UTF8Type,6c6173745f6e616d65:org.apache.cassandra.db.marshal.UTF8Type,616765:org.apache.cassandra.db.marshal.Int32Type)",
 			expected: UDTTypeInfo{
-				NativeType{typ: TypeUDT},
-				"gocql_test",
-				"person",
-				[]UDTField{
-					UDTField{"first_name", NativeType{typ: TypeVarchar}},
-					UDTField{"last_name", NativeType{typ: TypeVarchar}},
-					UDTField{"age", NativeType{typ: TypeInt}},
+				NativeType: NativeType{typ: TypeUDT},
+				KeySpace:   "gocql_test",
+				Name:       "person",
+				Elements: []UDTField{
+					UDTField{Name: "first_name", Type: NativeType{typ: TypeVarchar}},
+					UDTField{Name: "last_name", Type: NativeType{typ: TypeVarchar}},
+					UDTField{Name: "age", Type: NativeType{typ: TypeInt}},
 				},
 			},
 		},
@@ -334,8 +336,8 @@ func TestVector_SubTypeParsing(t *testing.T) {
 			name:   "tuple",
 			custom: "org.apache.cassandra.db.marshal.TupleType(org.apache.cassandra.db.marshal.UTF8Type,org.apache.cassandra.db.marshal.Int32Type,org.apache.cassandra.db.marshal.UTF8Type)",
 			expected: TupleTypeInfo{
-				NativeType{typ: TypeTuple},
-				[]TypeInfo{
+				NativeType: NativeType{typ: TypeTuple},
+				Elems: []TypeInfo{
 					NativeType{typ: TypeVarchar},
 					NativeType{typ: TypeInt},
 					NativeType{typ: TypeVarchar},
@@ -346,25 +348,25 @@ func TestVector_SubTypeParsing(t *testing.T) {
 			name:   "vector_vector_inet",
 			custom: "org.apache.cassandra.db.marshal.VectorType(org.apache.cassandra.db.marshal.VectorType(org.apache.cassandra.db.marshal.InetAddressType, 2), 3)",
 			expected: VectorType{
-				NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
-				VectorType{
-					NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
-					NativeType{typ: TypeInet},
-					2,
+				NativeType: NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
+				SubType: VectorType{
+					NativeType: NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
+					SubType:    NativeType{typ: TypeInet},
+					Dimensions: 2,
 				},
-				3,
+				Dimensions: 3,
 			},
 		},
 		{
 			name:   "map_int_vector_text",
 			custom: "org.apache.cassandra.db.marshal.MapType(org.apache.cassandra.db.marshal.Int32Type,org.apache.cassandra.db.marshal.VectorType(org.apache.cassandra.db.marshal.UTF8Type, 10))",
 			expected: CollectionType{
-				NativeType{typ: TypeMap},
-				NativeType{typ: TypeInt},
-				VectorType{
-					NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
-					NativeType{typ: TypeVarchar},
-					10,
+				NativeType: NativeType{typ: TypeMap},
+				Key:        NativeType{typ: TypeInt},
+				Elem: VectorType{
+					NativeType: NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
+					SubType:    NativeType{typ: TypeVarchar},
+					Dimensions: 10,
 				},
 			},
 		},
@@ -372,14 +374,14 @@ func TestVector_SubTypeParsing(t *testing.T) {
 			name:   "set_map_vector_text_text",
 			custom: "org.apache.cassandra.db.marshal.SetType(org.apache.cassandra.db.marshal.MapType(org.apache.cassandra.db.marshal.VectorType(org.apache.cassandra.db.marshal.Int32Type, 10),org.apache.cassandra.db.marshal.UTF8Type))",
 			expected: CollectionType{
-				NativeType{typ: TypeSet},
-				nil,
-				CollectionType{
+				NativeType: NativeType{typ: TypeSet},
+				Key:        nil,
+				Elem: CollectionType{
 					NativeType{typ: TypeMap},
 					VectorType{
-						NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
-						NativeType{typ: TypeInt},
-						10,
+						NativeType: NativeType{typ: TypeCustom, custom: "org.apache.cassandra.db.marshal.VectorType"},
+						SubType:    NativeType{typ: TypeInt},
+						Dimensions: 10,
 					},
 					NativeType{typ: TypeVarchar},
 				},
@@ -387,7 +389,7 @@ func TestVector_SubTypeParsing(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
+	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			f := newFramer(nil, 0)
 			f.writeShort(0)
@@ -395,8 +397,8 @@ func TestVector_SubTypeParsing(t *testing.T) {
 			parsedType := f.readTypeInfo()
 			require.IsType(t, parsedType, VectorType{})
 			vectorType := parsedType.(VectorType)
-			assertEqual(t, "dimensions", 2, vectorType.Dimensions)
-			assertDeepEqual(t, "vector", test.expected, vectorType.SubType)
+			tests.AssertEqual(t, "dimensions", 2, vectorType.Dimensions)
+			tests.AssertDeepEqual(t, "vector", test.expected, vectorType.SubType)
 		})
 	}
 }
