@@ -1,5 +1,5 @@
-//go:build all || cassandra
-// +build all cassandra
+//go:build integration
+// +build integration
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
