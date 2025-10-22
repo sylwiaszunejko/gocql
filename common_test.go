@@ -28,7 +28,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"net"
 	"strings"
 	"sync"
@@ -52,10 +51,6 @@ var (
 	flagDistribution  = flag.String("distribution", "scylla", "database distribution - scylla or cassandra")
 	flagCassVersion   cassVersion
 )
-
-var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-const randCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func init() {
 	flag.Var(&flagCassVersion, "gocql.cversion", "the cassandra version being tested against")
@@ -423,12 +418,4 @@ func staticAddressTranslator(newAddr net.IP, newPort int) AddressTranslator {
 	return AddressTranslatorFunc(func(addr net.IP, port int) (net.IP, int) {
 		return newAddr, newPort
 	})
-}
-
-func randomText(size int) string {
-	result := make([]byte, size)
-	for i := range result {
-		result[i] = randCharset[rand.Intn(len(randCharset))]
-	}
-	return string(result)
 }
