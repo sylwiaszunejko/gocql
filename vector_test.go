@@ -54,8 +54,12 @@ func TestVector_Marshaler(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if flagCassVersion.Before(5, 0, 0) {
+	if *flagDistribution == "cassandra" && flagCassVersion.Before(5, 0, 0) {
 		t.Skip("Vector types have been introduced in Cassandra 5.0")
+	}
+
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2025, 3, 0) {
+		t.Skip("Vector types have been introduced in ScyllaDB 2025.3")
 	}
 
 	err := createTable(session, `CREATE TABLE IF NOT EXISTS gocql_test.vector_fixed(id int primary key, vec vector<float, 3>);`)
@@ -98,8 +102,12 @@ func TestVector_Types(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if flagCassVersion.Before(5, 0, 0) {
+	if *flagDistribution == "cassandra" && flagCassVersion.Before(5, 0, 0) {
 		t.Skip("Vector types have been introduced in Cassandra 5.0")
+	}
+
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2025, 3, 0) {
+		t.Skip("Vector types have been introduced in ScyllaDB 2025.3")
 	}
 
 	timestamp1, _ := time.Parse("2006-01-02", "2000-01-01")
@@ -209,8 +217,12 @@ func TestVector_MarshalerUDT(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if flagCassVersion.Before(5, 0, 0) {
+	if *flagDistribution == "cassandra" && flagCassVersion.Before(5, 0, 0) {
 		t.Skip("Vector types have been introduced in Cassandra 5.0")
+	}
+
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2025, 3, 0) {
+		t.Skip("Vector types have been introduced in ScyllaDB 2025.3")
 	}
 
 	err := createTable(session, `CREATE TYPE gocql_test.person(
@@ -253,8 +265,12 @@ func TestVector_Empty(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if flagCassVersion.Before(5, 0, 0) {
+	if *flagDistribution == "cassandra" && flagCassVersion.Before(5, 0, 0) {
 		t.Skip("Vector types have been introduced in Cassandra 5.0")
+	}
+
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2025, 3, 0) {
+		t.Skip("Vector types have been introduced in ScyllaDB 2025.3")
 	}
 
 	err := createTable(session, `CREATE TABLE IF NOT EXISTS gocql_test.vector_fixed_null(id int primary key, vec vector<float, 3>);`)
@@ -294,8 +310,12 @@ func TestVector_MissingDimension(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	if flagCassVersion.Before(5, 0, 0) {
+	if *flagDistribution == "cassandra" && flagCassVersion.Before(5, 0, 0) {
 		t.Skip("Vector types have been introduced in Cassandra 5.0")
+	}
+
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2025, 3, 0) {
+		t.Skip("Vector types have been introduced in ScyllaDB 2025.3")
 	}
 
 	err := createTable(session, `CREATE TABLE IF NOT EXISTS gocql_test.vector_fixed(id int primary key, vec vector<float, 3>);`)
