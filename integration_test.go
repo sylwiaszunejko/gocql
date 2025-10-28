@@ -1019,9 +1019,12 @@ func TestSliceMapMapScanVectorTypes(t *testing.T) {
 	session := createSession(t)
 	defer session.Close()
 
-	// Vector types require Cassandra 5.0+
-	if session.control.getConn().host.Version().Before(5, 0, 0) {
-		t.Skip("Vector types require Cassandra 5.0+")
+	if *flagDistribution == "cassandra" && flagCassVersion.Before(5, 0, 0) {
+		t.Skip("Vector types have been introduced in Cassandra 5.0")
+	}
+
+	if *flagDistribution == "scylla" && flagCassVersion.Before(2025, 3, 0) {
+		t.Skip("Vector types have been introduced in ScyllaDB 2025.3")
 	}
 
 	// Create test table with vector columns
