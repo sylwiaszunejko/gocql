@@ -41,6 +41,46 @@ type RowData struct {
 	Values  []interface{}
 }
 
+// asVectorType attempts to convert a NativeType(custom) which represents a VectorType
+// into a concrete VectorType. It also works recursively (nested vectors).
+func asVectorType(t TypeInfo) (VectorType, bool) {
+	if v, ok := t.(VectorType); ok {
+		return v, true
+	}
+	n, ok := t.(NativeType)
+	if !ok || n.Type() != TypeCustom {
+		return VectorType{}, false
+	}
+	const prefix = "org.apache.cassandra.db.marshal.VectorType"
+	if !strings.HasPrefix(n.Custom(), prefix+"(") {
+		return VectorType{}, false
+	}
+
+	spec := strings.TrimPrefix(n.Custom(), prefix)
+	spec = strings.Trim(spec, "()")
+	// split last comma -> subtype spec , dimensions
+	idx := strings.LastIndex(spec, ",")
+	if idx <= 0 {
+		return VectorType{}, false
+	}
+	subStr := strings.TrimSpace(spec[:idx])
+	dimStr := strings.TrimSpace(spec[idx+1:])
+	dim, err := strconv.Atoi(dimStr)
+	if err != nil {
+		return VectorType{}, false
+	}
+	subType := getCassandraLongType(subStr, n.Version(), nopLogger{})
+	// recurse if subtype itself is still a custom vector
+	if innerVec, ok := asVectorType(subType); ok {
+		subType = innerVec
+	}
+	return VectorType{
+		NativeType: NewCustomType(n.Version(), TypeCustom, prefix),
+		SubType:    subType,
+		Dimensions: dim,
+	}, true
+}
+
 func goType(t TypeInfo) (reflect.Type, error) {
 	switch t.Type() {
 	case TypeVarchar, TypeAscii, TypeInet, TypeText:
@@ -97,6 +137,20 @@ func goType(t TypeInfo) (reflect.Type, error) {
 		return reflect.TypeOf(*new(time.Time)), nil
 	case TypeDuration:
 		return reflect.TypeOf(*new(Duration)), nil
+	case TypeCustom:
+		// Handle VectorType encoded as custom
+		if vec, ok := asVectorType(t); ok {
+			innerPtr, err := vec.SubType.NewWithError()
+			if err != nil {
+				return nil, err
+			}
+			elemType := reflect.TypeOf(innerPtr)
+			if elemType.Kind() == reflect.Ptr {
+				elemType = elemType.Elem()
+			}
+			return reflect.SliceOf(elemType), nil
+		}
+		return nil, fmt.Errorf("cannot create Go type for unknown CQL type %s", t)
 	default:
 		return nil, fmt.Errorf("cannot create Go type for unknown CQL type %s", t)
 	}
