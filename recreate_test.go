@@ -90,6 +90,9 @@ func TestRecreateSchema(t *testing.T) {
 	for i := range tcs {
 		test := tcs[i]
 		t.Run(test.Name, func(t *testing.T) {
+			if test.Name == "UDT" && *flagDistribution == "scylla" && flagCassVersion.Major == 2024 && flagCassVersion.Minor == 1 {
+				t.Skip("Doesn't work properly on Scylla 2024.1 due to https://github.com/scylladb/scylladb/issues/26761")
+			}
 			cleanup(t, session, test.Keyspace)
 
 			in, err := ioutil.ReadFile(test.Input)
