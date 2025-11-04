@@ -287,6 +287,9 @@ func getCassandraLongType(name string, protoVer byte, logger StdLogger) TypeInfo
 			SubType:    subType,
 			Dimensions: dim,
 		}
+	} else if strings.HasPrefix(name, "org.apache.cassandra.db.marshal.FrozenType") {
+		names := splitJavaCompositeTypes(name, "org.apache.cassandra.db.marshal.FrozenType")
+		return getCassandraLongType(strings.TrimSpace(names[0]), protoVer, logger)
 	} else {
 		// basic type
 		return NativeType{
