@@ -283,7 +283,7 @@ func (pool *hostConnPool) String() string {
 		pool.filling, pool.closed, size, pool.size, pool.host)
 }
 
-func newHostConnPool(session *Session, host *HostInfo, port, size int,
+func newHostConnPool(session *Session, host *HostInfo, port, size int, // FIXME: Remove unused port parameter
 	keyspace string) *hostConnPool {
 
 	pool := &hostConnPool{
@@ -555,7 +555,10 @@ func (pool *hostConnPool) connect() (err error) {
 
 	// lazily initialize the connPicker when we know the required type
 	pool.initConnPicker(conn)
-	pool.connPicker.Put(conn)
+	if err := pool.connPicker.Put(conn); err != nil {
+		conn.Close()
+		return err
+	}
 	conn.finalizeConnection()
 
 	return nil
