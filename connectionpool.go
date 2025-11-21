@@ -143,7 +143,6 @@ func (p *policyConnPool) SetHosts(hosts []*HostInfo) {
 			pools <- newHostConnPool(
 				p.session,
 				host,
-				p.port,
 				p.numConns,
 				p.keyspace,
 			)
@@ -233,7 +232,6 @@ func (p *policyConnPool) addHost(host *HostInfo) {
 		pool = newHostConnPool(
 			p.session,
 			host,
-			host.Port(), // TODO: if port == 0 use pool.port?
 			p.numConns,
 			p.keyspace,
 		)
@@ -283,9 +281,7 @@ func (pool *hostConnPool) String() string {
 		pool.filling, pool.closed, size, pool.size, pool.host)
 }
 
-func newHostConnPool(session *Session, host *HostInfo, port, size int, // FIXME: Remove unused port parameter
-	keyspace string) *hostConnPool {
-
+func newHostConnPool(session *Session, host *HostInfo, size int, keyspace string) *hostConnPool {
 	pool := &hostConnPool{
 		session:    session,
 		host:       host,
