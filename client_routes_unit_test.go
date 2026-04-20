@@ -393,3 +393,509 @@ func TestUpdateHostPortMapping_FullRefresh_PrunesStaleEntries(t *testing.T) {
 		t.Fatalf("h3 should have been pruned by full refresh")
 	}
 }
+
+// newTestHandler creates a ClientRoutesHandler suitable for unit tests.
+// The resolver maps IP-like hostnames to themselves (e.g. "127.0.0.1" →  127.0.0.1).
+func newTestHandler(pickTLS bool) *ClientRoutesHandler {
+	return &ClientRoutesHandler{
+		pickTLSPorts: pickTLS,
+		stickyRoute:  make(map[string]string),
+		resolver: dnsResolverFunc(func(host string) ([]net.IP, error) {
+			ip := net.ParseIP(host)
+			if ip == nil {
+				return nil, fmt.Errorf("cannot parse %q as IP", host)
+			}
+			return []net.IP{ip}, nil
+		}),
+		routes: make(clientRouteMap),
+	}
+}
+
+func addrPort(ip string, port uint16) AddressPort {
+	return AddressPort{Address: net.ParseIP(ip), Port: port}
+}
+
+// When routes haven't been fetched yet (empty map), TranslateHost returns an
+// error for a known host. This differs from the Rust driver which falls back
+// to the original address; the Go driver surfaces the error so the caller can
+// decide what to do.
+func TestTranslateHost_NoRoutesYet_ReturnsError(t *testing.T) {
+	handler := newTestHandler(false)
+	addr := addrPort("1.1.1.1", 9042)
+
+	_, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err == nil {
+		t.Fatal("expected error when no routes are present")
+	}
+}
+
+// When routes exist but the specific host ID is not found, TranslateHost
+// returns an error.
+func TestTranslateHost_HostIDNotInRoutes(t *testing.T) {
+	handler := newTestHandler(false)
+	handler.routes = clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042}},
+	}
+	addr := addrPort("1.1.1.1", 9042)
+
+	_, err := handler.TranslateHost(testHostInfo{hostID: "h-missing"}, addr)
+	if err == nil {
+		t.Fatal("expected error when host ID is not in routes")
+	}
+}
+
+// When a matching route exists and TLS is not enabled, the plaintext cqlPort
+// is used.
+func TestTranslateHost_ResolvesHostnameAndPort(t *testing.T) {
+	handler := newTestHandler(false)
+	handler.routes = clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042, secureCQLPort: 9142}},
+	}
+	addr := addrPort("1.1.1.1", 19999)
+
+	res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expected := addrPort("127.0.0.1", 9042)
+	if !res.Equal(expected) {
+		t.Fatalf("expected %v, got %v", expected, res)
+	}
+}
+
+// Multiple nodes with different connection IDs and addresses are each
+// translated independently.
+func TestTranslateHost_MultipleNodesResolvedIndependently(t *testing.T) {
+	handler := newTestHandler(false)
+	handler.routes = clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042}},
+		"h2": {"c2": {connectionID: "c2", hostID: "h2", address: "127.0.0.2", cqlPort: 9043}},
+	}
+	addr := addrPort("1.1.1.1", 19999)
+
+	res1, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error for h1: %v", err)
+	}
+	if !res1.Equal(addrPort("127.0.0.1", 9042)) {
+		t.Fatalf("h1: expected 127.0.0.1:9042, got %v", res1)
+	}
+
+	res2, err := handler.TranslateHost(testHostInfo{hostID: "h2"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error for h2: %v", err)
+	}
+	if !res2.Equal(addrPort("127.0.0.2", 9043)) {
+		t.Fatalf("h2: expected 127.0.0.2:9043, got %v", res2)
+	}
+}
+
+// When TLS is enabled, the secureCQLPort is used instead of cqlPort.
+func TestTranslateHost_UsesTLSPort(t *testing.T) {
+	handler := newTestHandler(true)
+	handler.routes = clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042, secureCQLPort: 9142}},
+	}
+	addr := addrPort("1.1.1.1", 19999)
+
+	res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9142)) {
+		t.Fatalf("expected TLS port 9142, got %v", res)
+	}
+}
+
+// When TLS is not enabled and cqlPort is 0 (missing), TranslateHost returns an error.
+func TestTranslateHost_ErrorWhenCQLPortMissing(t *testing.T) {
+	handler := newTestHandler(false)
+	handler.routes = clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 0, secureCQLPort: 9142}},
+	}
+	addr := addrPort("1.1.1.1", 19999)
+
+	_, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err == nil {
+		t.Fatal("expected error when cqlPort is 0")
+	}
+}
+
+// When TLS is enabled and secureCQLPort is 0 (missing), TranslateHost returns an error.
+func TestTranslateHost_ErrorWhenTLSPortMissing(t *testing.T) {
+	handler := newTestHandler(true)
+	handler.routes = clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042, secureCQLPort: 0}},
+	}
+	addr := addrPort("1.1.1.1", 19999)
+
+	_, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err == nil {
+		t.Fatal("expected error when secureCQLPort is 0")
+	}
+}
+
+// Full lifecycle: no routes →  error; add routes →  translated; update routes →  new translation.
+func TestTranslateHost_FullLifecycle(t *testing.T) {
+	handler := newTestHandler(false)
+	addr := addrPort("1.1.1.1", 19999)
+
+	// Before any routes: error.
+	_, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err == nil {
+		t.Fatal("expected error before routes are set")
+	}
+
+	// Add routes.
+	handler.mu.Lock()
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042},
+	}, []string{"c1"}, nil)
+	handler.mu.Unlock()
+
+	res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9042)) {
+		t.Fatalf("expected 127.0.0.1:9042, got %v", res)
+	}
+
+	// Update routes with new port.
+	handler.mu.Lock()
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9043},
+	}, []string{"c1"}, nil)
+	handler.mu.Unlock()
+
+	res, err = handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9043)) {
+		t.Fatalf("expected updated port 9043, got %v", res)
+	}
+}
+
+// Non-key property updates (address, port) are reflected via both full
+// replacement and partial merge.
+func TestTranslateHost_NonKeyPropertyUpdatesReflected(t *testing.T) {
+	handler := newTestHandler(false)
+	addr := addrPort("1.1.1.1", 19999)
+
+	// Initial state.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042},
+	}, []string{"c1"}, nil)
+
+	assertTranslation := func(expected AddressPort) {
+		t.Helper()
+		res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !res.Equal(expected) {
+			t.Fatalf("expected %v, got %v", expected, res)
+		}
+	}
+
+	assertTranslation(addrPort("127.0.0.1", 9042))
+
+	// Port changes via full replacement.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9043},
+	}, []string{"c1"}, nil)
+	assertTranslation(addrPort("127.0.0.1", 9043))
+
+	// Address changes via full replacement.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.2", cqlPort: 9043},
+	}, []string{"c1"}, nil)
+	assertTranslation(addrPort("127.0.0.2", 9043))
+
+	// Both change via full replacement.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.3", cqlPort: 9044},
+	}, []string{"c1"}, nil)
+	assertTranslation(addrPort("127.0.0.3", 9044))
+
+	// Port changes via partial merge.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.3", cqlPort: 9050},
+	}, []string{"c1"}, []string{"h1"})
+	assertTranslation(addrPort("127.0.0.3", 9050))
+
+	// Address changes via partial merge.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.4", cqlPort: 9050},
+	}, []string{"c1"}, []string{"h1"})
+	assertTranslation(addrPort("127.0.0.4", 9050))
+
+	// Both change via partial merge.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.5", cqlPort: 9060},
+	}, []string{"c1"}, []string{"h1"})
+	assertTranslation(addrPort("127.0.0.5", 9060))
+}
+
+// Full replacement removes hosts absent from the snapshot. The removed host
+// should no longer translate.
+func TestTranslateHost_FullReplacementRemovesAbsentHosts(t *testing.T) {
+	handler := newTestHandler(false)
+	addr := addrPort("1.1.1.1", 19999)
+
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042},
+		{connectionID: "c1", hostID: "h2", address: "127.0.0.1", cqlPort: 9043},
+	}, []string{"c1"}, nil)
+
+	// Both translate.
+	if _, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr); err != nil {
+		t.Fatalf("h1 should translate: %v", err)
+	}
+	if _, err := handler.TranslateHost(testHostInfo{hostID: "h2"}, addr); err != nil {
+		t.Fatalf("h2 should translate: %v", err)
+	}
+
+	// Second snapshot: only h1 remains with updated port.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9044},
+	}, []string{"c1"}, nil)
+
+	res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("h1 should still translate: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9044)) {
+		t.Fatalf("h1: expected port 9044, got %v", res)
+	}
+
+	// h2 was removed →  error.
+	_, err = handler.TranslateHost(testHostInfo{hostID: "h2"}, addr)
+	if err == nil {
+		t.Fatal("h2 should fail after being removed from routes")
+	}
+}
+
+// Partial merge preserves hosts not mentioned in the update.
+func TestTranslateHost_PartialMergePreservesUnaffectedHosts(t *testing.T) {
+	handler := newTestHandler(false)
+	addr := addrPort("1.1.1.1", 19999)
+
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042},
+		{connectionID: "c1", hostID: "h2", address: "127.0.0.1", cqlPort: 9043},
+	}, []string{"c1"}, nil)
+
+	// Partial update: only h1 changes.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9044},
+	}, []string{"c1"}, []string{"h1"})
+
+	// h1 updated.
+	res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("h1 unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9044)) {
+		t.Fatalf("h1: expected port 9044, got %v", res)
+	}
+
+	// h2 preserved.
+	res, err = handler.TranslateHost(testHostInfo{hostID: "h2"}, addr)
+	if err != nil {
+		t.Fatalf("h2 unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9043)) {
+		t.Fatalf("h2: expected port 9043, got %v", res)
+	}
+}
+
+// Partial merge removes dangling entries: event mentions (c1, h1), (c1, h2),
+// (c1, h3) but re-fetch returns only h1 (updated) and h3 under c2.
+// h2 becomes dangling and should be removed.
+func TestMerge_RemovesDanglingEntries(t *testing.T) {
+	m := clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "a1", cqlPort: 9042}},
+		"h2": {"c1": {connectionID: "c1", hostID: "h2", address: "a2", cqlPort: 9043}},
+		"h3": {"c1": {connectionID: "c1", hostID: "h3", address: "a3", cqlPort: 9044}},
+	}
+
+	// Event scope: c1 for h1, h2, h3 AND c2 for h3.
+	// Re-fetch returns: h1 under c1 (updated port), h3 under c2 (new connection).
+	// h2 has no entry →  dangling, removed.
+	// h3's c1 entry is pruned (in scope), but c2 entry is added.
+	m.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "a1", cqlPort: 9050},
+		{connectionID: "c2", hostID: "h3", address: "a3", cqlPort: 9060},
+	}, []string{"c1", "c2"}, []string{"h1", "h2", "h3"})
+
+	// h1 resilient: updated to port 9050.
+	if r := m["h1"]["c1"]; r.cqlPort != 9050 {
+		t.Fatalf("h1: expected port 9050, got %d", r.cqlPort)
+	}
+	// h2 dangling: removed entirely.
+	if _, ok := m["h2"]; ok {
+		t.Fatal("h2 should have been removed")
+	}
+	// h3: c1 pruned, re-added under c2.
+	if _, ok := m["h3"]["c1"]; ok {
+		t.Fatal("h3/c1 should have been pruned")
+	}
+	if r := m["h3"]["c2"]; r.cqlPort != 9060 {
+		t.Fatalf("h3/c2: expected port 9060, got %d", r.cqlPort)
+	}
+}
+
+// Sticky route preference is preserved across updates when the sticky
+// connection ID is still available.
+func TestTranslateHost_StickyRoutePreservedAcrossUpdates(t *testing.T) {
+	handler := newTestHandler(false)
+	addr := addrPort("1.1.1.1", 19999)
+
+	// Initial: h1 via c1.
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042},
+	}, []string{"c1"}, nil)
+
+	// Establish stickiness to c1.
+	res, err := handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9042)) {
+		t.Fatalf("expected 127.0.0.1:9042, got %v", res)
+	}
+
+	// Update: both c1 (port 9043) and c0 (port 9044) available.
+	handler.mu.Lock()
+	handler.routes = make(clientRouteMap)
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9043},
+		{connectionID: "c0", hostID: "h1", address: "127.0.0.1", cqlPort: 9044},
+	}, []string{"c1", "c0"}, nil)
+	handler.mu.Unlock()
+
+	// Should stick to c1 (port 9043), not pick c0 (port 9044).
+	res, err = handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9043)) {
+		t.Fatalf("expected sticky c1 port 9043, got %v", res)
+	}
+
+	// When sticky connection disappears via full replacement, falls back.
+	handler.mu.Lock()
+	handler.routes = make(clientRouteMap)
+	handler.routes.merge([]clientRoute{
+		{connectionID: "c0", hostID: "h1", address: "127.0.0.1", cqlPort: 9050},
+	}, []string{"c0"}, nil)
+	// Also prune sticky since c1 is gone from the map for h1... but the sticky
+	// entry still says c1. findPreferredRoute will fail the sticky lookup and
+	// fall back to the remaining route.
+	handler.mu.Unlock()
+
+	res, err = handler.TranslateHost(testHostInfo{hostID: "h1"}, addr)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Equal(addrPort("127.0.0.1", 9050)) {
+		t.Fatalf("expected fallback to c0 port 9050, got %v", res)
+	}
+}
+
+// Cross-product artifact: merge event mentions only host_y, but re-fetch
+// includes extra data for host_x. host_x's existing route must not be clobbered.
+func TestMerge_CrossProductDoesNotClobberUnrelatedHost(t *testing.T) {
+	m := clientRouteMap{
+		"hx": {"c1": {connectionID: "c1", hostID: "hx", address: "127.0.0.1", cqlPort: 9042}},
+	}
+
+	// Event scope: c2 for hy only.
+	// Re-fetch returns hy (expected) AND hx under c2 (cross-product artifact).
+	// Since scope is (c2, hy), hx should not be affected.
+	m.merge([]clientRoute{
+		{connectionID: "c2", hostID: "hy", address: "127.0.0.1", cqlPort: 9099},
+		{connectionID: "c2", hostID: "hx", address: "127.0.0.1", cqlPort: 9088},
+	}, []string{"c2"}, []string{"hy"})
+
+	// hx's c1 route must be preserved.
+	if r := m["hx"]["c1"]; r.cqlPort != 9042 {
+		t.Fatalf("hx/c1: expected port 9042 preserved, got %d", r.cqlPort)
+	}
+	// hy should have the new c2 route.
+	if r := m["hy"]["c2"]; r.cqlPort != 9099 {
+		t.Fatalf("hy/c2: expected port 9099, got %d", r.cqlPort)
+	}
+	// hx also gets c2 because the incoming data includes it and hx is not in
+	// scopeHostIDs so c2 won't be pruned for hx — but it IS added via upsert.
+	// This is expected: the cross-product artifact adds an extra route but
+	// does not remove the existing c1 route.
+	if r := m["hx"]["c2"]; r.cqlPort != 9088 {
+		t.Fatalf("hx/c2: expected port 9088, got %d", r.cqlPort)
+	}
+}
+
+// Deletion of one connection ID for a host should not lose the host when
+// another connection ID's route is still held.
+func TestMerge_DeletionDoesNotLoseHostWithOtherConnID(t *testing.T) {
+	m := clientRouteMap{
+		"hx": {
+			"c1": {connectionID: "c1", hostID: "hx", address: "127.0.0.1", cqlPort: 9042},
+			"c2": {connectionID: "c2", hostID: "hx", address: "127.0.0.1", cqlPort: 9043},
+		},
+	}
+
+	// Event: c1 for hx changed (deleted in DB). Re-fetch returns nothing for c1+hx.
+	m.merge(nil, []string{"c1"}, []string{"hx"})
+
+	// c1 should be removed, but c2 should remain.
+	if _, ok := m["hx"]["c1"]; ok {
+		t.Fatal("hx/c1 should have been deleted")
+	}
+	if r := m["hx"]["c2"]; r.cqlPort != 9043 {
+		t.Fatalf("hx/c2 should be preserved with port 9043, got %d", r.cqlPort)
+	}
+}
+
+// Same host under two connection IDs in one event: the second iteration
+// must not delete the route inserted by the first.
+func TestMerge_SameHostTwoConnIDs_SecondIterationDoesNotDelete(t *testing.T) {
+	m := clientRouteMap{
+		"hx": {"c1": {connectionID: "c1", hostID: "hx", address: "127.0.0.1", cqlPort: 9042}},
+	}
+
+	// Event: both c1 and c2 changed for hx.
+	// Re-fetch: c1 deleted, c2 created with port 9099.
+	m.merge([]clientRoute{
+		{connectionID: "c2", hostID: "hx", address: "127.0.0.1", cqlPort: 9099},
+	}, []string{"c1", "c2"}, []string{"hx"})
+
+	// hx should be reachable via c2.
+	if _, ok := m["hx"]["c1"]; ok {
+		t.Fatal("hx/c1 should have been pruned")
+	}
+	if r := m["hx"]["c2"]; r.cqlPort != 9099 {
+		t.Fatalf("hx/c2: expected port 9099, got %d", r.cqlPort)
+	}
+}
+
+// Duplicate entries in a merge event (same connection_id and host_id appearing
+// multiple times in scope) should be handled correctly: the route is applied
+// once and the duplicate occurrence is a no-op.
+func TestMerge_DuplicateEntriesAreIdempotent(t *testing.T) {
+	m := clientRouteMap{
+		"h1": {"c1": {connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9042}},
+	}
+
+	// Scope lists h1 twice under c1 (simulating duplicate event entries).
+	m.merge([]clientRoute{
+		{connectionID: "c1", hostID: "h1", address: "127.0.0.1", cqlPort: 9099},
+	}, []string{"c1", "c1"}, []string{"h1", "h1"})
+
+	// The route should be updated, not deleted.
+	if r := m["h1"]["c1"]; r.cqlPort != 9099 {
+		t.Fatalf("expected port 9099, got %d", r.cqlPort)
+	}
+}
