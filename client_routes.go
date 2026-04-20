@@ -114,16 +114,6 @@ type clientRoute struct {
 	SecureCQLPort uint16
 }
 
-// Similar returns true if both records targets same host and connection id
-func (r clientRoute) Similar(o clientRoute) bool {
-	return r.ConnectionID == o.ConnectionID && r.HostID == o.HostID
-}
-
-// Equal returns true if both records are exactly the same
-func (r clientRoute) Equal(o clientRoute) bool {
-	return r == o
-}
-
 func (r clientRoute) String() string {
 	return fmt.Sprintf(
 		"clientRoute{ConnectionID=%s, HostID=%s, Address=%s, CQLPort=%d, SecureCQLPort=%d}",
@@ -135,59 +125,58 @@ func (r clientRoute) String() string {
 	)
 }
 
-type clientRouteList []clientRoute
+// clientRouteMap groups routes by hostID → connectionID → clientRoute.
+// The outer key is the host, the inner key is the connection.
+// This layout matches the AddressTranslator lookup pattern: find routes for a
+// host first, then pick the right connection.
+type clientRouteMap map[string]map[string]clientRoute
 
-func (l *clientRouteList) Len() int {
-	return len(*l)
-}
-
-// Merge upserts entries from incoming into the list.
+// Merge upserts entries from incoming into the map.
 // Before upserting it prunes stale entries within the query scope defined by
 // scopeConnectionIDs and scopeHostIDs:
 //   - Both non-empty (partial update): prune entries matching BOTH lists.
 //   - Only scopeConnectionIDs (full refresh): prune all entries for those connections.
 //
 // scopeConnectionIDs must not be empty.
-func (l *clientRouteList) Merge(incoming clientRouteList, scopeConnectionIDs, scopeHostIDs []string) {
+func (m clientRouteMap) Merge(incoming []clientRoute, scopeConnectionIDs, scopeHostIDs []string) {
 	if len(scopeConnectionIDs) == 0 {
-		panic("clientRouteList.Merge: scopeConnectionIDs must not be empty")
+		panic("clientRouteMap.Merge: scopeConnectionIDs must not be empty")
 	}
 
 	if len(scopeHostIDs) > 0 {
-		*l = slices.DeleteFunc(*l, func(r clientRoute) bool {
-			return slices.Contains(scopeConnectionIDs, r.ConnectionID) &&
-				slices.Contains(scopeHostIDs, r.HostID)
-		})
+		// Partial update: prune entries matching BOTH connection and host.
+		for _, hostID := range scopeHostIDs {
+			conns := m[hostID]
+			if conns == nil {
+				continue
+			}
+			for _, connID := range scopeConnectionIDs {
+				delete(conns, connID)
+			}
+			if len(conns) == 0 {
+				delete(m, hostID)
+			}
+		}
 	} else {
-		*l = slices.DeleteFunc(*l, func(r clientRoute) bool {
-			return slices.Contains(scopeConnectionIDs, r.ConnectionID)
-		})
+		// Full refresh: prune all entries for the given connections.
+		for hostID, conns := range m {
+			for _, connID := range scopeConnectionIDs {
+				delete(conns, connID)
+			}
+			if len(conns) == 0 {
+				delete(m, hostID)
+			}
+		}
 	}
 
 	for _, inc := range incoming {
-		found := false
-		for id, existing := range *l {
-			if existing.Similar(inc) {
-				found = true
-				if !existing.Equal(inc) {
-					(*l)[id] = inc
-				}
-				break
-			}
+		conns := m[inc.HostID]
+		if conns == nil {
+			conns = make(map[string]clientRoute)
+			m[inc.HostID] = conns
 		}
-		if !found {
-			*l = append(*l, inc)
-		}
+		conns[inc.ConnectionID] = inc
 	}
-}
-
-func (l *clientRouteList) FindByHostID(hostID string) *clientRoute {
-	for i := range *l {
-		if (*l)[i].HostID == hostID {
-			return &(*l)[i]
-		}
-	}
-	return nil
 }
 
 type ClientRoutesHandler struct {
@@ -195,7 +184,7 @@ type ClientRoutesHandler struct {
 	c            controlConnection
 	resolver     DNSResolver
 	sub          *eventbus.Subscriber[events.Event]
-	routes       clientRouteList
+	routes       clientRouteMap
 	stickyRoute  map[string]string // hostID → preferred connectionID
 	updateTasks  chan updateTask
 	closeChan    chan struct{}
@@ -223,15 +212,21 @@ func pickProperPort(pickTLSPorts bool, rec *clientRoute) uint16 {
 // findPreferredRoute returns the route for hostID that matches the sticky
 // connectionID, falling back to the first route for that host.
 // Must be called with p.mu held (at least RLock).
-func (p *ClientRoutesHandler) findPreferredRoute(hostID string) *clientRoute {
+func (p *ClientRoutesHandler) findPreferredRoute(hostID string) (clientRoute, bool) {
+	conns := p.routes[hostID]
+	if conns == nil {
+		return clientRoute{}, false
+	}
 	if preferred, ok := p.stickyRoute[hostID]; ok {
-		for i := range p.routes {
-			if p.routes[i].HostID == hostID && p.routes[i].ConnectionID == preferred {
-				return &p.routes[i]
-			}
+		if route, ok := conns[preferred]; ok {
+			return route, true
 		}
 	}
-	return p.routes.FindByHostID(hostID)
+	// Fall back to an arbitrary route for this host.
+	for _, route := range conns {
+		return route, true
+	}
+	return clientRoute{}, false
 }
 
 // TranslateHost implements AddressTranslatorV2 interface.
@@ -243,12 +238,7 @@ func (p *ClientRoutesHandler) TranslateHost(host AddressTranslatorHostInfo, addr
 	}
 
 	p.mu.RLock()
-	rec := p.findPreferredRoute(hostID)
-	var route clientRoute
-	found := rec != nil
-	if found {
-		route = *rec
-	}
+	route, found := p.findPreferredRoute(hostID)
 	p.mu.RUnlock()
 
 	if !found {
@@ -411,7 +401,7 @@ func (p *ClientRoutesHandler) updateHostPortMapping(connectionIDs []string, host
 // appears in routes. Must be called with p.mu held for writing.
 func (p *ClientRoutesHandler) pruneStickyRoutes() {
 	for hostID := range p.stickyRoute {
-		if p.routes.FindByHostID(hostID) == nil {
+		if len(p.routes[hostID]) == 0 {
 			delete(p.stickyRoute, hostID)
 		}
 	}
@@ -433,15 +423,15 @@ func NewClientRoutesAddressTranslator(
 		closeChan:    make(chan struct{}),
 		updateTasks:  make(chan updateTask, 1024),
 		resolver:     resolver,
-		routes:       make(clientRouteList, 0),
+		routes:       make(clientRouteMap),
 		stickyRoute:  make(map[string]string),
 	}
 }
 
 var _ AddressTranslator = &ClientRoutesHandler{}
 
-func getHostPortMappingFromCluster(c controlConnection, table string, connectionIDs []string, hostIDs []string) (clientRouteList, error) {
-	var res clientRouteList
+func getHostPortMappingFromCluster(c controlConnection, table string, connectionIDs []string, hostIDs []string) ([]clientRoute, error) {
+	var res []clientRoute
 
 	stmt := []string{fmt.Sprintf("select connection_id, host_id, address, port, tls_port from %s", table)}
 	var bounds []any
