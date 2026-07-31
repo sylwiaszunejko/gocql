@@ -264,6 +264,18 @@ func (c *controlConn) discoverProtocol(hosts []*HostInfo) (int, error) {
 	return 0, err
 }
 
+// controlConnConfig returns the connection config used for control connections.
+// It is the only place where control-connection specific settings are applied,
+// so that every path which (re)establishes the control connection agrees on them.
+//
+// It is declared here, rather than alongside the rest of Session, so it sits
+// next to the paths whose agreement it exists to guarantee.
+func (s *Session) controlConnConfig() *ConnConfig {
+	cfg := *s.connCfg
+	cfg.disableCoalesce = true
+	return &cfg
+}
+
 func (c *controlConn) connect(hosts []*HostInfo) error {
 	if len(hosts) == 0 {
 		return errors.New("control: no endpoints specified")
@@ -273,13 +285,12 @@ func (c *controlConn) connect(hosts []*HostInfo) error {
 	// node.
 	hosts = shuffleHosts(hosts)
 
-	cfg := *c.session.connCfg
-	cfg.disableCoalesce = true
+	cfg := c.session.controlConnConfig()
 
 	var conn *Conn
 	var err error
 	for _, host := range hosts {
-		conn, err = c.session.dial(c.session.ctx, host, &cfg, c)
+		conn, err = c.session.dial(c.session.ctx, host, cfg, c)
 		// conn.finalizeConnection() to be called outside of this function, since initialization process is not completed yet
 		if err != nil {
 			c.session.logger.Printf("gocql: unable to dial control conn %v:%v: %v\n", host.ConnectAddress(), host.Port(), err)
@@ -459,8 +470,9 @@ func (c *controlConn) attemptReconnect() error {
 }
 
 func (c *controlConn) attemptReconnectToAnyOfHosts(hosts []*HostInfo) error {
+	cfg := c.session.controlConnConfig()
 	for _, host := range hosts {
-		conn, err := c.session.connect(c.session.ctx, host, c)
+		conn, err := c.session.dial(c.session.ctx, host, cfg, c)
 		if err != nil {
 			if c.session.cfg.ConvictionPolicy.AddFailure(err, host) {
 				c.session.handleNodeDown(host.ConnectAddress(), host.Port())

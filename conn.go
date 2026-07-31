@@ -288,12 +288,6 @@ func (c *Conn) getScyllaSupported() ScyllaConnectionFeatures {
 	return c.scyllaSupported
 }
 
-// connect establishes a connection to a Cassandra node using session's connection config.
-// note: every connection needs to get `conn.finalizeConnection` called ont it when initialization process is done
-func (s *Session) connect(ctx context.Context, host *HostInfo, errorHandler ConnErrorHandler) (*Conn, error) {
-	return s.dial(ctx, host, s.connCfg, errorHandler)
-}
-
 // connectShard establishes a connection to a shard.
 // If nrShards is zero, shard-aware dialing is disabled.
 // note: every connection needs to get `conn.finalizeConnection` called ont it when initialization process is done
