@@ -5,6 +5,7 @@ package gocql
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -110,6 +111,126 @@ func TestDriverConfigReportingStartupFrame(t *testing.T) {
 	// of this session may report the configuration.
 	if len(configs) != 0 {
 		t.Errorf("expected no %s outside of the control connection, got %v", driverConfigStartupKey, configs)
+	}
+}
+
+// TestDriverConfigReportingDial exercises both sides of the gate in Conn.init
+// which decides that a connection reports DRIVER_CONFIG, by dialing the fake
+// server by hand with each of the two ConnConfigs a session builds.
+//
+// Neither side is covered elsewhere in the unit tests.
+// TestDriverConfigReporterStartupOptions calls updateStartupOptions directly,
+// bypassing ConnConfig entirely, so it says nothing about which connections
+// hold a reporter. TestDriverConfigReportingStartupFrame runs with
+// disableControlConn true, which leaves "a connection marked as the control
+// connection puts DRIVER_CONFIG on the wire" to the integration test, and that
+// skips on any server without client_options; and while it does assert the
+// absence over a pool of regular connections, it never exercises the gate
+// against a config it could have decided the other way on.
+func TestDriverConfigReportingDial(t *testing.T) {
+	tests := []struct {
+		name string
+		// connConfig picks the ConnConfig to dial with: the one every path
+		// (re)establishing the control connection goes through, or the
+		// session-wide one every pool connection is dialed with.
+		connConfig  func(*Session) *ConnConfig
+		wantConfigs []string
+	}{
+		{
+			name:        "control connection",
+			connConfig:  (*Session).controlConnConfig,
+			wantConfigs: []string{`{"version":1}`},
+		},
+		{
+			name:        "regular connection",
+			connConfig:  func(s *Session) *ConnConfig { return s.connCfg },
+			wantConfigs: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			var (
+				mu       sync.Mutex
+				configs  []string
+				startups int
+			)
+
+			srv := newTestServerOpts{
+				addr:     "127.0.0.1:0",
+				protocol: defaultProto,
+				recvHook: func(f *framer) {
+					if f.header.Op != frm.OpStartup {
+						return
+					}
+					// Consuming the frame body here is only safe because the
+					// fake server does not read the body of a STARTUP request.
+					opts := readStartupOptions(t, f)
+
+					mu.Lock()
+					defer mu.Unlock()
+					startups++
+					if cfg, ok := opts[driverConfigStartupKey]; ok {
+						configs = append(configs, cfg)
+					}
+				},
+			}.newServer(t, ctx)
+			defer srv.Stop()
+
+			// disableControlConn, set by testCluster, keeps the session's own
+			// control connection out of the way, so any DRIVER_CONFIG captured
+			// below can only have come from the connection dialed by hand. A
+			// single pool connection, waited for below, keeps the STARTUP count
+			// deterministic: the rest of a larger pool is filled
+			// asynchronously and could land a frame mid-test.
+			cluster := testCluster(defaultProto, srv.Address)
+			cluster.NumConns = 1
+			session, err := cluster.CreateSession()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer session.Close()
+
+			if err := waitForPoolSize(session, 1, 10*time.Second); err != nil {
+				t.Fatal(err)
+			}
+
+			hosts := session.GetHosts()
+			if len(hosts) == 0 {
+				t.Fatal("expected at least one host in the session")
+			}
+
+			mu.Lock()
+			startupsBeforeDial := startups
+			mu.Unlock()
+
+			conn, err := session.dial(session.ctx, hosts[0], tt.connConfig(session), connErrorHandlerFn(func(*Conn, error, bool) {}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			// This connection only exists to observe what reaches the wire, so
+			// it is discarded right away without calling
+			// conn.finalizeConnection, the same way
+			// controlConn.discoverProtocol does for its throwaway connections.
+			conn.Close()
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			// The connection dialed above is the only one the assertion below
+			// is about, so pin its STARTUP frame down: without this the
+			// "regular connection" case would pass just as well on a frame
+			// that never reached the server.
+			if got := startups - startupsBeforeDial; got != 1 {
+				t.Fatalf("expected the connection dialed by hand to send exactly one STARTUP frame, got %d", got)
+			}
+			if !slices.Equal(configs, tt.wantConfigs) {
+				t.Errorf("expected %s %q on a %s, got %q", driverConfigStartupKey, tt.wantConfigs, tt.name, configs)
+			}
+		})
 	}
 }
 
