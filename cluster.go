@@ -302,6 +302,19 @@ type ClusterConfig struct {
 	// address in system.local or system.peers returns 127.0.0.1, the peer will be
 	// set to 10.0.0.1 which is what will be used to connect to.
 	IgnorePeerAddr bool
+	// DisableDriverConfigReporting turns off the driver's self-description to the
+	// cluster during connection setup. Reporting is enabled by default so that
+	// operators can inspect the settings of a client while investigating an
+	// incident.
+	//
+	// The control connection sends a DRIVER_CONFIG startup option holding a JSON
+	// description of the effective configuration. It ends up in the
+	// system.clients.client_options column.
+	//
+	// When set to true, it is not sent.
+	//
+	// Default: false
+	DisableDriverConfigReporting bool
 	// An event bus configuration
 	EventBusConfig eventbus.EventBusConfig
 }

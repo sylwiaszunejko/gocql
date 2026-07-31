@@ -270,9 +270,16 @@ func (c *controlConn) discoverProtocol(hosts []*HostInfo) (int, error) {
 //
 // It is declared here, rather than alongside the rest of Session, so it sits
 // next to the paths whose agreement it exists to guarantee.
+//
+// controlConn.discoverProtocol is a deliberate exception: it hand-copies
+// *s.connCfg instead of going through here, because its throwaway probe
+// connections are discarded immediately and must not be marked as the control
+// connection - doing so would race the real control connection and report
+// DRIVER_CONFIG more than once.
 func (s *Session) controlConnConfig() *ConnConfig {
 	cfg := *s.connCfg
 	cfg.disableCoalesce = true
+	cfg.isControlConn = true
 	return &cfg
 }
 

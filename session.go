@@ -82,6 +82,7 @@ type Session struct {
 	eventBus                  *eventbus.EventBus[events.Event]
 	connCfg                   *ConnConfig
 	clientRoutesHandler       *ClientRoutesHandler
+	driverConfigReporter      *driverConfigReporter
 	routingKeyInfoCache       routingKeyInfoLRU
 	addressTranslator         AddressTranslator
 	cfg                       ClusterConfig
@@ -154,6 +155,10 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 	if cfg.ClientRoutesConfig != nil {
 		s.clientRoutesHandler = NewClientRoutesAddressTranslator(*cfg.ClientRoutesConfig, s.cfg.DNSResolver, s.cfg.SslOpts != nil, s.logger)
 		s.addressTranslator = s.clientRoutesHandler
+	}
+
+	if !cfg.DisableDriverConfigReporting {
+		s.driverConfigReporter = newDriverConfigReporter(s)
 	}
 
 	// Close created resources on error otherwise they'll leak
