@@ -3671,6 +3671,8 @@ func TestRecvSegmentPayloadReadIsBounded(t *testing.T) {
 // protocol it speaks. A callback that set CQL_VERSION could make every connection
 // in the cluster fail its handshake; one that set DRIVER_NAME or DRIVER_VERSION
 // would misreport the driver to the server for the life of the connection.
+// SESSION_ID is driver-owned for the same reason: it is what correlates a
+// session's connections in system.clients.
 func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 	t.Parallel()
 
@@ -3678,21 +3680,23 @@ func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 		cqlVersion    = "3.4.5"
 		driverName    = "gocql"
 		driverVersion = "1.2.3"
+		sessionID     = "91b0b1a2-0000-4000-8000-000000000001"
 	)
 
 	t.Run("no ApplicationInfo", func(t *testing.T) {
-		m := startupOptions(cqlVersion, driverName, driverVersion, nil, nil)
+		m := startupOptions(cqlVersion, driverName, driverVersion, nil, nil, sessionID)
 
 		require.Equal(t, map[string]string{
-			"CQL_VERSION":    cqlVersion,
-			"DRIVER_NAME":    driverName,
-			"DRIVER_VERSION": driverVersion,
+			"CQL_VERSION":       cqlVersion,
+			"DRIVER_NAME":       driverName,
+			"DRIVER_VERSION":    driverVersion,
+			sessionIDStartupKey: sessionID,
 		}, m)
 	})
 
 	t.Run("application options are kept", func(t *testing.T) {
 		m := startupOptions(cqlVersion, driverName, driverVersion,
-			NewStaticApplicationInfo("app", "9.9.9", "client-id"), nil)
+			NewStaticApplicationInfo("app", "9.9.9", "client-id"), nil, sessionID)
 
 		require.Equal(t, "app", m["APPLICATION_NAME"])
 		require.Equal(t, "9.9.9", m["APPLICATION_VERSION"])
@@ -3700,6 +3704,7 @@ func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 		require.Equal(t, cqlVersion, m["CQL_VERSION"])
 		require.Equal(t, driverName, m["DRIVER_NAME"])
 		require.Equal(t, driverVersion, m["DRIVER_VERSION"])
+		require.Equal(t, sessionID, m[sessionIDStartupKey])
 	})
 
 	t.Run("driver-owned keys win", func(t *testing.T) {
@@ -3708,12 +3713,14 @@ func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 				opts["CQL_VERSION"] = "9.9.9"
 				opts["DRIVER_NAME"] = "not-gocql"
 				opts["DRIVER_VERSION"] = "0.0.0"
+				opts[sessionIDStartupKey] = "not-the-session-id"
 				opts["APPLICATION_NAME"] = "app"
-			}), nil)
+			}), nil, sessionID)
 
 		require.Equal(t, cqlVersion, m["CQL_VERSION"], "a custom CQL version would fail every handshake")
 		require.Equal(t, driverName, m["DRIVER_NAME"])
 		require.Equal(t, driverVersion, m["DRIVER_VERSION"])
+		require.Equal(t, sessionID, m[sessionIDStartupKey], "a custom session id would break correlating a session's connections")
 		require.Equal(t, "app", m["APPLICATION_NAME"], "keys the driver does not own must still come through")
 	})
 }
