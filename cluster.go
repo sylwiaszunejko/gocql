@@ -309,9 +309,12 @@ type ClusterConfig struct {
 	//
 	// The control connection sends a DRIVER_CONFIG startup option holding a JSON
 	// description of the effective configuration. It ends up in the
-	// system.clients.client_options column.
+	// system.clients.client_options column, alongside SESSION_ID, a per-session
+	// unique identifier that every connection of a session reports and that is
+	// always sent regardless of this setting, letting all of a session's
+	// connections be correlated with each other.
 	//
-	// When set to true, it is not sent.
+	// When set to true, DRIVER_CONFIG is not sent. SESSION_ID is unaffected.
 	//
 	// Default: false
 	DisableDriverConfigReporting bool

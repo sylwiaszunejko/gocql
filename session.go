@@ -27,9 +27,11 @@ package gocql
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"maps"
+	mrand "math/rand/v2"
 	"net"
 	"slices"
 	"strings"
@@ -57,32 +59,36 @@ import (
 // and automatically sets a default consistency level on all operations
 // that do not have a consistency level set.
 type Session struct {
-	warningHandler            WarningHandler
-	queryObserver             QueryObserver
-	control                   controlConnection
-	ctx                       context.Context
-	logger                    StdLogger
-	trace                     Tracer
-	policy                    HostSelectionPolicy
-	batchObserver             BatchObserver
-	connectObserver           ConnectObserver
-	frameObserver             FrameHeaderObserver
-	streamObserver            StreamObserver
-	initErr                   error
-	nodeEvents                *eventDebouncer
-	stmtsLRU                  *preparedLRU
-	hostSource                *ringDescriber
-	pool                      *policyConnPool
-	ringRefresher             *debounce.RefreshDebouncer
-	readyCh                   chan struct{}
-	executor                  *queryExecutor
-	cancel                    context.CancelFunc
-	schemaEvents              *eventDebouncer
-	metadataDescriber         *metadataDescriber
-	eventBus                  *eventbus.EventBus[events.Event]
-	connCfg                   *ConnConfig
-	clientRoutesHandler       *ClientRoutesHandler
-	driverConfigReporter      *driverConfigReporter
+	warningHandler       WarningHandler
+	queryObserver        QueryObserver
+	control              controlConnection
+	ctx                  context.Context
+	logger               StdLogger
+	trace                Tracer
+	policy               HostSelectionPolicy
+	batchObserver        BatchObserver
+	connectObserver      ConnectObserver
+	frameObserver        FrameHeaderObserver
+	streamObserver       StreamObserver
+	initErr              error
+	nodeEvents           *eventDebouncer
+	stmtsLRU             *preparedLRU
+	hostSource           *ringDescriber
+	pool                 *policyConnPool
+	ringRefresher        *debounce.RefreshDebouncer
+	readyCh              chan struct{}
+	executor             *queryExecutor
+	cancel               context.CancelFunc
+	schemaEvents         *eventDebouncer
+	metadataDescriber    *metadataDescriber
+	eventBus             *eventbus.EventBus[events.Event]
+	connCfg              *ConnConfig
+	clientRoutesHandler  *ClientRoutesHandler
+	driverConfigReporter *driverConfigReporter
+	// id is a globally unique identifier for this session, reported to
+	// the cluster via the SESSION_ID STARTUP option so that all connections
+	// belonging to the same session can be correlated in system.clients.
+	id                        string
 	routingKeyInfoCache       routingKeyInfoLRU
 	addressTranslator         AddressTranslator
 	cfg                       ClusterConfig
@@ -160,6 +166,7 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 	if !cfg.DisableDriverConfigReporting {
 		s.driverConfigReporter = newDriverConfigReporter(s)
 	}
+	s.id = newSessionID(s.logger)
 
 	// Close created resources on error otherwise they'll leak
 	var err error
@@ -216,6 +223,60 @@ func newSessionCommon(cfg ClusterConfig) (*Session, error) {
 		s.warningHandler = cfg.WarningsHandlerBuilder(s)
 	}
 	return s, nil
+}
+
+// sessionIDStartupKey is the STARTUP option correlating the connections that
+// belong to one session in system.clients. Unlike driverConfigStartupKey it is
+// sent on every connection, since correlating them is the whole point.
+const sessionIDStartupKey = "SESSION_ID"
+
+// newSessionID generates a globally unique identifier for a session.
+//
+// Every connection reports one, so this always returns an id rather than
+// propagating a failure to generate it.
+//
+// The fallback is defensive rather than reachable: RandomUUID reads from
+// crypto/rand, which since Go 1.24 terminates the process instead of
+// returning an error when the system entropy source fails
+// (golang/go#66821). Since RandomUUID's signature still admits an error,
+// handling it costs little and keeps the id unconditional whatever a future
+// implementation does.
+func newSessionID(logger StdLogger) string {
+	id, err := RandomUUID()
+	if err != nil {
+		logger.Printf("gocql: unable to generate a random session id, falling back to a pseudo-random one: %v", err)
+		id = pseudoRandomUUID()
+	}
+	return id.String()
+}
+
+// pseudoRandomUUID builds a version 4 UUID from the runtime's pseudo-random
+// source, for the case where crypto/rand reports a failure instead of
+// aborting the process. A session id merely correlates the connections of one
+// session in system.clients and is never a security token, so a weaker source
+// of randomness is preferable to no id at all.
+func pseudoRandomUUID() UUID {
+	var u UUID
+	binary.BigEndian.PutUint64(u[:8], mrand.Uint64())
+	binary.BigEndian.PutUint64(u[8:], mrand.Uint64())
+	u[6] = u[6]&0x0F | 0x40 // set version to 4 (random uuid)
+	u[8] = u[8]&0x3F | 0x80 // set to IETF variant
+	return u
+}
+
+// ID returns the globally unique identifier of this session.
+//
+// Every connection the session opens reports this value to the cluster as the
+// SESSION_ID startup option, where it appears in the
+// system.clients.client_options column. Logging it, recording it in a support
+// bundle or attaching it as a metric label is what allows client-side
+// observations to be matched against those rows, instead of correlating by
+// address and port.
+//
+// The id is assigned when the session is created and never changes, so it is
+// safe to call concurrently and safe to read after the session is closed.
+func (s *Session) ID() string {
+	return s.id
 }
 
 // NewSession wraps an existing Node.

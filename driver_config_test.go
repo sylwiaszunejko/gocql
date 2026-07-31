@@ -44,8 +44,8 @@ func TestDriverConfigReporterStartupOptions(t *testing.T) {
 	}
 }
 
-// TestDriverConfigReportingStartupFrame checks what actually reaches the wire for
-// the connections of a session pool.
+// TestDriverConfigReportingStartupFrame checks what actually reaches the wire
+// for the connections of a session pool.
 func TestDriverConfigReportingStartupFrame(t *testing.T) {
 	// Enough connections that the absence asserted below is a claim about the
 	// pool rather than about a single sample: only the first connection is
@@ -108,7 +108,7 @@ func TestDriverConfigReportingStartupFrame(t *testing.T) {
 	}
 
 	// The control connection is disabled by testCluster, so no connection
-	// of this session may report the configuration.
+	// of this session may report DRIVER_CONFIG.
 	if len(configs) != 0 {
 		t.Errorf("expected no %s outside of the control connection, got %v", driverConfigStartupKey, configs)
 	}
@@ -236,7 +236,9 @@ func TestDriverConfigReportingDial(t *testing.T) {
 
 // TestDriverConfigReportingDisabled pins DisableDriverConfigReporting on the
 // wire: with the option set, not even a connection dialed with the config that
-// marks it as the control connection reports DRIVER_CONFIG.
+// marks it as the control connection reports DRIVER_CONFIG, while SESSION_ID,
+// which the option is documented not to affect, is still reported by every
+// connection.
 //
 // Nothing else in the tree sets the option, so without this test the guard in
 // newSessionCommon could be deleted, or inverted, and every test would still
@@ -313,6 +315,10 @@ func TestDriverConfigReportingDisabled(t *testing.T) {
 	for i, opts := range startups {
 		if config, ok := opts[driverConfigStartupKey]; ok {
 			t.Errorf("STARTUP %d: expected no %s when reporting is disabled, got %q", i, driverConfigStartupKey, config)
+		}
+		if got := opts[sessionIDStartupKey]; got != session.ID() {
+			t.Errorf("STARTUP %d: expected %s %q to be reported whatever the option is set to, got %q",
+				i, sessionIDStartupKey, session.ID(), got)
 		}
 	}
 }
