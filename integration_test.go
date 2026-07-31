@@ -270,6 +270,68 @@ func TestApplicationInformation(t *testing.T) {
 
 }
 
+// TestDriverConfigReporting verifies end to end that DRIVER_CONFIG is
+// reported by the control connection, mirroring the existing
+// TestApplicationInformation precedent.
+func TestDriverConfigReporting(t *testing.T) {
+	t.Parallel()
+
+	cluster := createCluster()
+	s, err := cluster.CreateSession()
+	if err != nil {
+		t.Fatalf("failed to connect to the cluster: %s", err)
+	}
+	defer s.Close()
+
+	var clientsTableName string
+	for _, tableName := range []string{"system_views.clients", "system.clients"} {
+		iter := s.Query("select client_options from " + tableName).Iter()
+		if _, err := iter.SliceMap(); err == nil {
+			clientsTableName = tableName
+			break
+		}
+	}
+	if clientsTableName == "" {
+		t.Skip("Skipping because server does not have `client_options` in clients table")
+	}
+
+	// The clients table is populated asynchronously as connections finish
+	// setting up, so the control connection's row may not be visible right
+	// after CreateSession returns. Poll until it shows up or we time out.
+	var configs []string
+	deadline := time.After(10 * time.Second)
+	for {
+		configs = nil
+
+		var row map[string]string
+		iter := s.Query("select client_options from " + clientsTableName).Iter()
+		for iter.Scan(&row) {
+			if config, ok := row["DRIVER_CONFIG"]; ok {
+				configs = append(configs, config)
+			}
+		}
+		if err := iter.Close(); err != nil {
+			t.Fatalf("failed to execute query: %s", err)
+		}
+
+		if len(configs) > 0 {
+			break
+		}
+
+		select {
+		case <-deadline:
+			t.Fatalf("expected at least one connection to report DRIVER_CONFIG within 10s")
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
+
+	for _, config := range configs {
+		if want := `{"version":1}`; config != want {
+			t.Errorf("expected DRIVER_CONFIG to be %q, got %q", want, config)
+		}
+	}
+}
+
 func TestWriteFailure(t *testing.T) {
 	t.Parallel()
 
