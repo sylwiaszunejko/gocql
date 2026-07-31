@@ -6,6 +6,45 @@ import (
 	"github.com/gocql/gocql/internal/murmur"
 )
 
+// startupFrameV4 builds a protocol v4 STARTUP request frame carrying body as
+// its options blob. The contents of body are irrelevant to the hash; only its
+// length is varied by the caller.
+func startupFrameV4(body []byte) []byte {
+	frame := []byte{
+		0x04,
+		0x00,       // no header flags
+		0x00, 0x7B, // stream id
+		byte(opStartup),
+		byte(len(body) >> 24), byte(len(body) >> 16), byte(len(body) >> 8), byte(len(body)),
+	}
+
+	return append(frame, body...)
+}
+
+// TestGetFrameHashStartupIgnoresBodyLength pins that the STARTUP hash does not
+// depend on the body, directly or through the length field in the header.
+//
+// The checked-in replay recordings in tests/bench store raw frames and are
+// rehashed at load time, so a body-dependent STARTUP hash silently couples them
+// to the exact set of STARTUP options the driver sent when they were recorded.
+// Adding one shifts the length field, no recorded frame matches any more, and
+// the replay benchmarks panic with "unable to find a response to replay" until
+// every recording is regenerated.
+func TestGetFrameHashStartupIgnoresBodyLength(t *testing.T) {
+	short := GetFrameHash(startupFrameV4([]byte{0x00, 0x01}))
+	long := GetFrameHash(startupFrameV4(make([]byte, 512)))
+
+	if short != long {
+		t.Errorf("STARTUP hash depends on the body length: %d != %d", short, long)
+	}
+
+	// Confirm the frame was parsed rather than diverted to the raw-bytes
+	// fallback, which would also make the two hashes differ if it regressed.
+	if raw := murmur.Murmur3H1(startupFrameV4([]byte{0x00, 0x01})); short == raw {
+		t.Error("GetFrameHash fell back to hashing the raw frame")
+	}
+}
+
 // TestGetFrameHashGuardsProtoV5Segments verifies that GetFrameHash does not
 // attempt to parse protocol v5+ input as a CQL frame. On v5 the recorded bytes
 // are a transport segment (see prepareModernLayout), so frame[0] is segment

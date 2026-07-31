@@ -145,6 +145,9 @@ type ConnConfig struct {
 	ProtoVersion    int
 	Keepalive       time.Duration
 	disableCoalesce bool
+	// isControlConn marks the connection used by the control connection, which is
+	// the only one reporting the driver configuration on startup.
+	isControlConn bool
 }
 
 func (c *ConnConfig) logger() StdLogger {
@@ -455,6 +458,14 @@ func (c *Conn) init(ctx context.Context, dialedHost *DialedHost) error {
 		conn:        c,
 	}
 
+	// The driver configuration is identical for every connection of a session,
+	// so it is reported only on the control connection to keep the other STARTUP
+	// frames small. Leaving the reporter nil elsewhere reuses the same path that
+	// a session with reporting disabled takes.
+	if c.cfg.isControlConn {
+		startup.driverConfigReporter = c.session.driverConfigReporter
+	}
+
 	if err := startup.setupConn(ctx); err != nil {
 		return err
 	}
@@ -488,8 +499,9 @@ func (c *Conn) Read(p []byte) (n int, err error) {
 }
 
 type startupCoordinator struct {
-	conn        *Conn
-	frameTicker chan struct{}
+	conn                 *Conn
+	frameTicker          chan struct{}
+	driverConfigReporter *driverConfigReporter
 }
 
 func (s *startupCoordinator) setupConn(ctx context.Context) error {
@@ -614,11 +626,15 @@ func (s *startupCoordinator) options(ctx context.Context, startupCompleted *atom
 // The ordering is easy to lose, which is how it was lost: upstream has no
 // ApplicationInfo hook and writes these three as a map literal, so merging the
 // two put the callback last.
-func startupOptions(cqlVersion, driverName, driverVersion string, info ApplicationInfo) map[string]string {
+func startupOptions(cqlVersion, driverName, driverVersion string, info ApplicationInfo, driverConfig *driverConfigReporter) map[string]string {
 	m := map[string]string{}
 
 	if info != nil {
 		info.UpdateStartupOptions(m)
+	}
+
+	if driverConfig != nil {
+		driverConfig.updateStartupOptions(m)
 	}
 
 	m["CQL_VERSION"] = cqlVersion
@@ -636,6 +652,7 @@ func (s *startupCoordinator) startup(ctx context.Context, startupCompleted *atom
 		s.conn.session.cfg.DriverName,
 		s.conn.session.cfg.DriverVersion,
 		s.conn.session.cfg.ApplicationInfo,
+		s.driverConfigReporter,
 	)
 
 	if s.conn.compressor != nil {

@@ -194,7 +194,16 @@ func GetFrameHash(frame []byte) int64 {
 	}
 	switch frame[3+p] {
 	case byte(opStartup):
-		return murmur.Murmur3H1(frame[:8+p])
+		// Hash the header up to and including the opcode, deliberately stopping
+		// before the 4-byte body length: a connection sends exactly one STARTUP,
+		// so the opcode alone identifies it, and the options it carries are of
+		// no interest to a replay.
+		//
+		// Including the length would tie every checked-in recording to the exact
+		// set of STARTUP options the driver sent when it was recorded, so adding
+		// one (DRIVER_CONFIG, SESSION_ID, ...) would invalidate them all and
+		// panic the replay benchmarks until they were regenerated.
+		return murmur.Murmur3H1(frame[:4+p])
 	case byte(opPrepare):
 		return murmur.Murmur3H1(frame)
 	case byte(opAuthResponse):

@@ -104,6 +104,28 @@ func testCluster(proto frm.ProtoVersion, addresses ...string) *ClusterConfig {
 	return cluster
 }
 
+// waitForPoolSize blocks until session's connection pool holds at least want
+// connections, or timeout elapses.
+//
+// CreateSession only guarantees the first connection to each host: the rest of
+// a pool is filled asynchronously, so a test making a claim about every
+// connection of a session has to wait for them rather than assert on whichever
+// ones it happened to observe.
+func waitForPoolSize(session *Session, want int, timeout time.Duration) error {
+	deadline := time.After(timeout)
+	for {
+		if got := session.pool.Size(); got >= want {
+			return nil
+		}
+
+		select {
+		case <-deadline:
+			return fmt.Errorf("pool reached %d of %d connections in %s", session.pool.Size(), want, timeout)
+		case <-time.After(time.Millisecond):
+		}
+	}
+}
+
 func TestSimple(t *testing.T) {
 	srv := NewTestServer(t, defaultProto, context.Background())
 	defer srv.Stop()
@@ -3659,7 +3681,7 @@ func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 	)
 
 	t.Run("no ApplicationInfo", func(t *testing.T) {
-		m := startupOptions(cqlVersion, driverName, driverVersion, nil)
+		m := startupOptions(cqlVersion, driverName, driverVersion, nil, nil)
 
 		require.Equal(t, map[string]string{
 			"CQL_VERSION":    cqlVersion,
@@ -3670,7 +3692,7 @@ func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 
 	t.Run("application options are kept", func(t *testing.T) {
 		m := startupOptions(cqlVersion, driverName, driverVersion,
-			NewStaticApplicationInfo("app", "9.9.9", "client-id"))
+			NewStaticApplicationInfo("app", "9.9.9", "client-id"), nil)
 
 		require.Equal(t, "app", m["APPLICATION_NAME"])
 		require.Equal(t, "9.9.9", m["APPLICATION_VERSION"])
@@ -3687,7 +3709,7 @@ func TestStartupOptionsKeepDriverKeys(t *testing.T) {
 				opts["DRIVER_NAME"] = "not-gocql"
 				opts["DRIVER_VERSION"] = "0.0.0"
 				opts["APPLICATION_NAME"] = "app"
-			}))
+			}), nil)
 
 		require.Equal(t, cqlVersion, m["CQL_VERSION"], "a custom CQL version would fail every handshake")
 		require.Equal(t, driverName, m["DRIVER_NAME"])
