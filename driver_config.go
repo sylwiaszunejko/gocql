@@ -15,6 +15,20 @@ const driverConfigStartupKey = "DRIVER_CONFIG"
 // changing or removing the meaning of an existing key does.
 const driverConfigVersion = 1
 
+// maxDriverConfigSize bounds the size of the DRIVER_CONFIG STARTUP option.
+//
+// writeStartupFrame serializes STARTUP options through writeString, which
+// writes a 16-bit length prefix with no bounds check: a value over 65535
+// bytes would silently truncate that prefix modulo 65536 while still
+// appending the full body, corrupting the frame and failing the handshake.
+// Stage 1's report is a few bytes, but custom policy objects allow
+// implementation-specific properties, so a future report built from
+// user-supplied policy data could grow arbitrarily large. Enforcing a limit
+// here keeps "reporting must never prevent a connection from being
+// established" a property of this code rather than of the user's
+// configuration. 32KiB is generous for a configuration report.
+const maxDriverConfigSize = 32 * 1024
+
 // driverConfigReport is the value sent under driverConfigStartupKey.
 // For now only the schema version is reported; configuration groups will be
 // added in a follow-up change.
@@ -57,6 +71,10 @@ func (r *driverConfigReporter) updateStartupOptions(opts map[string]string) {
 	report, err := r.buildReport()
 	if err != nil {
 		r.session.logger.Printf("gocql: unable to report driver configuration: %v", err)
+		return
+	}
+	if len(report) > maxDriverConfigSize {
+		r.session.logger.Printf("gocql: driver configuration report is %d bytes, exceeding the %d byte limit; omitting it", len(report), maxDriverConfigSize)
 		return
 	}
 	opts[driverConfigStartupKey] = report
