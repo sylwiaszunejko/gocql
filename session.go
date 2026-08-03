@@ -1746,29 +1746,20 @@ func (qm *queryMetrics) reset() {
 	qm.l.Unlock()
 }
 
-// recordHostAttempt records totals and deprecated per-host metrics.
-// If needsHostMetrics is true, a copy of updated hostMetrics is returned.
-func (qm *queryMetrics) recordHostAttempt(addAttempts int, addLatency time.Duration,
-	host *HostInfo, needsHostMetrics bool) (int, *hostMetrics) {
+// recordHostAdjustment records explicit adjustments to totals and deprecated
+// per-host metrics.
+func (qm *queryMetrics) recordHostAdjustment(addAttempts int, addLatency time.Duration,
+	host *HostInfo) {
 	addLatencyNanos := addLatency.Nanoseconds()
 	qm.nextAttempt.Add(int64(addAttempts))
 
 	qm.l.Lock()
-	totalAttempts := qm.addTotals(addAttempts, addLatencyNanos)
-
-	updateHostMetrics := qm.addHostMetricsLocked(host.hostUUID(), hostMetrics{
+	qm.addTotals(addAttempts, addLatencyNanos)
+	qm.addHostMetricsLocked(host.hostUUID(), hostMetrics{
 		Attempts:     addAttempts,
 		TotalLatency: addLatencyNanos,
 	})
 	qm.l.Unlock()
-
-	if !needsHostMetrics {
-		return int(totalAttempts), nil
-	}
-
-	hostMetricsCopy := new(hostMetrics)
-	*hostMetricsCopy = updateHostMetrics
-	return int(totalAttempts), hostMetricsCopy
 }
 
 // finishAttempt records the completion of one launch-assigned attempt. The
@@ -1941,7 +1932,7 @@ func (q *Query) Attempts() int {
 // makes the total negative permanently switches the metrics to mutex-backed
 // full-width storage until reset.
 func (q *Query) AddAttempts(i int, host *HostInfo) {
-	q.metrics.recordHostAttempt(i, 0, host, false)
+	q.metrics.recordHostAdjustment(i, 0, host)
 }
 
 // Latency returns the average amount of nanoseconds per attempt of the query.
@@ -1953,7 +1944,7 @@ func (q *Query) Latency() int64 {
 // that makes the total negative also makes Latency return a negative value and
 // permanently switches the metrics to mutex-backed full-width storage until reset.
 func (q *Query) AddLatency(l int64, host *HostInfo) {
-	q.metrics.recordHostAttempt(0, time.Duration(l)*time.Nanosecond, host, false)
+	q.metrics.recordHostAdjustment(0, time.Duration(l)*time.Nanosecond, host)
 }
 
 // Consistency sets the consistency level for this query. If no consistency
@@ -3425,7 +3416,7 @@ func (b *Batch) Attempts() int {
 // makes the total negative permanently switches the metrics to mutex-backed
 // full-width storage until reset.
 func (b *Batch) AddAttempts(i int, host *HostInfo) {
-	b.metrics.recordHostAttempt(i, 0, host, false)
+	b.metrics.recordHostAdjustment(i, 0, host)
 }
 
 // Latency returns the average number of nanoseconds to execute a single attempt of the batch.
@@ -3437,7 +3428,7 @@ func (b *Batch) Latency() int64 {
 // that makes the total negative also makes Latency return a negative value and
 // permanently switches the metrics to mutex-backed full-width storage until reset.
 func (b *Batch) AddLatency(l int64, host *HostInfo) {
-	b.metrics.recordHostAttempt(0, time.Duration(l)*time.Nanosecond, host, false)
+	b.metrics.recordHostAdjustment(0, time.Duration(l)*time.Nanosecond, host)
 }
 
 // GetConsistency returns the currently configured consistency level for the batch
