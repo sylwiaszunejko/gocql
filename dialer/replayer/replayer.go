@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -200,18 +201,34 @@ func loadFramesFromFile(filename string) (map[int]dialer.Record, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		var record dialer.Record
-		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
-			fmt.Printf("Error decoding JSON in %s: %s\n", filename, err)
-			continue
+	// Read the records with a plain bufio.Reader rather than a bufio.Scanner: a
+	// record holds one whole frame, which encoding/json base64-inflates by 4/3, so
+	// any frame over ~48 KiB exceeds the scanner's default bufio.MaxScanTokenSize
+	// and fails the load. A frame's length is the peer's to choose (up to the
+	// driver's own maxFrameSize), so no fixed line cap is the right one; ReadBytes
+	// grows to the line in front of it and nothing larger.
+	reader := bufio.NewReader(file)
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		if len(line) > 0 {
+			var record dialer.Record
+			// A recording is a debugging artefact and can be truncated or edited, so
+			// a record that does not decode is reported and skipped rather than
+			// failing the whole file — the frames around it still replay.
+			if err := json.Unmarshal(line, &record); err != nil {
+				fmt.Printf("Error decoding JSON in %s: %s\n", filename, err)
+			} else {
+				records[record.StreamID] = record
+			}
 		}
-		records[record.StreamID] = record
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading file %s: %w", filename, err)
+		if readErr != nil {
+			// A final record without its newline is still a record; io.EOF ends the
+			// file either way.
+			if errors.Is(readErr, io.EOF) {
+				break
+			}
+			return nil, fmt.Errorf("error reading file %s: %w", filename, readErr)
+		}
 	}
 	return records, nil
 }
