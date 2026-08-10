@@ -3706,6 +3706,12 @@ func TestPrepareExecuteMetadataChangedFlag(t *testing.T) {
 			name:  "protocol v4 with SCYLLA_USE_METADATA_ID",
 			table: "scylla_metadata_changed",
 			gate: func(t *testing.T, session *Session, conn *Conn) string {
+				// The extension backports the v5 result metadata id to v4 and is
+				// negotiated there only, so a run pinned to another protocol version
+				// says nothing about it either way.
+				if conn.version&protoVersionMask != protoVersion4 {
+					return "SCYLLA_USE_METADATA_ID is negotiated on protocol v4 only"
+				}
 				// Skip only for a server that cannot do this at all. If the server
 				// advertised SCYLLA_USE_METADATA_ID and the driver still failed to
 				// negotiate it, that is a regression — and since this is the only
@@ -4072,6 +4078,9 @@ func TestPrepareExecuteScyllaEmptyMetadataID(t *testing.T) {
 	conn := session.getConn()
 	if conn == nil {
 		t.Skip("no connection available — skipping test")
+	}
+	if conn.version&protoVersionMask != protoVersion4 {
+		t.Skip("SCYLLA_USE_METADATA_ID is negotiated on protocol v4 only — skipping test")
 	}
 	if !conn.scyllaSupported.IsMetadataIDSupported() {
 		t.Skip("server does not advertise SCYLLA_USE_METADATA_ID — skipping test")

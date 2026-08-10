@@ -2469,6 +2469,36 @@ func TestInitFramerCacheWithoutScyllaUseMetadataID(t *testing.T) {
 	}
 }
 
+// TestInitFramerCacheProtoV3IgnoresScyllaUseMetadataID pins the negotiation gate from
+// the connection's end: a v3 connection to a server advertising SCYLLA_USE_METADATA_ID
+// must come out of the handshake with the extension nowhere on it. It goes through
+// parseCQLProtocolExtensions rather than setting cqlProtoExts directly, because that
+// list is also what startupCoordinator.startup serializes into STARTUP — an extension
+// filtered out there is one the driver neither announces nor encodes.
+func TestInitFramerCacheProtoV3IgnoresScyllaUseMetadataID(t *testing.T) {
+	t.Parallel()
+
+	c := &Conn{version: protoVersion3, logger: &testLogger{}}
+	c.cqlProtoExts = parseCQLProtocolExtensions(map[string][]string{scyllaUseMetadataID: {}}, c.version, c.logger)
+	c.initFramerCache()
+
+	if findCQLProtoExtByName(c.cqlProtoExts, scyllaUseMetadataID) != nil {
+		t.Error("SCYLLA_USE_METADATA_ID should not be negotiated on a protocol v3 connection")
+	}
+	if c.framers.defaults.scyllaUseMetadataID {
+		t.Error("framerConfig.scyllaUseMetadataID should be false on a protocol v3 connection")
+	}
+	if c.usesMetadataID() {
+		t.Error("Conn.usesMetadataID() should be false on a protocol v3 connection")
+	}
+	if c.tracksResultMetadataID() {
+		t.Error("Conn.tracksResultMetadataID() should be false on a protocol v3 connection")
+	}
+	if c.getWriteFramer().scyllaUseMetadataID {
+		t.Error("write framer should not have scyllaUseMetadataID set on a protocol v3 connection")
+	}
+}
+
 // TestConnTracksResultMetadataID pins the question the EXECUTE path actually asks:
 // does this connection exchange result metadata IDs at all? Two mechanisms answer
 // yes — native protocol v5, where the field is mandatory, and SCYLLA_USE_METADATA_ID,
@@ -2503,6 +2533,8 @@ func TestConnTracksResultMetadataID(t *testing.T) {
 			wantTracked: true,
 		},
 		{
+			// Not reachable through negotiation — newScyllaUseMetadataIDExt opts in on
+			// v4 only — but initCache must not read the two mechanisms as exclusive.
 			name:        "v5 with the extension",
 			proto:       protoVersion5,
 			exts:        []cqlProtocolExtension{&scyllaUseMetadataIDExt{}},

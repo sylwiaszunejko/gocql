@@ -609,7 +609,7 @@ func (s *startupCoordinator) options(ctx context.Context, startupCompleted *atom
 	if current := s.conn.host.ScyllaFeatures(); current != s.conn.scyllaSupported.ScyllaHostFeatures {
 		s.conn.host.setScyllaFeatures(s.conn.scyllaSupported.ScyllaHostFeatures)
 	}
-	s.conn.cqlProtoExts = parseCQLProtocolExtensions(s.conn.supported, s.conn.logger)
+	s.conn.cqlProtoExts = parseCQLProtocolExtensions(s.conn.supported, s.conn.version, s.conn.logger)
 
 	// initFramerCache must be called after startup(), because startup() may
 	// nil out c.compressor if the server does not support the requested

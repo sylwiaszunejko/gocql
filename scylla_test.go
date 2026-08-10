@@ -276,11 +276,29 @@ func TestScyllaUseMetadataIDExtParsing(t *testing.T) {
 	t.Parallel()
 
 	t.Run("newScyllaUseMetadataIDExt detects the advertised key", func(t *testing.T) {
-		if ext := newScyllaUseMetadataIDExt(map[string][]string{scyllaUseMetadataID: {}}); ext == nil {
+		if ext := newScyllaUseMetadataIDExt(map[string][]string{scyllaUseMetadataID: {}}, protoVersion4); ext == nil {
 			t.Error("expected a non-nil extension when SCYLLA_USE_METADATA_ID is advertised")
 		}
-		if ext := newScyllaUseMetadataIDExt(map[string][]string{}); ext != nil {
+		if ext := newScyllaUseMetadataIDExt(map[string][]string{}, protoVersion4); ext != nil {
 			t.Error("expected a nil extension when SCYLLA_USE_METADATA_ID is not advertised")
+		}
+	})
+
+	// The extension backports the v5 result metadata id to v4, and opting in changes
+	// what EXECUTE and RESULT/Prepared carry. A server advertising it says nothing
+	// about the version this connection speaks: ClusterConfig.ProtoVersion is pinned
+	// without going through discoverProtocol, and newFramer accepts v3 through v5.
+	t.Run("newScyllaUseMetadataIDExt opts in on v4 only", func(t *testing.T) {
+		advertised := map[string][]string{scyllaUseMetadataID: {}}
+		for _, version := range []byte{protoVersion3, protoVersion5} {
+			if ext := newScyllaUseMetadataIDExt(advertised, version); ext != nil {
+				t.Errorf("protocol v%d: expected a nil extension, got %+v", version, ext)
+			}
+		}
+		// The gate reads through protoVersionMask, as connFramers.initCache does with
+		// the same byte, so a version carrying the high bit still resolves to v4.
+		if ext := newScyllaUseMetadataIDExt(advertised, protoVersion4|protoDirectionMask); ext == nil {
+			t.Error("expected a non-nil extension for v4 with the direction bit set")
 		}
 	})
 
@@ -296,14 +314,29 @@ func TestScyllaUseMetadataIDExtParsing(t *testing.T) {
 	})
 
 	t.Run("parseCQLProtocolExtensions registers the extension only when advertised", func(t *testing.T) {
-		exts := parseCQLProtocolExtensions(map[string][]string{scyllaUseMetadataID: {}}, &testLogger{})
+		exts := parseCQLProtocolExtensions(map[string][]string{scyllaUseMetadataID: {}}, protoVersion4, &testLogger{})
 		if findCQLProtoExtByName(exts, scyllaUseMetadataID) == nil {
 			t.Error("expected parseCQLProtocolExtensions to register SCYLLA_USE_METADATA_ID when advertised")
 		}
 
-		extsAbsent := parseCQLProtocolExtensions(map[string][]string{}, &testLogger{})
+		extsAbsent := parseCQLProtocolExtensions(map[string][]string{}, protoVersion4, &testLogger{})
 		if findCQLProtoExtByName(extsAbsent, scyllaUseMetadataID) != nil {
 			t.Error("did not expect SCYLLA_USE_METADATA_ID to be registered when not advertised")
+		}
+	})
+
+	// The list parseCQLProtocolExtensions returns is what startupCoordinator.startup
+	// serializes into STARTUP, so keeping the extension out of it on v3 is what keeps
+	// the opt-in off the wire — the framer config follows from the same list.
+	t.Run("parseCQLProtocolExtensions leaves the extension out below v4", func(t *testing.T) {
+		advertised := map[string][]string{scyllaUseMetadataID: {}, tabletsRoutingV1: {}}
+		exts := parseCQLProtocolExtensions(advertised, protoVersion3, &testLogger{})
+		if findCQLProtoExtByName(exts, scyllaUseMetadataID) != nil {
+			t.Error("did not expect SCYLLA_USE_METADATA_ID to be registered on protocol v3")
+		}
+		// Version-independent extensions are unaffected by the gate.
+		if findCQLProtoExtByName(exts, tabletsRoutingV1) == nil {
+			t.Error("expected TABLETS_ROUTING_V1 to still be registered on protocol v3")
 		}
 	})
 

@@ -265,7 +265,19 @@ type scyllaUseMetadataIDExt struct {
 
 var _ cqlProtocolExtension = &scyllaUseMetadataIDExt{}
 
-func newScyllaUseMetadataIDExt(supported map[string][]string) *scyllaUseMetadataIDExt {
+// newScyllaUseMetadataIDExt returns the extension only for a protocol v4 connection,
+// which is the whole of what the extension is: a backport of the v5 result metadata
+// id to v4. Version matters because opting in changes the wire format — EXECUTE
+// carries a [short bytes] result metadata id and RESULT/Prepared answers with one
+// (see writeExecuteFrame and parseResultPrepared) — so on v3, where that field is not
+// defined, the opt-in would desynchronise a connection the driver otherwise supports
+// (newFramer accepts v3, and a non-zero ClusterConfig.ProtoVersion skips
+// discoverProtocol). On v5 the field is already mandatory and Conn.tracksResultMetadataID
+// is true without the extension, so asking for it again would be redundant.
+func newScyllaUseMetadataIDExt(supported map[string][]string, version byte) *scyllaUseMetadataIDExt {
+	if version&protoVersionMask != protoVersion4 {
+		return nil
+	}
 	if _, found := supported[scyllaUseMetadataID]; found {
 		return &scyllaUseMetadataIDExt{}
 	}
@@ -378,7 +390,12 @@ func parseSupported(supported map[string][]string, logger StdLogger) ScyllaConne
 	return si
 }
 
-func parseCQLProtocolExtensions(supported map[string][]string, logger StdLogger) []cqlProtocolExtension {
+// parseCQLProtocolExtensions turns the server's SUPPORTED multimap into the
+// extensions this connection will opt into. version is the connection's protocol
+// version: an extension whose wire effect is version-specific is gated on it here,
+// which is the single point that feeds both the STARTUP opt-in (startupCoordinator.startup)
+// and the framer config (connFramers.initCache), so the two cannot disagree.
+func parseCQLProtocolExtensions(supported map[string][]string, version byte, logger StdLogger) []cqlProtocolExtension {
 	exts := []cqlProtocolExtension{}
 
 	lwtExt := newLwtAddMetaMarkExt(supported, logger)
@@ -396,7 +413,7 @@ func parseCQLProtocolExtensions(supported map[string][]string, logger StdLogger)
 		exts = append(exts, tabletsExt)
 	}
 
-	metadataIDExt := newScyllaUseMetadataIDExt(supported)
+	metadataIDExt := newScyllaUseMetadataIDExt(supported, version)
 	if metadataIDExt != nil {
 		exts = append(exts, metadataIDExt)
 	}
