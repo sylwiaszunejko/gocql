@@ -223,6 +223,9 @@ Set `ClusterConfig.DisableShardAwarePort` to true to disable advanced shard awar
 Scylla Cloud exposes a `system.client_routes` table that maps hosts to PrivateLink endpoints.
 When configured, the driver can resolve and connect to the per-host PrivateLink address instead of using the public host IP.
 
+This feature is also known as PrivateLink support, private link, private service connection, AWS PrivateLink (PL) and GCP Private Service Connect (PSC).
+See the [Client routes (PrivateLink / Private Service Connect)](https://gocql-driver.docs.scylladb.com/stable/client-routes/) documentation page for the full reference.
+
 Use `WithClientRoutes` to enable it and pass the connection IDs you receive from Scylla Cloud:
 
 ```go
