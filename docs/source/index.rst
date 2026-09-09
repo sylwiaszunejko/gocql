@@ -6,4 +6,5 @@ Lorem ipsum.
 
 .. toctree::
 
+    client-routes
     sample-page
