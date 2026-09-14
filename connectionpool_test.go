@@ -340,6 +340,7 @@ func TestPolicyConnPoolIteratePool(t *testing.T) {
 			return true
 		})
 	})
+
 }
 
 // closeSignalPicker is a ConnPicker that reports when it has been closed.
@@ -472,5 +473,52 @@ func TestSessionRemoveHost(t *testing.T) {
 	}
 	if got := f.session.hostSource.getHost(other.HostID()); got == nil {
 		t.Error("unrelated host disappeared from the host source by ID")
+	}
+}
+
+// TestGetHostPoolByIDAbsent pins that GetHostPoolByID hands back a nil
+// interface rather than a typed nil.
+//
+// getPoolByHostID reports absence through its ok result, not through the
+// pointer, so returning that pointer unconditionally boxes a nil
+// *hostConnPool into a non-nil HostPoolInfo. A caller guarding with
+// `if pool != nil` would then get past the guard and panic on the first
+// method call -- the failure lands at the call site, far from the cause.
+func TestGetHostPoolByIDAbsent(t *testing.T) {
+	t.Parallel()
+
+	session := &Session{logger: &testLogger{}}
+	session.pool = &policyConnPool{session: session, hostConnPools: map[UUID]*hostConnPool{}}
+
+	present := &HostInfo{hostId: MustRandomUUID(), connectAddress: net.ParseIP("127.0.40.1")}
+	session.pool.hostConnPools[present.hostUUID()] = newHostConnPool(session, present, 1, "")
+
+	t.Run("present id returns the pool", func(t *testing.T) {
+		info := session.GetHostPoolByID(present.HostID())
+		if info == nil {
+			t.Fatal("pool for a known host was not returned")
+		}
+		if got := info.Host().ConnectAddress().String(); got != "127.0.40.1" {
+			t.Errorf("pool belongs to %s, want 127.0.40.1", got)
+		}
+	})
+
+	for _, tc := range []struct {
+		name   string
+		hostID string
+	}{
+		{"absent id", MustRandomUUID().String()},
+		{"malformed id", "not-a-uuid"},
+		{"empty id", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			info := session.GetHostPoolByID(tc.hostID)
+			if info != nil {
+				// Not t.Fatal: calling through the interface is the point, and
+				// it is what would panic before the fix.
+				t.Errorf("got non-nil HostPoolInfo (%T) for %s", info, tc.name)
+				t.Errorf("connection count reads %d", info.GetConnectionCount())
+			}
+		})
 	}
 }
