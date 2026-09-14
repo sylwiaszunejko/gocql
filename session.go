@@ -3877,8 +3877,17 @@ type HostPoolInfo interface {
 	IsClosed() bool
 }
 
+// GetHostPoolByID returns the connection pool for hostID, or nil if the session
+// holds no pool for it -- including when hostID is not a well-formed UUID.
+//
+// The explicit nil matters: returning the *hostConnPool unconditionally would
+// box a nil pointer into a non-nil HostPoolInfo, so a caller's `if pool != nil`
+// would pass and the first method call would panic.
 func (s *Session) GetHostPoolByID(hostID string) HostPoolInfo {
-	hostPool, _ := s.pool.getPoolByHostID(hostID)
+	hostPool, ok := s.pool.getPoolByHostID(hostID)
+	if !ok {
+		return nil
+	}
 	return hostPool
 }
 
