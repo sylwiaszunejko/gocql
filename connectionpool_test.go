@@ -341,6 +341,35 @@ func TestPolicyConnPoolIteratePool(t *testing.T) {
 		})
 	})
 
+	// iter is caller-supplied and runs under the pool's read lock, so it can
+	// panic -- or a test callback can t.Fatal, which is a runtime.Goexit.
+	// Either skips a bare RUnlock and strands the lock, and because the pool
+	// never blocks on itself the symptom surfaces later and elsewhere: the next
+	// addHost, removeHost or Close hangs, and the session silently stops
+	// reacting to hosts coming up and going down.
+	t.Run("a panicking callback does not strand the read lock", func(t *testing.T) {
+		t.Parallel()
+
+		p := newPool(t, "127.0.20.1")
+
+		func() {
+			defer func() { _ = recover() }()
+			p.iteratePool(func(HostPoolInfo) bool { panic("boom from the callback") })
+		}()
+
+		locked := make(chan struct{})
+		go func() {
+			p.mu.Lock()
+			p.mu.Unlock()
+			close(locked)
+		}()
+
+		select {
+		case <-locked:
+		case <-time.After(5 * time.Second):
+			t.Fatal("pool is wedged: the read lock outlived a panic in the callback")
+		}
+	})
 }
 
 // closeSignalPicker is a ConnPicker that reports when it has been closed.

@@ -208,14 +208,22 @@ func (p *policyConnPool) getPoolByHostID(hostID string) (pool *hostConnPool, ok 
 	return
 }
 
+// iteratePool runs iter for each host pool, stopping early if it returns false.
+//
+// The unlock is deferred because iter is caller-supplied: a panic, or a
+// runtime.Goexit from something like t.Fatal, would otherwise skip a bare
+// RUnlock and leave the read lock held forever, wedging every later addHost,
+// removeHost and Close on the pool. The other bare RUnlocks in this file only
+// guard reads of internal state and cannot panic.
 func (p *policyConnPool) iteratePool(iter func(info HostPoolInfo) bool) {
 	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	for _, pool := range p.hostConnPools {
 		if !iter(pool) {
 			break
 		}
 	}
-	p.mu.RUnlock()
 }
 
 func (p *policyConnPool) Close() {
