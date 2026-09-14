@@ -1139,10 +1139,18 @@ func TestReconnection(t *testing.T) {
 		t.Fatal("Host should be NodeDown but not.")
 	}
 
-	time.Sleep(cluster.ReconnectInterval + h.Version().nodeUpDelay() + 1*time.Second)
-
-	if h.State() != NodeUp {
-		t.Fatal("Host should be NodeUp but not. Failed to reconnect.")
+	// Poll rather than sleep a fixed amount. The reconnect costs one
+	// ReconnectInterval tick, and after that a dial and an asynchronous
+	// handleNodeConnected -- measured at ~4ms locally, but there is no constant
+	// that is both tight enough to keep the test quick and loose enough to
+	// survive a loaded runner. Polling gets the fast path and the tolerance.
+	deadline := time.After(cluster.ReconnectInterval + 30*time.Second)
+	for h.State() != NodeUp {
+		select {
+		case <-deadline:
+			t.Fatal("Host should be NodeUp but not. Failed to reconnect.")
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 
