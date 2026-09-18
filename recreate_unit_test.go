@@ -491,14 +491,6 @@ func TestToCQLHelpers(t *testing.T) {
 		}
 	})
 
-	t.Run("fixQuote", func(t *testing.T) {
-		t.Parallel()
-
-		if got := cqlHelpers.fixQuote(`{"a": "b"}`); got != `{'a': 'b'}` {
-			t.Errorf("fixQuote = %q", got)
-		}
-	})
-
 	t.Run("zip", func(t *testing.T) {
 		t.Parallel()
 
@@ -630,7 +622,7 @@ func TestTableExtensionsToCQL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("encryption options are decoded and requoted", func(t *testing.T) {
+	t.Run("encryption options are decoded and rendered as CQL", func(t *testing.T) {
 		t.Parallel()
 
 		got, err := cqlHelpers.tableExtensionsToCQL(map[string]any{"scylla_encryption_options": blob})
@@ -643,10 +635,51 @@ func TestTableExtensionsToCQL(t *testing.T) {
 		if !strings.HasPrefix(got[0], "scylla_encryption_options = ") {
 			t.Errorf("unexpected property: %q", got[0])
 		}
-		// fixQuote rewrites the marshalled JSON's double quotes as CQL single
-		// quotes; a surviving double quote would not parse.
+		// CQL quotes strings with ', so a surviving double quote is JSON that
+		// was never converted and will not parse.
 		if strings.Contains(got[0], `"`) {
 			t.Errorf("double quotes survived into CQL: %s", got[0])
+		}
+	})
+
+	t.Run("a quote in an option value cannot escape its string", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tc := range []struct {
+			name   string
+			cipher string
+			want   string
+		}{
+			// A single quote doubles. It used to pass straight through
+			// json.Marshal and close the string it was inside, which is the
+			// same injection as the table comment one function over.
+			{"a single quote", "it's", `'cipher_algorithm': 'it''s'`},
+			// A double quote is data. json.Marshal wrote it as \" and the
+			// quote rewrite turned that into \', a backslash escape CQL does
+			// not have.
+			{"a double quote", `a"b`, `'cipher_algorithm': 'a"b'`},
+			{"both", `a"b it's`, `'cipher_algorithm': 'a"b it''s'`},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				got := cqlHelpers.encryptionOptionsToCQL(&scyllaEncryptionOptions{CipherAlgorithm: tc.cipher})
+				if !strings.Contains(got, tc.want) {
+					t.Errorf("encryptionOptionsToCQL = %s, want it to contain %s", got, tc.want)
+				}
+				if strings.Contains(got, `\'`) {
+					t.Errorf("emitted a backslash escape, which CQL does not have: %s", got)
+				}
+			})
+		}
+	})
+
+	t.Run("secret_key_strength stays a bare number", func(t *testing.T) {
+		t.Parallel()
+
+		got := cqlHelpers.encryptionOptionsToCQL(&scyllaEncryptionOptions{SecretKeyStrength: 128})
+		if !strings.Contains(got, `'secret_key_strength': 128`) {
+			t.Errorf("encryptionOptionsToCQL = %s, want an unquoted strength", got)
 		}
 	})
 
@@ -691,10 +724,7 @@ func TestTableOptionsToCQLScyllaExtras(t *testing.T) {
 	t.Run("cdc is emitted when set", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{CDC: map[string]string{"enabled": "true"}})
-		if err != nil {
-			t.Fatalf("tableOptionsToCQL: %v", err)
-		}
+		got := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{CDC: map[string]string{"enabled": "true"}})
 		if !hasOption(got, "cdc = ") {
 			t.Errorf("cdc missing from %q", got)
 		}
@@ -703,10 +733,7 @@ func TestTableOptionsToCQLScyllaExtras(t *testing.T) {
 	t.Run("cdc is omitted when unset", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{})
-		if err != nil {
-			t.Fatalf("tableOptionsToCQL: %v", err)
-		}
+		got := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{})
 		if hasOption(got, "cdc = ") {
 			t.Errorf("cdc emitted for a table that has none: %q", got)
 		}
@@ -715,22 +742,75 @@ func TestTableOptionsToCQLScyllaExtras(t *testing.T) {
 	t.Run("in_memory is emitted only when true", func(t *testing.T) {
 		t.Parallel()
 
-		on, err := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{InMemory: true})
-		if err != nil {
-			t.Fatalf("tableOptionsToCQL: %v", err)
-		}
+		on := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{InMemory: true})
 		if !hasOption(on, "in_memory = ") {
 			t.Errorf("in_memory missing from %q", on)
 		}
 
-		off, err := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{})
-		if err != nil {
-			t.Fatalf("tableOptionsToCQL: %v", err)
-		}
+		off := cqlHelpers.tableOptionsToCQL(TableMetadataOptions{})
 		if hasOption(off, "in_memory = ") {
 			t.Errorf("in_memory emitted for a non in-memory table: %q", off)
 		}
 	})
+}
+
+// TestTableOptionsToCQLEscaping pins the option values against a schema that
+// carries quotes. Both quote characters matter: a single quote has to double
+// so it stays inside the CQL string, and a double quote has to survive as
+// data. Rendering used to rewrite every double quote to a single one after
+// escaping, to re-quote marshalled JSON, which let a comment close its own
+// string and open a second property.
+func TestTableOptionsToCQLEscaping(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		ops  TableMetadataOptions
+		want string
+	}{
+		{
+			// The whole comment has to stay one option. Rendering used to
+			// emit comment = 'x' AND gc_grace_seconds = 0 AND comment = 'y',
+			// which replays as three properties, two of them forged.
+			name: "a double quote in a comment stays data",
+			ops:  TableMetadataOptions{Comment: `x" AND gc_grace_seconds = 0 AND comment = "y`},
+			want: `comment = 'x" AND gc_grace_seconds = 0 AND comment = "y'`,
+		},
+		{
+			name: "a single quote in a comment doubles",
+			ops:  TableMetadataOptions{Comment: "it's"},
+			want: `comment = 'it''s'`,
+		},
+		{
+			name: "a map value is a CQL string, not JSON",
+			ops:  TableMetadataOptions{Caching: map[string]string{"keys": "ALL"}},
+			want: `caching = {'keys': 'ALL'}`,
+		},
+		{
+			name: "a quote inside a map value doubles",
+			ops:  TableMetadataOptions{Compaction: map[string]string{"class": "it's"}},
+			want: `compaction = {'class': 'it''s'}`,
+		},
+		{
+			name: "a quote inside a map key doubles",
+			ops:  TableMetadataOptions{Compression: map[string]string{"it's": "x"}},
+			want: `compression = {'it''s': 'x'}`,
+		},
+		{
+			name: "map entries are ordered by key",
+			ops:  TableMetadataOptions{Caching: map[string]string{"rows_per_partition": "NONE", "keys": "ALL"}},
+			want: `caching = {'keys': 'ALL', 'rows_per_partition': 'NONE'}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := cqlHelpers.tableOptionsToCQL(tc.ops)
+			if !slices.Contains(got, tc.want) {
+				t.Errorf("missing option %q\n--- got ---\n%s", tc.want, strings.Join(got, "\n"))
+			}
+		})
+	}
 }
 
 func TestIndexToCQL(t *testing.T) {
