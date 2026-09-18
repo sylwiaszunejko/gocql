@@ -1038,6 +1038,34 @@ func TestScyllaEncryptionOptionsUnmarshalBinary(t *testing.T) {
 	}
 }
 
+// TestTableExtensionsToCQLRejectsNonBlob covers the one value in the exported
+// Extensions map that ToCQL decodes. It used to be type-asserted, so a caller
+// who put anything but a []byte there panicked the render.
+func TestTableExtensionsToCQLRejectsNonBlob(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		ext  any
+	}{
+		{"a string", "oops"},
+		{"an int", 7},
+		{"nil", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := cqlHelpers.tableExtensionsToCQL(map[string]any{"scylla_encryption_options": tc.ext})
+			if err == nil {
+				t.Fatalf("tableExtensionsToCQL(%v) = %q, nil; want an error", tc.ext, got)
+			}
+			if !strings.Contains(err.Error(), "want []byte") {
+				t.Errorf("tableExtensionsToCQL(%v) error = %q, want it to name the expected type", tc.ext, err)
+			}
+		})
+	}
+}
+
 // TestScyllaEncryptionOptionsUnmarshalBinaryRejectsShortBlobs pins the bounds
 // checks. Each of these used to panic with a slice-bounds error rather than
 // return, on a blob the server supplied.
