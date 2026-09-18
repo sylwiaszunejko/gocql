@@ -21,6 +21,7 @@ package gocql
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -126,41 +127,199 @@ func TestKeyspaceToCQL(t *testing.T) {
 func TestTypesSortedTopologically(t *testing.T) {
 	t.Parallel()
 
-	// inner is referenced by outer, so it has to be declared first or the
-	// generated CQL will not replay.
-	inner := &TypeMetadata{Keyspace: "ks", Name: "inner", FieldNames: []string{"a"}, FieldTypes: []string{"int"}}
-	outer := &TypeMetadata{Keyspace: "ks", Name: "outer", FieldNames: []string{"b"}, FieldTypes: []string{"frozen<inner>"}}
+	for _, tc := range []struct {
+		name  string
+		types []*TypeMetadata
+		// want, when set, is the exact order expected. Most cases only assert
+		// the invariant, because several orders are equally valid; the
+		// collision cases have one correct answer.
+		want []string
+	}{
+		{
+			name: "one dependency edge",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "inner", FieldNames: []string{"a"}, FieldTypes: []string{"int"}},
+				{Keyspace: "ks", Name: "outer", FieldNames: []string{"b"}, FieldTypes: []string{"frozen<inner>"}},
+			},
+			want: []string{"inner", "outer"},
+		},
+		{
+			// A single edge is settled by one comparison, so it cannot show
+			// whether the ordering is a real traversal. A chain needs the
+			// relation to compose: inner must precede outer even though
+			// nothing states that directly.
+			name: "three-level chain",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "inner", FieldNames: []string{"a"}, FieldTypes: []string{"int"}},
+				{Keyspace: "ks", Name: "middle", FieldNames: []string{"b"}, FieldTypes: []string{"frozen<inner>"}},
+				{Keyspace: "ks", Name: "outer", FieldNames: []string{"c"}, FieldTypes: []string{"frozen<middle>"}},
+			},
+			want: []string{"inner", "middle", "outer"},
+		},
+		{
+			// "varchar" contains "var". Matching substrings would read that
+			// as a dependency of a on var, closing a cycle with the real
+			// var -> a edge and emitting var before the a it embeds.
+			name: "a type name that is a substring of a built-in",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "a", FieldNames: []string{"s"}, FieldTypes: []string{"varchar"}},
+				{Keyspace: "ks", Name: "var", FieldNames: []string{"x"}, FieldTypes: []string{"frozen<a>"}},
+			},
+			want: []string{"a", "var"},
+		},
+		{
+			// Same collision between two user types rather than with a
+			// built-in: "inner" contains "in".
+			name: "a type name that is a substring of another type name",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "in", FieldNames: []string{"p"}, FieldTypes: []string{"frozen<inner>"}},
+				{Keyspace: "ks", Name: "inner", FieldNames: []string{"q"}, FieldTypes: []string{"int"}},
+			},
+			want: []string{"inner", "in"},
+		},
+		{
+			// system_schema.types keys a UDT by its unquoted name but stores
+			// the reference with its quotes: "z-type" is keyed z-type and
+			// referenced as frozen<"z-type">. Splitting on punctuation would
+			// yield "z" and "type" and drop the dependency.
+			name: "a quoted type name containing punctuation",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "holder", FieldNames: []string{"x"}, FieldTypes: []string{`frozen<"z-type">`}},
+				{Keyspace: "ks", Name: "z-type", FieldNames: []string{"a"}, FieldTypes: []string{"int"}},
+			},
+			want: []string{"z-type", "holder"},
+		},
+		{
+			// A user type may be named after a built-in, quoted at creation.
+			// A bare "text" field is then the built-in, not a reference to
+			// that type: following it would close a cycle with the real
+			// text -> t2 edge and emit text before the t2 it embeds.
+			name: "a user type named after a built-in",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "text", FieldNames: []string{"x"}, FieldTypes: []string{"frozen<t2>"}},
+				{Keyspace: "ks", Name: "t2", FieldNames: []string{"p"}, FieldTypes: []string{"text"}},
+			},
+			want: []string{"t2", "text"},
+		},
+		{
+			// The other direction: frozen<text> is a genuine reference to that
+			// user type -- frozen never wraps a scalar built-in -- so the edge
+			// must still be followed even though the bare text beside it is not.
+			name: "a built-in and a user type of the same name in one field list",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "text", FieldNames: []string{"a"}, FieldTypes: []string{"int"}},
+				{Keyspace: "ks", Name: "holder", FieldNames: []string{"p", "q"}, FieldTypes: []string{"text", "frozen<text>"}},
+			},
+			want: []string{"text", "holder"},
+		},
+		{
+			// frozen<map<text,int>> is a frozen collection, not a reference to
+			// a type named map. Treating the operand of frozen as a user type
+			// without checking for a constructor would invent an edge here.
+			name: "a frozen collection beside a user type named after its constructor",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "map", FieldNames: []string{"x"}, FieldTypes: []string{"frozen<other>"}},
+				{Keyspace: "ks", Name: "other", FieldNames: []string{"y"}, FieldTypes: []string{"frozen<map<text,int>>"}},
+			},
+			want: []string{"other", "map"},
+		},
+		{
+			// The other direction: a constructor name written without
+			// arguments is a genuine reference, and the server stores it
+			// unquoted, so the edge must still be followed.
+			name: "a user type named after a constructor, actually referenced",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "map", FieldNames: []string{"a"}, FieldTypes: []string{"int"}},
+				{Keyspace: "ks", Name: "holder", FieldNames: []string{"m"}, FieldTypes: []string{"frozen<map>"}},
+			},
+			want: []string{"map", "holder"},
+		},
+		{
+			// A custom marshal type is a dotted Java class name. Tokenising it
+			// would invent edges to any user type sharing one of its segments.
+			name: "a custom marshal type beside a user type named after its package",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "org", FieldNames: []string{"x"}, FieldTypes: []string{"frozen<other>"}},
+				{Keyspace: "ks", Name: "other", FieldNames: []string{"y"}, FieldTypes: []string{`'org.apache.cassandra.db.marshal.UTF8Type'`}},
+			},
+			want: []string{"other", "org"},
+		},
+		{
+			name: "one type embedded by two others",
+			types: []*TypeMetadata{
+				{Keyspace: "ks", Name: "shared", FieldNames: []string{"a"}, FieldTypes: []string{"int"}},
+				{Keyspace: "ks", Name: "left", FieldNames: []string{"b"}, FieldTypes: []string{"frozen<shared>"}},
+				{Keyspace: "ks", Name: "right", FieldNames: []string{"c"}, FieldTypes: []string{"list<frozen<shared>>"}},
+			},
+			// shared sorts last by name, so this order can only come from the
+			// dependency walk -- unlike the two cases above, where the correct
+			// order happens to be alphabetical.
+			want: []string{"shared", "left", "right"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	// typesSortedTopologically ranges ks.Types, which is a map, so the order it
-	// starts from is random per call. One of the two possible orders already
-	// satisfies the assertion below, so a single round would let a sort that
-	// does nothing through about half the time. Sample the input order instead,
-	// and assert the property rather than one exact sequence.
-	const rounds = 50
-	for i := 0; i < rounds; i++ {
-		ks := &KeyspaceMetadata{Types: map[string]*TypeMetadata{"outer": outer, "inner": inner}}
+			// typesSortedTopologically reads ks.Types, a map, so the order it
+			// starts from varies per call. Sample it rather than relying on
+			// one draw: with two types, one of the two possible orders is
+			// already correct, so a single round would let a sorter that does
+			// nothing through about half the time.
+			const rounds = 50
+			var first []string
 
-		sorted := ks.typesSortedTopologically()
-		if len(sorted) != 2 {
-			t.Fatalf("round %d: got %d types, want 2", i, len(sorted))
-		}
+			for i := 0; i < rounds; i++ {
+				ks := &KeyspaceMetadata{Types: map[string]*TypeMetadata{}}
+				for _, tm := range tc.types {
+					ks.Types[tm.Name] = tm
+				}
 
-		pos := make(map[string]int, len(sorted))
-		order := make([]string, 0, len(sorted))
-		for j, tm := range sorted {
-			pos[tm.Name] = j
-			order = append(order, tm.Name)
-		}
-		for _, tm := range sorted {
-			for _, ft := range tm.FieldTypes {
-				for name, at := range pos {
-					if name != tm.Name && strings.Contains(ft, name) && at > pos[tm.Name] {
-						t.Fatalf("round %d: %s embeds %s but is declared first: %v",
-							i, tm.Name, name, order)
+				sorted := ks.typesSortedTopologically()
+				if len(sorted) != len(tc.types) {
+					t.Fatalf("round %d: got %d types, want %d", i, len(sorted), len(tc.types))
+				}
+
+				pos := make(map[string]int, len(sorted))
+				order := make([]string, 0, len(sorted))
+				for j, tm := range sorted {
+					pos[tm.Name] = j
+					order = append(order, tm.Name)
+				}
+
+				// No type may be declared before one it embeds. Dependencies
+				// are read the same way the sorter reads them -- whole CQL
+				// identifiers -- so that a name like "var" inside "varchar" is
+				// not mistaken for one. The exact orders asserted by the
+				// collision cases below check that matching independently.
+				for _, tm := range sorted {
+					for _, ft := range tm.FieldTypes {
+						for _, ref := range cqlTypeIdentifiers(ft) {
+							if !ref.namesUserType() {
+								continue
+							}
+							at, isType := pos[ref.name]
+							if isType && ref.name != tm.Name && at > pos[tm.Name] {
+								t.Fatalf("round %d: %s embeds %s but is declared first: %v",
+									i, tm.Name, ref.name, order)
+							}
+						}
 					}
 				}
+
+				if tc.want != nil && !slices.Equal(order, tc.want) {
+					t.Fatalf("round %d: got order %v, want %v", i, order, tc.want)
+				}
+
+				// The output must not depend on map iteration order either, or
+				// a regenerated schema dump would churn between runs.
+				if i == 0 {
+					first = order
+				} else if !slices.Equal(order, first) {
+					t.Fatalf("round %d produced %v, round 0 produced %v -- order is not deterministic",
+						i, order, first)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -795,5 +954,158 @@ func TestScyllaEncryptionOptionsUnmarshalBinary(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("decoded blob differs from the golden (-want +got):\n%s", diff)
+	}
+}
+
+func TestCQLTypeIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		// name, not in, because two inputs differing only in whitespace
+		// rewrite to the same subtest name, and the empty input has none.
+		name string
+		in   string
+		want []string
+	}{
+		{"a native type", "int", []string{"int"}},
+		{"a frozen user type", "frozen<addr>", []string{"frozen", "addr"}},
+		{"a user type inside a collection", "map<text, frozen<addr>>", []string{"map", "text", "frozen", "addr"}},
+		{"a tuple", "tuple<int, double>", []string{"tuple", "int", "double"}},
+		// The dimension is a literal, not a type: no identifier starts with a
+		// digit, so it must not be offered as a dependency.
+		{"a vector dimension", "vector<float, 3>", []string{"vector", "float"}},
+		// Whitespace may separate a constructor from its arguments; it still
+		// has to read as parameterised, or the constructor itself would be
+		// offered as a dependency.
+		{"a space before the arguments", "frozen <addr>", []string{"frozen", "addr"}},
+		{"a tab before the arguments", "frozen\t<addr>", []string{"frozen", "addr"}},
+		// A single-quoted custom marshal type is a Java class name, not a path
+		// of UDT names: descending into it would offer org, apache and so on.
+		{"a custom marshal type", `'org.apache.cassandra.db.marshal.UTF8Type'`, nil},
+		{"a custom marshal type as the frozen operand", `frozen<'org.apache.cassandra.db.marshal.UTF8Type'>`, []string{"frozen"}},
+		{"a custom marshal type inside a collection", `map<text, 'org.apache.cassandra.db.marshal.Int32Type'>`, []string{"map", "text"}},
+		{"a doubled quote inside a single-quoted literal", `'it''s'`, nil},
+		{"an unterminated single-quoted literal", `'unterminated`, nil},
+		{"a frozen vector", "frozen<vector<float, 1024>>", []string{"frozen", "vector", "float"}},
+		// "var" must not fall out of "varchar".
+		{"a native type containing a shorter name", "varchar", []string{"varchar"}},
+		// A quoted name is one identifier, punctuation and all.
+		{"a quoted name as the frozen operand", `frozen<"z-type">`, []string{"frozen", "z-type"}},
+		{"a quoted name alone", `"z-type"`, []string{"z-type"}},
+		{"quoted names containing punctuation and a space", `map<"a-b", frozen<"c d">>`, []string{"map", "a-b", "frozen", "c d"}},
+		// A doubled quote inside the quotes is one literal quote.
+		{"a doubled quote inside a quoted name", `frozen<"a""b">`, []string{"frozen", `a"b`}},
+		// Degenerate input must not hang or panic.
+		{"empty input", "", nil},
+		{"a lone quote", `"`, nil},
+		{"an unterminated quoted name", `frozen<"unterminated`, []string{"frozen", "unterminated"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got []string
+			for _, ref := range cqlTypeIdentifiers(tc.in) {
+				got = append(got, ref.name)
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("cqlTypeIdentifiers(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCQLTypeRefNamesUserType(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		ref  cqlTypeRef
+		want bool
+	}{
+		{"bare built-in is not a user type", cqlTypeRef{name: "text"}, false},
+		// A constructor name is only decisive when applied to arguments. Bare,
+		// it is available to a user type of that name -- which is what lets
+		// frozen<map> mean the user type map rather than a collection.
+		{"bare constructor name is available to a user type", cqlTypeRef{name: "frozen"}, true},
+		{"bare unknown name is a user type", cqlTypeRef{name: "addr"}, true},
+		// frozen never wraps a scalar built-in, so its operand is a user type
+		// even when the name collides with one.
+		{"frozen operand is a user type", cqlTypeRef{name: "text", frozenOperand: true}, true},
+		// The server only keeps quotes for names that need them, and never
+		// quotes a built-in.
+		{"quoted name is a user type", cqlTypeRef{name: "text", quoted: true}, true},
+		// A constructor applied to arguments is never a user type, even as the
+		// operand of frozen -- frozen<map<...>> is a frozen collection.
+		{"parameterised constructor is not a user type",
+			cqlTypeRef{name: "map", parameterised: true, frozenOperand: true}, false},
+		// Written without arguments the name is available to a user type.
+		{"bare constructor name as a frozen operand is a user type",
+			cqlTypeRef{name: "map", frozenOperand: true}, true},
+		{"vector is a constructor", cqlTypeRef{name: "vector", parameterised: true}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tc.ref.namesUserType(); got != tc.want {
+				t.Errorf("namesUserType(%+v) = %v, want %v", tc.ref, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestCQLTypeIdentifiersClassifiesParsedTypes checks the classification the
+// sorter actually depends on, on parsed input rather than hand-built refs.
+// TestCQLTypeIdentifiers only compares names, so it cannot see a constructor
+// being mistaken for a user type.
+func TestCQLTypeIdentifiersClassifiesParsedTypes(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		in   string
+		name string
+		want bool
+	}{
+		{"frozen<addr>", "addr", true},
+		{"frozen<addr>", "frozen", false},
+		{"frozen<list<text>>", "list", false},
+		{"frozen<map>", "map", true},
+		{"vector<float, 3>", "vector", false},
+		{"vector<float, 3>", "float", false},
+		{`frozen<"z-type">`, "z-type", true},
+		// Whitespace between a constructor and its arguments must not stop it
+		// reading as parameterised, or the constructor is offered as a
+		// dependency in its own right.
+		{"frozen <addr>", "frozen", false},
+		{"frozen\t<addr>", "frozen", false},
+		{"frozen\n<addr>", "frozen", false},
+		{"map <text, int>", "map", false},
+		// Malformed input must not corrupt what follows: the literal consumes
+		// the operand slot that frozen< opened, so the text after it is the
+		// built-in, not a user type inheriting a stale frozen.
+		{"frozen<3>text", "text", false},
+		// Same for a custom type: the literal consumes the operand slot, so
+		// what follows is not read as the thing frozen was applied to.
+		{`frozen<'x'>text`, "text", false},
+		// A bare frozen opens no operand slot, so the token after it is read on
+		// its own merits -- int stays the built-in.
+		{"map<frozen, int>", "int", false},
+	} {
+		t.Run(fmt.Sprintf("%q/%s", tc.in, tc.name), func(t *testing.T) {
+			t.Parallel()
+
+			found := false
+			for _, ref := range cqlTypeIdentifiers(tc.in) {
+				if ref.name != tc.name {
+					continue
+				}
+				found = true
+				if got := ref.namesUserType(); got != tc.want {
+					t.Errorf("namesUserType(%s) in %q = %v, want %v", tc.name, tc.in, got, tc.want)
+				}
+			}
+			if !found {
+				t.Fatalf("%q did not yield an identifier %q", tc.in, tc.name)
+			}
+		})
 	}
 }

@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"text/template"
+	"unicode"
 )
 
 // ToCQL returns a CQL query that ca be used to recreate keyspace with all
@@ -70,20 +73,232 @@ func (ks *KeyspaceMetadata) ToCQL() (string, error) {
 	return ks.CreateStmts, nil
 }
 
-func (ks *KeyspaceMetadata) typesSortedTopologically() []*TypeMetadata {
-	sortedTypes := make([]*TypeMetadata, 0, len(ks.Types))
-	for _, tm := range ks.Types {
-		sortedTypes = append(sortedTypes, tm)
+// cqlTypeRef is one type name appearing in a rendered CQL type, with the three
+// facts needed to tell a user type from a built-in.
+type cqlTypeRef struct {
+	name string
+	// quoted: the name was written in double quotes, so it is a user type --
+	// built-ins are never quoted in what the server stores.
+	quoted bool
+	// parameterised: the name is immediately followed by '<', so it is being
+	// applied to type arguments. That is what separates the collection in
+	// frozen<map<text,int>> from a reference to a user type named map, which
+	// the server stores unquoted as frozen<map>.
+	parameterised bool
+	// frozenOperand: the name is the direct operand of frozen<...>. frozen
+	// applies to collections, tuples and user types, never to a scalar
+	// built-in, and a user type used as a field of another must be frozen. So
+	// this is what separates the built-in text in a field declared "text" from
+	// the user type text in one declared frozen<text> -- which is exactly how
+	// system_schema.types stores the two.
+	frozenOperand bool
+}
+
+// cqlTypeIdentifiers splits a rendered CQL type into the names it mentions:
+// frozen<addr> yields frozen and addr, varchar yields varchar rather than
+// appearing to contain a type named "var".
+//
+// Quoted identifiers are taken atomically, because system_schema.types stores
+// the reference with its quotes while keying the type by the unquoted name: a
+// UDT "z-type" is keyed z-type and referenced as frozen<"z-type">. Splitting on
+// punctuation would yield "z" and "type" and lose the dependency entirely.
+// A doubled quote inside the quotes is one literal quote, as in CQL.
+func cqlTypeIdentifiers(cqlType string) []cqlTypeRef {
+	var out []cqlTypeRef
+	rs := []rune(cqlType)
+	pendingFrozen := false
+
+	// parameterisedAt reports whether the next non-space rune from i is '<'.
+	parameterisedAt := func(i int) bool {
+		for i < len(rs) && unicode.IsSpace(rs[i]) {
+			i++
+		}
+		return i < len(rs) && rs[i] == '<'
 	}
-	sort.Slice(sortedTypes, func(i, j int) bool {
-		for _, ft := range sortedTypes[j].FieldTypes {
-			if strings.Contains(ft, sortedTypes[i].Name) {
-				return true
+
+	emit := func(name string, quoted bool, parameterised bool) {
+		// The operand slot opened by a preceding frozen< is consumed by
+		// whatever comes next, including a token that is dropped below.
+		// Clearing it here stops the token after a dropped one inheriting a
+		// frozen< that has already been used up.
+		frozenOperand := pendingFrozen
+		pendingFrozen = false
+
+		// An unquoted run starting with a digit is a literal, not an
+		// identifier: the N in vector<float, 3> is a dimension, not a type.
+		if name == "" || (!quoted && !isCQLIdentifierStart([]rune(name)[0])) {
+			return
+		}
+		out = append(out, cqlTypeRef{
+			name: name, quoted: quoted,
+			parameterised: parameterised, frozenOperand: frozenOperand,
+		})
+		// Only an applied frozen opens an operand slot. A bare frozen is not
+		// valid CQL, but arming on it would hand the slot to whatever token
+		// came next -- the same leak the dropped-token path above avoids.
+		pendingFrozen = !quoted && parameterised && name == "frozen"
+	}
+
+	for i := 0; i < len(rs); {
+		switch {
+		case rs[i] == '"':
+			var sb strings.Builder
+			i++
+			for i < len(rs) {
+				if rs[i] == '"' {
+					if i+1 < len(rs) && rs[i+1] == '"' {
+						sb.WriteRune('"')
+						i += 2
+						continue
+					}
+					i++
+					break
+				}
+				sb.WriteRune(rs[i])
+				i++
+			}
+			emit(sb.String(), true, parameterisedAt(i))
+
+		case rs[i] == '\'':
+			// A single-quoted run is a custom marshal type such as
+			// 'org.apache.cassandra.db.marshal.UTF8Type', which CQL allows
+			// wherever a field type is written. Its contents are a Java class
+			// name, never a user type, so the whole literal is consumed rather
+			// than tokenised -- otherwise org, apache and so on are offered as
+			// dependencies. emit with an empty name discards it while still
+			// consuming the operand slot a preceding frozen< opened. A doubled
+			// quote inside is one literal quote, as in CQL.
+			i++
+			for i < len(rs) {
+				if rs[i] == '\'' {
+					if i+1 < len(rs) && rs[i+1] == '\'' {
+						i += 2
+						continue
+					}
+					i++
+					break
+				}
+				i++
+			}
+			emit("", false, false)
+
+		case isCQLIdentifierRune(rs[i]):
+			j := i
+			for j < len(rs) && isCQLIdentifierRune(rs[j]) {
+				j++
+			}
+			emit(string(rs[i:j]), false, parameterisedAt(j))
+			i = j
+
+		default:
+			i++
+		}
+	}
+
+	return out
+}
+
+func isCQLIdentifierRune(r rune) bool {
+	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+}
+
+// isCQLIdentifierStart reports whether r may begin an unquoted identifier. A
+// digit may appear inside one but never at the front.
+func isCQLIdentifierStart(r rune) bool {
+	return r == '_' || unicode.IsLetter(r)
+}
+
+// cqlTypeConstructors are the parameterised type spellings. Applied to type
+// arguments they are never a user type, not even as the operand of frozen:
+// frozen<list<text>> is a frozen collection, not a reference to a type named
+// list. Written without arguments the name is available to a user type, which
+// is why this is only decisive together with parameterised.
+var cqlTypeConstructors = map[string]struct{}{
+	"frozen": {}, "list": {}, "map": {}, "set": {}, "tuple": {}, "vector": {},
+}
+
+// cqlNativeTypes are the scalar built-ins. A keyspace may still define a user
+// type with one of these names -- it has to be quoted at creation -- which is
+// why a bare occurrence is only assumed to be the built-in when it is not the
+// operand of frozen.
+var cqlNativeTypes = map[string]struct{}{
+	"ascii": {}, "bigint": {}, "blob": {}, "boolean": {}, "counter": {},
+	"date": {}, "decimal": {}, "double": {}, "duration": {}, "float": {},
+	"inet": {}, "int": {}, "smallint": {}, "text": {}, "time": {},
+	"timestamp": {}, "timeuuid": {}, "tinyint": {}, "uuid": {}, "varchar": {},
+	"varint": {},
+}
+
+// namesUserType reports whether ref can denote a user-defined type, as opposed
+// to a built-in that happens to share its name.
+func (ref cqlTypeRef) namesUserType() bool {
+	// A quoted name is always a user type; the server only keeps quotes where
+	// the name needs them, and never quotes a built-in.
+	if ref.quoted {
+		return true
+	}
+	// Checked before frozenOperand: the operand of frozen is a user type
+	// unless it is itself a constructor being applied to arguments.
+	if _, ctor := cqlTypeConstructors[ref.name]; ctor && ref.parameterised {
+		return false
+	}
+	if ref.frozenOperand {
+		return true
+	}
+	_, native := cqlNativeTypes[ref.name]
+	return !native
+}
+
+// typesSortedTopologically orders the keyspace's user-defined types so that
+// every type appears after the types it embeds, which is the order a server
+// needs to replay the CREATE TYPE statements.
+//
+// This has to be a graph traversal rather than a comparison sort. "j embeds i"
+// is not a transitive relation, so for a chain a <- b <- c a comparison sort may
+// compare only (b,a) and (c,b), never (c,a), and leave a type ahead of one it
+// embeds depending on the order it happened to start from.
+//
+// Dependencies are matched on whole CQL identifiers. A field type is rendered
+// CQL such as frozen<addr> or map<text, frozen<addr>>, so the names it depends
+// on are its identifiers minus the built-ins. Matching substrings instead is
+// not merely over-constraining: a type "a" with a varchar field yields a false
+// a -> var edge, which closes a cycle with the real var -> a edge if a type
+// "var" embeds "a", and the cycle guard then resolves it the wrong way round --
+// emitting var before the a it embeds.
+func (ks *KeyspaceMetadata) typesSortedTopologically() []*TypeMetadata {
+	sorted := make([]*TypeMetadata, 0, len(ks.Types))
+	visited := make(map[string]bool, len(ks.Types))
+
+	var visit func(name string)
+	visit = func(name string) {
+		tm, ok := ks.Types[name]
+		if !ok || visited[name] {
+			return
+		}
+		// Marked before recursing, so a cycle terminates instead of recursing
+		// forever. CQL rejects cyclic user types, so this is a guard rather
+		// than a case with a defined ordering.
+		visited[name] = true
+
+		for _, ft := range tm.FieldTypes {
+			for _, ref := range cqlTypeIdentifiers(ft) {
+				// A bare built-in is skipped rather than followed. Following it
+				// would be harmless were there no user type of that name, but a
+				// keyspace may define one: the false edge then closes a cycle
+				// with the real one and the walk emits the dependent first.
+				if ref.name != name && ref.namesUserType() {
+					visit(ref.name)
+				}
 			}
 		}
-		return false
-	})
-	return sortedTypes
+		sorted = append(sorted, tm)
+	}
+
+	// Visit in name order so the output does not depend on map iteration order.
+	for _, name := range slices.Sorted(maps.Keys(ks.Types)) {
+		visit(name)
+	}
+	return sorted
 }
 
 var tableCQLTemplate = template.Must(template.New("table").
