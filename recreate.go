@@ -604,8 +604,16 @@ func (h toCQLHelpers) tableExtensionsToCQL(extensions map[string]any) ([]string,
 	exts := map[string]string{}
 
 	if blob, ok := extensions["scylla_encryption_options"]; ok {
+		// Extensions is exported and a caller can put anything in it, so the
+		// blob is checked rather than asserted: rendering a schema must not
+		// panic on a value someone else supplied.
+		raw, isBlob := blob.([]byte)
+		if !isBlob {
+			return nil, fmt.Errorf("gocql: scylla_encryption_options extension is %T, want []byte", blob)
+		}
+
 		encOpts := &scyllaEncryptionOptions{}
-		if err := encOpts.UnmarshalBinary(blob.([]byte)); err != nil {
+		if err := encOpts.UnmarshalBinary(raw); err != nil {
 			return nil, err
 		}
 
