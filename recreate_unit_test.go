@@ -473,22 +473,36 @@ func TestToCQLHelpers(t *testing.T) {
 		}
 	})
 
-	t.Run("stripFrozen", func(t *testing.T) {
-		t.Parallel()
-
-		if got := cqlHelpers.stripFrozen("frozen<tuple<int, double>>"); got != "tuple<int, double>" {
-			t.Errorf("stripFrozen = %q", got)
-		}
-		if got := cqlHelpers.stripFrozen("int"); got != "int" {
-			t.Errorf("stripFrozen left a plain type alone as %q", got)
-		}
-	})
-
 	t.Run("fixStrategy", func(t *testing.T) {
 		t.Parallel()
 
 		if got := cqlHelpers.fixStrategy("org.apache.cassandra.locator.SimpleStrategy"); got != "SimpleStrategy" {
 			t.Errorf("fixStrategy = %q", got)
+		}
+	})
+
+	t.Run("stripFrozen", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tc := range []struct{ in, want string }{
+			{"frozen<addr>", "addr"},
+			{"frozen<tuple<int, double>>", "tuple<int, double>"},
+			{"frozen<map<text, int>>", "map<text, int>"},
+			// Not frozen-wrapped: the closing bracket used to come off
+			// anyway, which corrupts every parameterised type.
+			{"map<text, int>", "map<text, int>"},
+			{"tuple<int, double>", "tuple<int, double>"},
+			{"list<frozen<a>>", "list<frozen<a>>"},
+			{"text", "text"},
+			{"int", "int"},
+			// Degenerate: a prefix with no matching bracket is left as it is
+			// rather than half-unwrapped.
+			{"frozen<unterminated", "frozen<unterminated"},
+			{"", ""},
+		} {
+			if got := cqlHelpers.stripFrozen(tc.in); got != tc.want {
+				t.Errorf("stripFrozen(%q) = %q, want %q", tc.in, got, tc.want)
+			}
 		}
 	})
 
