@@ -324,6 +324,29 @@ func TestTypesSortedTopologically(t *testing.T) {
 	}
 }
 
+// TestKeyspaceToCQLRejectsUnrenderableOption covers the one path where a value
+// of arbitrary type reaches escape: StrategyOptions is map[string]any, so the
+// template is where an unhandled type has to surface. It used to render as
+// nothing, leaving `'key': ` in the middle of a dump.
+func TestKeyspaceToCQLRejectsUnrenderableOption(t *testing.T) {
+	t.Parallel()
+
+	ks := &KeyspaceMetadata{
+		Name:            "ks",
+		StrategyClass:   "SimpleStrategy",
+		StrategyOptions: map[string]any{"replication_factor": []string{"nope"}},
+	}
+
+	var sb strings.Builder
+	err := ks.keyspaceToCQL(&sb)
+	if err == nil {
+		t.Fatalf("keyspaceToCQL = %q, nil; want an error", sb.String())
+	}
+	if !strings.Contains(err.Error(), "cannot render") {
+		t.Errorf("keyspaceToCQL error = %q, want it to say what could not be rendered", err)
+	}
+}
+
 func TestTableColumnToCQL(t *testing.T) {
 	t.Parallel()
 
@@ -457,18 +480,57 @@ func TestToCQLHelpers(t *testing.T) {
 		for _, tc := range []struct {
 			in   any
 			want string
+			// wantErr marks a type escape cannot render. It used to answer
+			// "" for these, which the caller writes as `key = ` and the
+			// server rejects a whole dump away from the cause.
+			wantErr bool
 		}{
-			{"plain", "'plain'"},
-			{"it's", "'it''s'"}, // the injection-relevant case
-			{42, "42"},
-			{1.5, "1.5"},
-			{true, "true"},
-			{false, "false"},
-			{[]byte("raw"), "raw"},
-			{struct{}{}, ""}, // unsupported types render empty
+			{in: "plain", want: "'plain'"},
+			{in: "it's", want: "'it''s'"}, // the injection-relevant case
+			{in: 42, want: "42"},
+			{in: 1.5, want: "1.5"},
+			{in: true, want: "true"},
+			{in: false, want: "false"},
+			{in: []byte("raw"), want: "raw"},
+			// Widths other than int and float64 reach escape through
+			// StrategyOptions, which the metadata carries as any.
+			{in: int64(42), want: "42"},
+			{in: int32(42), want: "42"},
+			{in: uint(42), want: "42"},
+			{in: uint64(42), want: "42"},
+			{in: float32(1.5), want: "1.5"},
+			{in: struct{}{}, wantErr: true},
+			{in: nil, wantErr: true},
+			{in: []string{"a"}, wantErr: true},
 		} {
-			if got := cqlHelpers.escape(tc.in); got != tc.want {
+			got, err := cqlHelpers.escape(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("escape(%#v) = %q, nil; want an error", tc.in, got)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("escape(%#v): %v", tc.in, err)
+				continue
+			}
+			if got != tc.want {
 				t.Errorf("escape(%#v) = %q, want %q", tc.in, got, tc.want)
+			}
+		}
+	})
+
+	t.Run("escapeString", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tc := range []struct{ in, want string }{
+			{"plain", "'plain'"},
+			{"it's", "'it''s'"},
+			{`a "b" c`, `'a "b" c'`},
+			{"", "''"},
+		} {
+			if got := cqlHelpers.escapeString(tc.in); got != tc.want {
+				t.Errorf("escapeString(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		}
 	})
