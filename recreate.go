@@ -266,15 +266,6 @@ func (ks *KeyspaceMetadata) keyspaceToCQL(w io.Writer) error {
 	return nil
 }
 
-func contains(in []string, v string) bool {
-	for _, e := range in {
-		if e == v {
-			return true
-		}
-	}
-	return false
-}
-
 type toCQLHelpers struct{}
 
 var cqlHelpers = toCQLHelpers{}
