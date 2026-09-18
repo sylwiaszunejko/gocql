@@ -1109,3 +1109,75 @@ func TestCQLTypeIdentifiersClassifiesParsedTypes(t *testing.T) {
 		})
 	}
 }
+
+// TestToCQLIsDeterministic pins that a regenerated dump does not reorder
+// itself between runs. ToCQL walks six collections, five of them maps, and Go
+// randomises map iteration -- before they were ordered, a keyspace with three
+// tables produced three different outputs over 300 calls.
+//
+// Several entities per category matter here: with one apiece there is nothing
+// to permute, so a fixture that size cannot see the problem.
+func TestToCQLIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	build := func() *KeyspaceMetadata {
+		ks := &KeyspaceMetadata{
+			Name:            "ks",
+			DurableWrites:   true,
+			StrategyClass:   "SimpleStrategy",
+			StrategyOptions: map[string]any{"replication_factor": "1"},
+			Types:           map[string]*TypeMetadata{},
+			Tables:          map[string]*TableMetadata{},
+			Indexes:         map[string]*IndexMetadata{},
+			Functions:       map[string]*FunctionMetadata{},
+			Aggregates:      map[string]*AggregateMetadata{},
+			Views:           map[string]*ViewMetadata{},
+		}
+		for _, n := range []string{"a_t", "b_t", "c_t"} {
+			ks.Types[n] = &TypeMetadata{Keyspace: "ks", Name: n, FieldNames: []string{"f"}, FieldTypes: []string{"int"}}
+			ks.Tables[n] = &TableMetadata{
+				Name: n, OrderedColumns: []string{"id"},
+				Columns:      map[string]*ColumnMetadata{"id": col("id", "uuid", ColumnPartitionKey)},
+				PartitionKey: []*ColumnMetadata{col("id", "uuid", ColumnPartitionKey)},
+			}
+			ks.Indexes[n+"_idx"] = &IndexMetadata{
+				Name: n + "_idx", KeyspaceName: "ks", TableName: n,
+				Options: map[string]string{"target": "id"},
+			}
+			ks.Functions[n+"_fn"] = &FunctionMetadata{
+				Keyspace: "ks", Name: n + "_fn",
+				ArgumentNames: []string{"x"}, ArgumentTypes: []string{"int"},
+				ReturnType: "int", Language: "lua", Body: "return x", CalledOnNullInput: true,
+			}
+			ks.Aggregates[n+"_agg"] = &AggregateMetadata{
+				Keyspace: "ks", Name: n + "_agg",
+				ArgumentTypes: []string{"int"}, ReturnType: "int", StateType: "int",
+				InitCond: "0", StateFunc: FunctionMetadata{Name: n + "_fn"},
+			}
+			ks.Views[n+"_v"] = &ViewMetadata{
+				KeyspaceName: "ks", ViewName: n + "_v", BaseTableName: n,
+				WhereClause: "id IS NOT NULL", OrderedColumns: []string{"id"},
+				PartitionKey: []*ColumnMetadata{col("id", "uuid", ColumnPartitionKey)},
+			}
+		}
+		return ks
+	}
+
+	// A fresh keyspace each round: ToCQL caches its output in CreateStmts, so
+	// reusing one would short-circuit every call after the first.
+	const rounds = 100
+	var first string
+	for i := 0; i < rounds; i++ {
+		got, err := build().ToCQL()
+		if err != nil {
+			t.Fatalf("round %d: ToCQL: %v", i, err)
+		}
+		if i == 0 {
+			first = got
+			continue
+		}
+		if got != first {
+			t.Fatalf("round %d differs from round 0 -- the dump reorders itself between runs", i)
+		}
+	}
+}

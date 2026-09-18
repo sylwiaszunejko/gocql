@@ -16,6 +16,19 @@ import (
 	"unicode"
 )
 
+// sortedByName returns a metadata map's values ordered by key. ToCQL walks
+// five such maps, and Go randomises map iteration, so without this a
+// regenerated dump reorders its own sections between runs -- three tables alone
+// produce three different outputs. Types are ordered separately, by dependency
+// rather than by name.
+func sortedByName[T any](m map[string]T) []T {
+	out := make([]T, 0, len(m))
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		out = append(out, m[k])
+	}
+	return out
+}
+
 // ToCQL returns a CQL query that ca be used to recreate keyspace with all
 // user defined types, tables, indexes, functions, aggregates and views associated
 // with this keyspace.
@@ -39,31 +52,31 @@ func (ks *KeyspaceMetadata) ToCQL() (string, error) {
 		}
 	}
 
-	for _, tm := range ks.Tables {
+	for _, tm := range sortedByName(ks.Tables) {
 		if err := ks.tableToCQL(&sb, ks.Name, tm); err != nil {
 			return "", err
 		}
 	}
 
-	for _, im := range ks.Indexes {
+	for _, im := range sortedByName(ks.Indexes) {
 		if err := ks.indexToCQL(&sb, im); err != nil {
 			return "", err
 		}
 	}
 
-	for _, fm := range ks.Functions {
+	for _, fm := range sortedByName(ks.Functions) {
 		if err := ks.functionToCQL(&sb, ks.Name, fm); err != nil {
 			return "", err
 		}
 	}
 
-	for _, am := range ks.Aggregates {
+	for _, am := range sortedByName(ks.Aggregates) {
 		if err := ks.aggregateToCQL(&sb, am); err != nil {
 			return "", err
 		}
 	}
 
-	for _, vm := range ks.Views {
+	for _, vm := range sortedByName(ks.Views) {
 		if err := ks.viewToCQL(&sb, vm); err != nil {
 			return "", err
 		}
