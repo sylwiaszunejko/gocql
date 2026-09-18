@@ -530,63 +530,78 @@ func (h toCQLHelpers) fixStrategy(v string) string {
 	return strings.TrimPrefix(v, "org.apache.cassandra.locator.")
 }
 
-func (h toCQLHelpers) fixQuote(v string) string {
-	return strings.ReplaceAll(v, `"`, `'`)
+// cqlMapLiteral renders a CQL map literal: {'k': 'v'}. Both sides go through
+// escape, so a quote in the data doubles rather than closing the literal, and
+// keys are sorted so the output does not depend on map iteration order.
+func (h toCQLHelpers) cqlMapLiteral(m map[string]string) string {
+	pairs := make([]string, 0, len(m))
+	for _, k := range slices.Sorted(maps.Keys(m)) {
+		pairs = append(pairs, h.escape(k)+": "+h.escape(m[k]))
+	}
+	return "{" + strings.Join(pairs, ", ") + "}"
 }
 
-func (h toCQLHelpers) tableOptionsToCQL(ops TableMetadataOptions) ([]string, error) {
-	opts := map[string]any{
-		"bloom_filter_fp_chance":      ops.BloomFilterFpChance,
-		"comment":                     ops.Comment,
-		"crc_check_chance":            ops.CrcCheckChance,
-		"default_time_to_live":        ops.DefaultTimeToLive,
-		"gc_grace_seconds":            ops.GcGraceSeconds,
-		"max_index_interval":          ops.MaxIndexInterval,
-		"memtable_flush_period_in_ms": ops.MemtableFlushPeriodInMs,
-		"min_index_interval":          ops.MinIndexInterval,
-		"speculative_retry":           ops.SpeculativeRetry,
+// encryptionOptionsToCQL renders decoded encryption options as a CQL map
+// literal. The string values go through escape, so a quote in one
+// doubles rather than closing the literal; secret_key_strength stays a bare
+// number, which is the form this has always emitted.
+//
+// Marshalling to JSON and rewriting its quotes, which is what this used to do,
+// cannot be made correct: JSON writes an embedded double quote as \" and
+// leaves a single quote alone, so one reaches CQL as a backslash escape the
+// grammar does not have and the other closes the string it sits in.
+func (h toCQLHelpers) encryptionOptionsToCQL(e *scyllaEncryptionOptions) string {
+	return "{" + strings.Join([]string{
+		"'cipher_algorithm': " + h.escape(e.CipherAlgorithm),
+		"'key_provider': " + h.escape(e.KeyProvider),
+		"'secret_key_file': " + h.escape(e.SecretKeyFile),
+		"'secret_key_strength': " + strconv.Itoa(e.SecretKeyStrength),
+	}, ", ") + "}"
+}
+
+// tableOptionsToCQL renders each option as a finished CQL value. Nothing may
+// be applied to the result afterwards: escape quotes a string and
+// doubles the quotes inside it, and any later pass over that output reopens
+// it. Rewriting every double quote to a single one, which is what this used to
+// do to re-quote JSON, let a comment of `x" AND gc_grace_seconds = 0 AND
+// comment = "y` leave here as three properties instead of one.
+func (h toCQLHelpers) tableOptionsToCQL(ops TableMetadataOptions) []string {
+	opts := map[string]string{
+		"bloom_filter_fp_chance":      h.escape(ops.BloomFilterFpChance),
+		"comment":                     h.escape(ops.Comment),
+		"crc_check_chance":            h.escape(ops.CrcCheckChance),
+		"default_time_to_live":        h.escape(ops.DefaultTimeToLive),
+		"gc_grace_seconds":            h.escape(ops.GcGraceSeconds),
+		"max_index_interval":          h.escape(ops.MaxIndexInterval),
+		"memtable_flush_period_in_ms": h.escape(ops.MemtableFlushPeriodInMs),
+		"min_index_interval":          h.escape(ops.MinIndexInterval),
+		"speculative_retry":           h.escape(ops.SpeculativeRetry),
+		"caching":                     h.cqlMapLiteral(ops.Caching),
+		"compaction":                  h.cqlMapLiteral(ops.Compaction),
+		"compression":                 h.cqlMapLiteral(ops.Compression),
 	}
 
-	var err error
-	opts["caching"], err = json.Marshal(ops.Caching)
-	if err != nil {
-		return nil, err
-	}
-
-	opts["compaction"], err = json.Marshal(ops.Compaction)
-	if err != nil {
-		return nil, err
-	}
-
-	opts["compression"], err = json.Marshal(ops.Compression)
-	if err != nil {
-		return nil, err
-	}
-
-	cdc, err := json.Marshal(ops.CDC)
-	if err != nil {
-		return nil, err
-	}
-
-	if string(cdc) != "null" {
-		opts["cdc"] = cdc
+	// An unset CDC map means the table has no CDC options, not an empty set.
+	if ops.CDC != nil {
+		opts["cdc"] = h.cqlMapLiteral(ops.CDC)
 	}
 
 	if ops.InMemory {
-		opts["in_memory"] = ops.InMemory
+		opts["in_memory"] = h.escape(ops.InMemory)
 	}
 
 	out := make([]string, 0, len(opts))
 	for key, opt := range opts {
-		out = append(out, fmt.Sprintf("%s = %s", key, h.fixQuote(h.escape(opt))))
+		out = append(out, fmt.Sprintf("%s = %s", key, opt))
 	}
 
 	sort.Strings(out)
-	return out, nil
+	return out
 }
 
 func (h toCQLHelpers) tableExtensionsToCQL(extensions map[string]any) ([]string, error) {
-	exts := map[string]any{}
+	// Values are rendered CQL, not Go values.
+	exts := map[string]string{}
 
 	if blob, ok := extensions["scylla_encryption_options"]; ok {
 		encOpts := &scyllaEncryptionOptions{}
@@ -594,17 +609,12 @@ func (h toCQLHelpers) tableExtensionsToCQL(extensions map[string]any) ([]string,
 			return nil, err
 		}
 
-		var err error
-		exts["scylla_encryption_options"], err = json.Marshal(encOpts)
-		if err != nil {
-			return nil, err
-		}
-
+		exts["scylla_encryption_options"] = h.encryptionOptionsToCQL(encOpts)
 	}
 
 	out := make([]string, 0, len(exts))
 	for key, ext := range exts {
-		out = append(out, fmt.Sprintf("%s = %s", key, h.fixQuote(h.escape(ext))))
+		out = append(out, fmt.Sprintf("%s = %s", key, ext))
 	}
 
 	sort.Strings(out)
@@ -625,11 +635,7 @@ func (h toCQLHelpers) tablePropertiesToCQL(cks []*ColumnMetadata, opts TableMeta
 		properties = append(properties, fmt.Sprintf("CLUSTERING ORDER BY (%s)", strings.Join(inner, ", ")))
 	}
 
-	options, err := h.tableOptionsToCQL(opts)
-	if err != nil {
-		return "", err
-	}
-	properties = append(properties, options...)
+	properties = append(properties, h.tableOptionsToCQL(opts)...)
 
 	exts, err := h.tableExtensionsToCQL(extensions)
 	if err != nil {
