@@ -20,6 +20,7 @@
 package gocql
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -1034,6 +1035,98 @@ func TestScyllaEncryptionOptionsUnmarshalBinary(t *testing.T) {
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("decoded blob differs from the golden (-want +got):\n%s", diff)
+	}
+}
+
+// TestScyllaEncryptionOptionsUnmarshalBinaryRejectsShortBlobs pins the bounds
+// checks. Each of these used to panic with a slice-bounds error rather than
+// return, on a blob the server supplied.
+func TestScyllaEncryptionOptionsUnmarshalBinaryRejectsShortBlobs(t *testing.T) {
+	t.Parallel()
+
+	// le32 is the little-endian length prefix the format uses.
+	le32 := func(v uint32) []byte {
+		b := make([]byte, 4)
+		binary.LittleEndian.PutUint32(b, v)
+		return b
+	}
+	concat := func(parts ...[]byte) []byte {
+		var out []byte
+		for _, p := range parts {
+			out = append(out, p...)
+		}
+		return out
+	}
+
+	for _, tc := range []struct {
+		name string
+		blob []byte
+		// wantErr, when set, must appear in the error. Only the entry-count
+		// guard can produce it, and that guard cannot be pinned by the error
+		// merely being non-nil: without it the loop would still fail on the
+		// second read, after make() had already been asked for a map of
+		// 1<<30 entries.
+		wantErr string
+	}{
+		{name: "no blob at all", blob: nil},
+		{name: "shorter than the entry count", blob: []byte{1, 2}},
+		{name: "an entry count and nothing else", blob: le32(1)},
+		{name: "a key length past the end", blob: concat(le32(1), le32(100))},
+		{name: "a key that stops short", blob: concat(le32(1), le32(10), []byte("abc"))},
+		{name: "a key but no value length", blob: concat(le32(1), le32(3), []byte("abc"))},
+		{name: "a value length past the end", blob: concat(le32(1), le32(3), []byte("abc"), le32(100))},
+		{name: "a value that stops short", blob: concat(le32(1), le32(3), []byte("abc"), le32(10), []byte("xy"))},
+		// An entry needs at least 8 bytes, so this count cannot be honest.
+		// It has to be rejected before it reaches make(): a blob claiming
+		// 1<<30 entries would otherwise ask for roughly a gigabyte.
+		{
+			name:    "an entry count larger than the blob",
+			blob:    concat(le32(1<<30), le32(3), []byte("abc")),
+			wantErr: "claims 1073741824 entries",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			enc := &scyllaEncryptionOptions{}
+			err := enc.UnmarshalBinary(tc.blob)
+			if err == nil {
+				t.Fatalf("UnmarshalBinary(%v) = nil, want an error", tc.blob)
+			}
+			if tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("UnmarshalBinary(%v) = %q, want it to mention %q", tc.blob, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TestScyllaEncryptionOptionsUnmarshalBinaryAcceptsWellFormed guards against
+// the bounds checks rejecting a blob they should read, which the golden-file
+// test above would not catch for values it does not carry.
+func TestScyllaEncryptionOptionsUnmarshalBinaryAcceptsWellFormed(t *testing.T) {
+	t.Parallel()
+
+	le32 := func(v uint32) []byte {
+		b := make([]byte, 4)
+		binary.LittleEndian.PutUint32(b, v)
+		return b
+	}
+	var blob []byte
+	blob = append(blob, le32(2)...)
+	for _, kv := range [][2]string{{"cipher_algorithm", "AES/ECB/PKCS5Padding"}, {"secret_key_strength", "128"}} {
+		blob = append(blob, le32(uint32(len(kv[0])))...)
+		blob = append(blob, kv[0]...)
+		blob = append(blob, le32(uint32(len(kv[1])))...)
+		blob = append(blob, kv[1]...)
+	}
+
+	got := &scyllaEncryptionOptions{}
+	if err := got.UnmarshalBinary(blob); err != nil {
+		t.Fatalf("UnmarshalBinary: %v", err)
+	}
+	want := &scyllaEncryptionOptions{CipherAlgorithm: "AES/ECB/PKCS5Padding", SecretKeyStrength: 128}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("decoded blob differs (-want +got):\n%s", diff)
 	}
 }
 

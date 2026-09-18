@@ -718,26 +718,66 @@ type scyllaEncryptionOptions struct {
 //   - len_of_key bytes - key
 //   - 4 bytes - length of value
 //   - len_of_value bytes - value
+//
+// Every read is bounds-checked. The blob is whatever the server stored in the
+// table extension, and a short or truncated one used to panic a caller that
+// had only asked to render a schema.
 func (enc *scyllaEncryptionOptions) UnmarshalBinary(data []byte) error {
-	size := binary.LittleEndian.Uint32(data[0:4])
+	off := 0
+
+	take := func(n int) ([]byte, error) {
+		// n is derived from a length field, so on a 32-bit build a length
+		// past MaxInt32 arrives here negative.
+		if n < 0 || len(data)-off < n {
+			return nil, fmt.Errorf("gocql: truncated scylla_encryption_options: "+
+				"want %d bytes at offset %d, have %d", n, off, len(data)-off)
+		}
+		b := data[off : off+n]
+		off += n
+		return b, nil
+	}
+	takeUint32 := func() (uint32, error) {
+		b, err := take(4)
+		if err != nil {
+			return 0, err
+		}
+		return binary.LittleEndian.Uint32(b), nil
+	}
+
+	size, err := takeUint32()
+	if err != nil {
+		return err
+	}
+	// An entry is two length fields plus their payloads, so it cannot be
+	// shorter than 8 bytes. Checking that before sizing the map keeps a
+	// corrupt count from asking for an enormous allocation.
+	if maxEntries := uint64(len(data)-off) / 8; uint64(size) > maxEntries {
+		return fmt.Errorf("gocql: corrupt scylla_encryption_options: "+
+			"claims %d entries, only %d fit in the remaining %d bytes", size, maxEntries, len(data)-off)
+	}
 
 	m := make(map[string]string, size)
 
-	off := uint32(4)
 	for i := uint32(0); i < size; i++ {
-		keyLen := binary.LittleEndian.Uint32(data[off : off+4])
-		off += 4
+		keyLen, err := takeUint32()
+		if err != nil {
+			return err
+		}
+		key, err := take(int(keyLen))
+		if err != nil {
+			return err
+		}
 
-		key := string(data[off : off+keyLen])
-		off += keyLen
+		valueLen, err := takeUint32()
+		if err != nil {
+			return err
+		}
+		value, err := take(int(valueLen))
+		if err != nil {
+			return err
+		}
 
-		valueLen := binary.LittleEndian.Uint32(data[off : off+4])
-		off += 4
-
-		value := string(data[off : off+valueLen])
-		off += valueLen
-
-		m[key] = value
+		m[string(key)] = string(value)
 	}
 
 	enc.CipherAlgorithm = m["cipher_algorithm"]
