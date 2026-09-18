@@ -523,8 +523,16 @@ func (h toCQLHelpers) escape(e any) string {
 	return ""
 }
 
+// stripFrozen unwraps frozen<...> and leaves anything else alone. The two
+// trims used to be independent, so the suffix came off even when the prefix
+// had not matched: map<text, int> was returned as map<text, int.
 func (h toCQLHelpers) stripFrozen(v string) string {
-	return strings.TrimSuffix(strings.TrimPrefix(v, "frozen<"), ">")
+	if inner, ok := strings.CutPrefix(v, "frozen<"); ok {
+		if inner, ok := strings.CutSuffix(inner, ">"); ok {
+			return inner
+		}
+	}
+	return v
 }
 func (h toCQLHelpers) fixStrategy(v string) string {
 	return strings.TrimPrefix(v, "org.apache.cassandra.locator.")
