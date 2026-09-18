@@ -347,6 +347,141 @@ func TestKeyspaceToCQLRejectsUnrenderableOption(t *testing.T) {
 	}
 }
 
+// TestIdent pins the quoting rule. Quoting only what has to be quoted is the
+// point: an ordinary schema has to keep producing the output it always has, or
+// every dump in existence changes.
+func TestIdent(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct{ in, want string }{
+		// Bare: lower case, digits and underscores, not starting with a digit.
+		{"t", "t"},
+		{"my_table", "my_table"},
+		{"_leading", "_leading"},
+		{"t2", "t2"},
+		// Punctuation cannot appear in a bare identifier.
+		{"z-type", `"z-type"`},
+		{"my ks", `"my ks"`},
+		{"a.b", `"a.b"`},
+		// A bare identifier is folded to lower case, so anything carrying
+		// upper case has to be quoted to name the same thing back.
+		{"MyTable", `"MyTable"`},
+		{"T", `"T"`},
+		// A digit cannot lead.
+		{"2fast", `"2fast"`},
+		// Reserved words are syntax wherever they appear.
+		{"select", `"select"`},
+		{"order", `"order"`},
+		{"token", `"token"`},
+		{"set", `"set"`},
+		// Not reserved, despite reading like CQL.
+		{"comment", "comment"},
+		{"type", "type"},
+		{"key", "key"},
+		// A quote inside the name doubles, as in CQL.
+		{`a"b`, `"a""b"`},
+		// Empty is not a legal bare identifier.
+		{"", `""`},
+	} {
+		if got := cqlHelpers.ident(tc.in); got != tc.want {
+			t.Errorf("ident(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestToCQLQuotesIdentifiers walks every statement ToCQL emits with a name
+// that has to be quoted in it. Each of these used to render bare, and the
+// server answers a SyntaxException to the result.
+func TestToCQLQuotesIdentifiers(t *testing.T) {
+	t.Parallel()
+
+	ks := &KeyspaceMetadata{
+		Name:            "my-ks",
+		StrategyClass:   "SimpleStrategy",
+		StrategyOptions: map[string]any{"replication_factor": "1"},
+		Types: map[string]*TypeMetadata{
+			"z-type": {Keyspace: "my-ks", Name: "z-type", FieldNames: []string{"order"}, FieldTypes: []string{"int"}},
+		},
+		Tables: map[string]*TableMetadata{
+			"my-tbl": {
+				Keyspace:          "my-ks",
+				Name:              "my-tbl",
+				PartitionKey:      []*ColumnMetadata{{Name: "pk", Type: "int"}},
+				ClusteringColumns: []*ColumnMetadata{{Name: "Order", Type: "int", ClusteringOrder: "DESC"}},
+				OrderedColumns:    []string{"pk", "Order", "select"},
+				Columns: map[string]*ColumnMetadata{
+					"pk":     {Name: "pk", Type: "int", Kind: ColumnPartitionKey},
+					"Order":  {Name: "Order", Type: "int", Kind: ColumnClusteringKey},
+					"select": {Name: "select", Type: "text", Kind: ColumnRegular},
+				},
+			},
+		},
+		Indexes: map[string]*IndexMetadata{
+			"my-idx": {
+				Name: "my-idx", KeyspaceName: "my-ks", TableName: "my-tbl",
+				Options: map[string]string{"target": `{"pk":["pk"],"ck":["Order"]}`},
+			},
+		},
+		Views: map[string]*ViewMetadata{
+			"my-view": {
+				KeyspaceName: "my-ks", ViewName: "my-view", BaseTableName: "my-tbl",
+				WhereClause:    `"Order" IS NOT NULL`,
+				OrderedColumns: []string{"pk", "Order"},
+				PartitionKey:   []*ColumnMetadata{{Name: "pk"}},
+			},
+		},
+		Functions: map[string]*FunctionMetadata{
+			"my-fn": {
+				Keyspace: "my-ks", Name: "my-fn",
+				ArgumentNames: []string{"select"}, ArgumentTypes: []string{"int"},
+				ReturnType: "int", Language: "lua", Body: "return 1",
+			},
+		},
+		Aggregates: map[string]*AggregateMetadata{
+			"my-agg": {
+				Keyspace: "my-ks", Name: "my-agg", ArgumentTypes: []string{"int"},
+				StateFunc: FunctionMetadata{Name: "my-fn"}, StateType: "int",
+				FinalFunc: FunctionMetadata{Name: "my-final"},
+			},
+		},
+	}
+
+	got, err := ks.ToCQL()
+	if err != nil {
+		t.Fatalf("ToCQL: %v", err)
+	}
+
+	for _, want := range []string{
+		`CREATE KEYSPACE "my-ks" WITH`,
+		`CREATE TYPE "my-ks"."z-type" (`,
+		`"order" int`,
+		`CREATE TABLE "my-ks"."my-tbl" (`,
+		`"Order" int`,
+		`"select" text`,
+		`PRIMARY KEY (pk, "Order")`,
+		`CLUSTERING ORDER BY ("Order" DESC)`,
+		`CREATE INDEX "my-idx" ON "my-ks"."my-tbl" ((pk), "Order")`,
+		`CREATE MATERIALIZED VIEW "my-ks"."my-view" AS`,
+		`FROM "my-ks"."my-tbl"`,
+		`CREATE FUNCTION "my-ks"."my-fn" (`,
+		`CREATE AGGREGATE "my-ks"."my-agg"(`,
+		`SFUNC "my-fn"`,
+		`FINALFUNC "my-final"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q\n--- got ---\n%s", want, got)
+		}
+	}
+
+	// A name that needs no quotes must not gain any, or every existing dump
+	// changes.
+	for _, unwanted := range []string{`"pk"`, `"int"`, `"lua"`} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("quoted %s, which needs no quotes\n--- got ---\n%s", unwanted, got)
+		}
+	}
+}
+
 func TestTableColumnToCQL(t *testing.T) {
 	t.Parallel()
 
