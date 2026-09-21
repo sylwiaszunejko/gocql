@@ -23,6 +23,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -324,6 +325,53 @@ func TestTypesSortedTopologically(t *testing.T) {
 	}
 }
 
+// TestKeyspaceToCQLRejectsUnrenderableOption covers the one path where a value
+// of arbitrary type reaches escape: StrategyOptions is map[string]any, so the
+// template is where an unhandled type has to surface. It used to render as
+// nothing, leaving `'key': ` in the middle of a dump.
+func TestKeyspaceToCQLRejectsUnrenderableOption(t *testing.T) {
+	t.Parallel()
+
+	ks := &KeyspaceMetadata{
+		Name:            "ks",
+		StrategyClass:   "SimpleStrategy",
+		StrategyOptions: map[string]any{"replication_factor": []string{"nope"}},
+	}
+
+	var sb strings.Builder
+	err := ks.keyspaceToCQL(&sb)
+	if err == nil {
+		t.Fatalf("keyspaceToCQL = %q, nil; want an error", sb.String())
+	}
+	if !strings.Contains(err.Error(), "cannot render") {
+		t.Errorf("keyspaceToCQL error = %q, want it to say what could not be rendered", err)
+	}
+}
+
+// TestKeyspaceToCQLRejectsRawBytes pins that a []byte strategy option cannot
+// reach the output unquoted. It used to be inserted verbatim, so a value of
+// `'1', 'dc_evil': '9` closed the replication map and added an option to it.
+func TestKeyspaceToCQLRejectsRawBytes(t *testing.T) {
+	t.Parallel()
+
+	ks := &KeyspaceMetadata{
+		Name:          "ks",
+		StrategyClass: "SimpleStrategy",
+		StrategyOptions: map[string]any{
+			"replication_factor": []byte(`'1', 'dc_evil': '9`),
+		},
+	}
+
+	var sb strings.Builder
+	err := ks.keyspaceToCQL(&sb)
+	if err == nil {
+		t.Fatalf("keyspaceToCQL = %q, nil; want an error", sb.String())
+	}
+	if strings.Contains(sb.String(), "dc_evil") {
+		t.Errorf("a strategy option forged another one: %s", sb.String())
+	}
+}
+
 func TestTableColumnToCQL(t *testing.T) {
 	t.Parallel()
 
@@ -457,18 +505,74 @@ func TestToCQLHelpers(t *testing.T) {
 		for _, tc := range []struct {
 			in   any
 			want string
+			// wantErr marks a type escape cannot render. It used to answer
+			// "" for these, which the caller writes as `key = ` and the
+			// server rejects a whole dump away from the cause.
+			wantErr bool
 		}{
-			{"plain", "'plain'"},
-			{"it's", "'it''s'"}, // the injection-relevant case
-			{42, "42"},
-			{1.5, "1.5"},
-			{true, "true"},
-			{false, "false"},
-			{[]byte("raw"), "raw"},
-			{struct{}{}, ""}, // unsupported types render empty
+			{in: "plain", want: "'plain'"},
+			{in: "it's", want: "'it''s'"}, // the injection-relevant case
+			{in: 42, want: "42"},
+			{in: 1.5, want: "1.5"},
+			{in: true, want: "true"},
+			{in: false, want: "false"},
+			// []byte is rejected, not inserted verbatim: the only caller
+			// left is the replication map, where raw bytes let a value
+			// close the map and forge further options.
+			{in: []byte("raw"), wantErr: true},
+			// Widths other than int and float64 reach escape through
+			// StrategyOptions, which the metadata carries as any.
+			{in: int64(42), want: "42"},
+			{in: int32(42), want: "42"},
+			{in: uint(42), want: "42"},
+			{in: uint64(42), want: "42"},
+			{in: float32(1.5), want: "1.5"},
+			// A float32 must not be widened to render: fmt.Sprint of
+			// float64(float32(0.1)) is 0.10000000149011612.
+			{in: float32(0.1), want: "0.1"},
+			// CQL spells the non-finite values Infinity, -Infinity and NaN.
+			// Go prints the first two as +Inf and -Inf, neither of which the
+			// grammar has -- it reads ('-')? (K_NAN | K_INFINITY), so there
+			// is no Inf token and no leading + either.
+			{in: math.Inf(1), want: "Infinity"},
+			{in: math.Inf(-1), want: "-Infinity"},
+			{in: float32(math.Inf(1)), want: "Infinity"},
+			{in: float32(math.Inf(-1)), want: "-Infinity"},
+			// NaN already matches K_NAN, which is case insensitive.
+			{in: math.NaN(), want: "NaN"},
+			{in: float32(math.NaN()), want: "NaN"},
+			{in: struct{}{}, wantErr: true},
+			{in: nil, wantErr: true},
+			{in: []string{"a"}, wantErr: true},
 		} {
-			if got := cqlHelpers.escape(tc.in); got != tc.want {
+			got, err := cqlHelpers.escape(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Errorf("escape(%#v) = %q, nil; want an error", tc.in, got)
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("escape(%#v): %v", tc.in, err)
+				continue
+			}
+			if got != tc.want {
 				t.Errorf("escape(%#v) = %q, want %q", tc.in, got, tc.want)
+			}
+		}
+	})
+
+	t.Run("escapeString", func(t *testing.T) {
+		t.Parallel()
+
+		for _, tc := range []struct{ in, want string }{
+			{"plain", "'plain'"},
+			{"it's", "'it''s'"},
+			{`a "b" c`, `'a "b" c'`},
+			{"", "''"},
+		} {
+			if got := cqlHelpers.escapeString(tc.in); got != tc.want {
+				t.Errorf("escapeString(%q) = %q, want %q", tc.in, got, tc.want)
 			}
 		}
 	})
