@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -316,7 +317,6 @@ func (ks *KeyspaceMetadata) typesSortedTopologically() []*TypeMetadata {
 
 var tableCQLTemplate = template.Must(template.New("table").
 	Funcs(map[string]any{
-		"escape":               cqlHelpers.escape,
 		"tableColumnToCQL":     cqlHelpers.tableColumnToCQL,
 		"tablePropertiesToCQL": cqlHelpers.tablePropertiesToCQL,
 	}).
@@ -338,7 +338,6 @@ func (ks *KeyspaceMetadata) tableToCQL(w io.Writer, kn string, tm *TableMetadata
 
 var functionTemplate = template.Must(template.New("functions").
 	Funcs(map[string]any{
-		"escape":      cqlHelpers.escape,
 		"zip":         cqlHelpers.zip,
 		"stripFrozen": cqlHelpers.stripFrozen,
 	}).
@@ -506,21 +505,64 @@ func (h toCQLHelpers) zip(a []string, b []string) [][]string {
 	return m
 }
 
-func (h toCQLHelpers) escape(e any) string {
+// escapeString renders a CQL string literal, doubling the quotes inside it so
+// the value cannot close its own string.
+func (h toCQLHelpers) escapeString(v string) string {
+	return "'" + strings.ReplaceAll(v, "'", "''") + "'"
+}
+
+// escape renders a CQL literal for a value whose type is not known until it
+// arrives -- a keyspace strategy option, which the metadata carries as any.
+//
+// An unhandled type is an error rather than the empty string it used to
+// render as: the caller writes "key = " and then nothing, which is a syntax
+// error at the far end of a dump and gives no clue where it came from.
+//
+// []byte is one of those unhandled types. It used to be returned verbatim,
+// because the table options were rendered by marshalling maps to JSON and
+// needed the result inserted as-is; those render as CQL directly now, and the
+// only caller left is the replication map, where inserting bytes unquoted
+// lets a value close the map and add options of its own.
+func (h toCQLHelpers) escape(e any) (string, error) {
 	switch v := e.(type) {
-	case int, float64:
-		return fmt.Sprint(v)
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
 	case string:
-		return "'" + strings.ReplaceAll(v, "'", "''") + "'"
-	case []byte:
-		return string(v)
+		return h.escapeString(v), nil
+	case bool:
+		return strconv.FormatBool(v), nil
+	case float32:
+		if inf, ok := cqlInfinity(float64(v)); ok {
+			return inf, nil
+		}
+		// Formatted as float32, not widened: fmt.Sprint(float64(float32(0.1)))
+		// is 0.10000000149011612.
+		return fmt.Sprint(v), nil
+	case float64:
+		if inf, ok := cqlInfinity(v); ok {
+			return inf, nil
+		}
+		return fmt.Sprint(v), nil
+	case int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprint(v), nil
 	}
-	return ""
+	return "", fmt.Errorf("gocql: cannot render %T as a CQL literal", e)
+}
+
+// cqlInfinity gives the CQL spelling of an infinity, if f is one. Go prints
+// them as +Inf and -Inf, and CQL has neither: the grammar reads a non-finite
+// constant as ('-')? (K_NAN | K_INFINITY), so there is no Inf token and no
+// leading + either, and both Go spellings are syntax errors.
+//
+// NaN needs no translation. Go prints NaN, and K_NAN matches case
+// insensitively like every other CQL keyword.
+func cqlInfinity(f float64) (string, bool) {
+	switch {
+	case math.IsInf(f, 1):
+		return "Infinity", true
+	case math.IsInf(f, -1):
+		return "-Infinity", true
+	}
+	return "", false
 }
 
 // stripFrozen unwraps frozen<...> and leaves anything else alone. The two
@@ -539,18 +581,19 @@ func (h toCQLHelpers) fixStrategy(v string) string {
 }
 
 // cqlMapLiteral renders a CQL map literal: {'k': 'v'}. Both sides go through
-// escape, so a quote in the data doubles rather than closing the literal, and
-// keys are sorted so the output does not depend on map iteration order.
+// escapeString, so a quote in the data doubles rather than closing the
+// literal, and keys are sorted so the output does not depend on map iteration
+// order.
 func (h toCQLHelpers) cqlMapLiteral(m map[string]string) string {
 	pairs := make([]string, 0, len(m))
 	for _, k := range slices.Sorted(maps.Keys(m)) {
-		pairs = append(pairs, h.escape(k)+": "+h.escape(m[k]))
+		pairs = append(pairs, h.escapeString(k)+": "+h.escapeString(m[k]))
 	}
 	return "{" + strings.Join(pairs, ", ") + "}"
 }
 
 // encryptionOptionsToCQL renders decoded encryption options as a CQL map
-// literal. The string values go through escape, so a quote in one
+// literal. The string values go through escapeString, so a quote in one
 // doubles rather than closing the literal; secret_key_strength stays a bare
 // number, which is the form this has always emitted.
 //
@@ -560,30 +603,30 @@ func (h toCQLHelpers) cqlMapLiteral(m map[string]string) string {
 // grammar does not have and the other closes the string it sits in.
 func (h toCQLHelpers) encryptionOptionsToCQL(e *scyllaEncryptionOptions) string {
 	return "{" + strings.Join([]string{
-		"'cipher_algorithm': " + h.escape(e.CipherAlgorithm),
-		"'key_provider': " + h.escape(e.KeyProvider),
-		"'secret_key_file': " + h.escape(e.SecretKeyFile),
+		"'cipher_algorithm': " + h.escapeString(e.CipherAlgorithm),
+		"'key_provider': " + h.escapeString(e.KeyProvider),
+		"'secret_key_file': " + h.escapeString(e.SecretKeyFile),
 		"'secret_key_strength': " + strconv.Itoa(e.SecretKeyStrength),
 	}, ", ") + "}"
 }
 
 // tableOptionsToCQL renders each option as a finished CQL value. Nothing may
-// be applied to the result afterwards: escape quotes a string and
+// be applied to the result afterwards: escapeString quotes a string and
 // doubles the quotes inside it, and any later pass over that output reopens
 // it. Rewriting every double quote to a single one, which is what this used to
 // do to re-quote JSON, let a comment of `x" AND gc_grace_seconds = 0 AND
 // comment = "y` leave here as three properties instead of one.
 func (h toCQLHelpers) tableOptionsToCQL(ops TableMetadataOptions) []string {
 	opts := map[string]string{
-		"bloom_filter_fp_chance":      h.escape(ops.BloomFilterFpChance),
-		"comment":                     h.escape(ops.Comment),
-		"crc_check_chance":            h.escape(ops.CrcCheckChance),
-		"default_time_to_live":        h.escape(ops.DefaultTimeToLive),
-		"gc_grace_seconds":            h.escape(ops.GcGraceSeconds),
-		"max_index_interval":          h.escape(ops.MaxIndexInterval),
-		"memtable_flush_period_in_ms": h.escape(ops.MemtableFlushPeriodInMs),
-		"min_index_interval":          h.escape(ops.MinIndexInterval),
-		"speculative_retry":           h.escape(ops.SpeculativeRetry),
+		"bloom_filter_fp_chance":      fmt.Sprint(ops.BloomFilterFpChance),
+		"comment":                     h.escapeString(ops.Comment),
+		"crc_check_chance":            fmt.Sprint(ops.CrcCheckChance),
+		"default_time_to_live":        fmt.Sprint(ops.DefaultTimeToLive),
+		"gc_grace_seconds":            fmt.Sprint(ops.GcGraceSeconds),
+		"max_index_interval":          fmt.Sprint(ops.MaxIndexInterval),
+		"memtable_flush_period_in_ms": fmt.Sprint(ops.MemtableFlushPeriodInMs),
+		"min_index_interval":          fmt.Sprint(ops.MinIndexInterval),
+		"speculative_retry":           h.escapeString(ops.SpeculativeRetry),
 		"caching":                     h.cqlMapLiteral(ops.Caching),
 		"compaction":                  h.cqlMapLiteral(ops.Compaction),
 		"compression":                 h.cqlMapLiteral(ops.Compression),
@@ -595,7 +638,7 @@ func (h toCQLHelpers) tableOptionsToCQL(ops TableMetadataOptions) []string {
 	}
 
 	if ops.InMemory {
-		opts["in_memory"] = h.escape(ops.InMemory)
+		opts["in_memory"] = strconv.FormatBool(ops.InMemory)
 	}
 
 	out := make([]string, 0, len(opts))
