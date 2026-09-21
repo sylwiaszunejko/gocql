@@ -317,11 +317,12 @@ func (ks *KeyspaceMetadata) typesSortedTopologically() []*TypeMetadata {
 
 var tableCQLTemplate = template.Must(template.New("table").
 	Funcs(map[string]any{
+		"ident":                cqlHelpers.ident,
 		"tableColumnToCQL":     cqlHelpers.tableColumnToCQL,
 		"tablePropertiesToCQL": cqlHelpers.tablePropertiesToCQL,
 	}).
 	Parse(`
-CREATE TABLE {{ .KeyspaceName }}.{{ .Tm.Name }} (
+CREATE TABLE {{ ident .KeyspaceName }}.{{ ident .Tm.Name }} (
     {{ tableColumnToCQL .Tm }}
 ) WITH {{ tablePropertiesToCQL .Tm.ClusteringColumns .Tm.Options .Tm.Extensions }};
 `))
@@ -338,14 +339,15 @@ func (ks *KeyspaceMetadata) tableToCQL(w io.Writer, kn string, tm *TableMetadata
 
 var functionTemplate = template.Must(template.New("functions").
 	Funcs(map[string]any{
+		"ident":       cqlHelpers.ident,
 		"zip":         cqlHelpers.zip,
 		"stripFrozen": cqlHelpers.stripFrozen,
 	}).
 	Parse(`
-CREATE FUNCTION {{ .keyspaceName }}.{{ .fm.Name }} ( 
+CREATE FUNCTION {{ ident .keyspaceName }}.{{ ident .fm.Name }} ( 
     {{- range $i, $args := zip .fm.ArgumentNames .fm.ArgumentTypes }}
     {{- if ne $i 0 }}, {{ end }}
-    {{- (index $args 0) }}
+    {{- ident (index $args 0) }}
     {{ stripFrozen (index $args 1) }}
     {{- end -}})
     {{ if .fm.CalledOnNullInput }}CALLED{{ else }}RETURNS NULL{{ end }} ON NULL INPUT
@@ -366,19 +368,20 @@ func (ks *KeyspaceMetadata) functionToCQL(w io.Writer, keyspaceName string, fm *
 
 var viewTemplate = template.Must(template.New("views").
 	Funcs(map[string]any{
+		"ident":                cqlHelpers.ident,
 		"zip":                  cqlHelpers.zip,
 		"partitionKeyString":   cqlHelpers.partitionKeyString,
 		"tablePropertiesToCQL": cqlHelpers.tablePropertiesToCQL,
 	}).
 	Parse(`
-CREATE MATERIALIZED VIEW {{ .vm.KeyspaceName }}.{{ .vm.ViewName }} AS
+CREATE MATERIALIZED VIEW {{ ident .vm.KeyspaceName }}.{{ ident .vm.ViewName }} AS
     SELECT {{ if .vm.IncludeAllColumns }}*{{ else }}
     {{- range $i, $col := .vm.OrderedColumns }}
     {{- if ne $i 0 }}, {{ end }}
-    {{ $col }}
+    {{ ident $col }}
     {{- end }}
     {{- end }}
-    FROM {{ .vm.KeyspaceName }}.{{ .vm.BaseTableName }}
+    FROM {{ ident .vm.KeyspaceName }}.{{ ident .vm.BaseTableName }}
     WHERE {{ .vm.WhereClause }}
     PRIMARY KEY ({{ partitionKeyString .vm.PartitionKey .vm.ClusteringColumns }})
     WITH {{ tablePropertiesToCQL .vm.ClusteringColumns .vm.Options .vm.Extensions }};
@@ -395,18 +398,19 @@ func (ks *KeyspaceMetadata) viewToCQL(w io.Writer, vm *ViewMetadata) error {
 
 var aggregatesTemplate = template.Must(template.New("aggregate").
 	Funcs(map[string]any{
+		"ident":       cqlHelpers.ident,
 		"stripFrozen": cqlHelpers.stripFrozen,
 	}).
 	Parse(`
-CREATE AGGREGATE {{ .Keyspace }}.{{ .Name }}( 
+CREATE AGGREGATE {{ ident .Keyspace }}.{{ ident .Name }}( 
     {{- range $i, $arg := .ArgumentTypes }}
     {{- if ne $i 0 }}, {{ end }}
     {{ stripFrozen $arg }}
     {{- end -}})
-    SFUNC {{ .StateFunc.Name }}
+    SFUNC {{ ident .StateFunc.Name }}
     STYPE {{ stripFrozen .StateType }}
     {{- if ne .FinalFunc.Name "" }}
-    FINALFUNC {{ .FinalFunc.Name }}
+    FINALFUNC {{ ident .FinalFunc.Name }}
     {{- end -}}
     {{- if ne .InitCond "" }}
     INITCOND {{ .InitCond }}
@@ -423,12 +427,13 @@ func (ks *KeyspaceMetadata) aggregateToCQL(w io.Writer, am *AggregateMetadata) e
 
 var typeCQLTemplate = template.Must(template.New("types").
 	Funcs(map[string]any{
-		"zip": cqlHelpers.zip,
+		"ident": cqlHelpers.ident,
+		"zip":   cqlHelpers.zip,
 	}).
 	Parse(`
-CREATE TYPE {{ .Keyspace }}.{{ .Name }} ( 
+CREATE TYPE {{ ident .Keyspace }}.{{ ident .Name }} ( 
   {{- range $i, $fields := zip .FieldNames .FieldTypes }} {{- if ne $i 0 }},{{ end }}
-    {{ index $fields 0 }} {{ index $fields 1 }}
+    {{ ident (index $fields 0) }} {{ index $fields 1 }}
   {{- end }}
 );
 `))
@@ -456,16 +461,18 @@ func (ks *KeyspaceMetadata) indexToCQL(w io.Writer, im *IndexMetadata) error {
 	}{}
 
 	if err := json.Unmarshal([]byte(indexTarget), &si); err == nil {
+		// The JSON form names columns, so each one is quoted on its own;
+		// the plain form is a target the server already rendered.
 		indexTarget = fmt.Sprintf("(%s), %s",
-			strings.Join(si.PartitionKeys, ","),
-			strings.Join(si.ClusteringKeys, ","),
+			strings.Join(cqlHelpers.identAll(si.PartitionKeys), ","),
+			strings.Join(cqlHelpers.identAll(si.ClusteringKeys), ","),
 		)
 	}
 
 	_, err := fmt.Fprintf(w, "\nCREATE INDEX %s ON %s.%s (%s);\n",
-		im.Name,
-		im.KeyspaceName,
-		im.TableName,
+		cqlHelpers.ident(im.Name),
+		cqlHelpers.ident(im.KeyspaceName),
+		cqlHelpers.ident(im.TableName),
 		indexTarget,
 	)
 	if err != nil {
@@ -479,11 +486,12 @@ var keyspaceCQLTemplate = template.Must(template.New("keyspace").
 	Funcs(map[string]any{
 		"escape":      cqlHelpers.escape,
 		"fixStrategy": cqlHelpers.fixStrategy,
+		"ident":       cqlHelpers.ident,
 	}).
 	// Single-line, always-explicit durable_writes to match what DESCRIBE KEYSPACE
 	// returns from Cassandra/Scylla, so this fallback stays consistent with the
 	// server-echoed CreateStmts path in ToCQL.
-	Parse(`CREATE KEYSPACE {{ .Name }} WITH replication = {'class': {{ escape ( fixStrategy .StrategyClass) }}{{ range $key, $value := .StrategyOptions }}, {{ escape $key }}: {{ escape $value }}{{ end }}} AND durable_writes = {{ .DurableWrites }};
+	Parse(`CREATE KEYSPACE {{ ident .Name }} WITH replication = {'class': {{ escape ( fixStrategy .StrategyClass) }}{{ range $key, $value := .StrategyOptions }}, {{ escape $key }}: {{ escape $value }}{{ end }}} AND durable_writes = {{ .DurableWrites }};
 `))
 
 func (ks *KeyspaceMetadata) keyspaceToCQL(w io.Writer) error {
@@ -578,6 +586,79 @@ func (h toCQLHelpers) stripFrozen(v string) string {
 }
 func (h toCQLHelpers) fixStrategy(v string) string {
 	return strings.TrimPrefix(v, "org.apache.cassandra.locator.")
+}
+
+// cqlReservedWords cannot be used as a bare identifier: the parser takes them
+// as syntax wherever they appear, so a keyspace, table, column or type named
+// after one has to be quoted to be named at all.
+//
+// Derived from ScyllaDB's cql3/Cql.g -- every keyword token the lexer defines,
+// less the ones its unreserved_keyword rules admit as identifiers -- and
+// unioned with Cassandra's reserved set, which differs: desc, describe and
+// execute are unreserved in Scylla but reserved in Cassandra, and mbean and
+// mbeans are Cassandra-only. true and false are not keywords at all; they are
+// lexed as BOOLEAN, a rule the grammar places ahead of IDENT precisely so it
+// wins, so they can never arrive as an identifier either.
+//
+// Err long when adding to this. Quoting a name that did not need it is a
+// cosmetic change to the dump, while missing one emits DDL the server rejects.
+var cqlReservedWords = map[string]struct{}{
+	"add": {}, "allow": {}, "alter": {}, "and": {}, "ann": {}, "apply": {},
+	"asc": {}, "authorize": {}, "batch": {}, "begin": {}, "by": {},
+	"cast": {}, "columnfamily": {}, "concurrency": {}, "create": {},
+	"default": {}, "delete": {}, "desc": {}, "describe": {}, "drop": {},
+	"entries": {}, "execute": {}, "false": {}, "from": {}, "full": {},
+	"grant": {}, "if": {}, "in": {}, "index": {}, "infinity": {},
+	"insert": {}, "into": {}, "is": {}, "keyspace": {}, "limit": {},
+	"materialized": {}, "mbean": {}, "mbeans": {}, "modify": {}, "nan": {},
+	"norecursive": {}, "not": {}, "null": {}, "of": {}, "on": {}, "or": {},
+	"order": {}, "primary": {}, "rename": {}, "replace": {}, "revoke": {},
+	"schema": {}, "scylla_clustering_bound": {}, "scylla_counter_shard_list": {},
+	"scylla_timeuuid_list_index": {}, "select": {}, "set": {}, "table": {},
+	"text_search_indexing": {}, "to": {}, "token": {}, "true": {},
+	"truncate": {}, "unlogged": {}, "unset": {}, "update": {}, "use": {},
+	"using": {}, "vector_search_indexing": {}, "view": {}, "where": {},
+	"with": {},
+}
+
+// cqlIdentifierNeedsQuotes reports whether name can be written bare. The
+// grammar is IDENT: LETTER (LETTER | DIGIT | '_')*, so a bare identifier has
+// to start with a letter -- neither a digit nor an underscore may lead -- and
+// the server folds it to lower case. Anything carrying other characters, any
+// upper case, or a reserved word has to be quoted to name the same thing back.
+func cqlIdentifierNeedsQuotes(name string) bool {
+	if name == "" {
+		return true
+	}
+	for i, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case i > 0 && (r == '_' || (r >= '0' && r <= '9')):
+		default:
+			return true
+		}
+	}
+	_, reserved := cqlReservedWords[name]
+	return reserved
+}
+
+// ident renders name as a CQL identifier, quoting it only when it has to be
+// quoted so an ordinary schema keeps producing the output it always has. A
+// quote inside the name doubles, as in CQL.
+// identAll is ident over a list of names.
+func (h toCQLHelpers) identAll(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = h.ident(n)
+	}
+	return out
+}
+
+func (h toCQLHelpers) ident(name string) string {
+	if !cqlIdentifierNeedsQuotes(name) {
+		return name
+	}
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 // cqlMapLiteral renders a CQL map literal: {'k': 'v'}. Both sides go through
@@ -689,7 +770,7 @@ func (h toCQLHelpers) tablePropertiesToCQL(cks []*ColumnMetadata, opts TableMeta
 	if len(cks) > 0 {
 		var inner []string
 		for _, col := range cks {
-			inner = append(inner, fmt.Sprintf("%s %s", col.Name, col.ClusteringOrder))
+			inner = append(inner, fmt.Sprintf("%s %s", h.ident(col.Name), col.ClusteringOrder))
 		}
 		properties = append(properties, fmt.Sprintf("CLUSTERING ORDER BY (%s)", strings.Join(inner, ", ")))
 	}
@@ -712,7 +793,7 @@ func (h toCQLHelpers) tableColumnToCQL(tm *TableMetadata) string {
 	var columns []string
 	for _, cn := range tm.OrderedColumns {
 		cm := tm.Columns[cn]
-		column := fmt.Sprintf("%s %s", cn, cm.Type)
+		column := fmt.Sprintf("%s %s", h.ident(cn), cm.Type)
 		if cm.Kind == ColumnStatic {
 			column += " static"
 		}
@@ -742,11 +823,11 @@ func (h toCQLHelpers) partitionKeyString(pks, cks []*ColumnMetadata) string {
 			if i != 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(pk.Name)
+			sb.WriteString(h.ident(pk.Name))
 		}
 		sb.WriteRune(')')
 	} else {
-		sb.WriteString(pks[0].Name)
+		sb.WriteString(h.ident(pks[0].Name))
 	}
 
 	if len(cks) > 0 {
@@ -755,7 +836,7 @@ func (h toCQLHelpers) partitionKeyString(pks, cks []*ColumnMetadata) string {
 			if i != 0 {
 				sb.WriteString(", ")
 			}
-			sb.WriteString(ck.Name)
+			sb.WriteString(h.ident(ck.Name))
 		}
 	}
 
