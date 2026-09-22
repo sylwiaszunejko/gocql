@@ -202,7 +202,7 @@ func TestMarshalDurationCorrupt(t *testing.T) {
 				Values: mod.Values{
 					int64(0), time.Duration(0), "", dur(gocql.Duration{}),
 				}.AddVariants(mod.All...),
-			}.Run("small_data_len2", t, unmarshal)
+			}.Run("small_data_len_months2", t, unmarshal)
 
 			serialization.NegativeUnmarshalSet{
 				Data: []byte("\x00\xf0\xff\xff\xff\xfe"),
