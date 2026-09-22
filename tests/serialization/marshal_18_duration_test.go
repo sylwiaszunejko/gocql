@@ -74,7 +74,6 @@ func TestMarshalsDuration(t *testing.T) {
 				Values: mod.Values{
 					(*int64)(nil), (*time.Duration)(nil), (*string)(nil), "", nilDur,
 				}.AddVariants(mod.CustomType),
-				BrokenUnmarshalTypes: serialization.GetTypes(int64(0)),
 			}.Run("[nil]nullable", t, marshal, unmarshal)
 
 			serialization.PositiveSet{
