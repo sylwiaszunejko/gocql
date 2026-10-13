@@ -2027,6 +2027,22 @@ type TestServer struct {
 
 	// onRecv is a hook point for tests, called in receive loop.
 	onRecv func(*framer)
+
+	// prepareHook, when set, is offered every PREPARE before the canned
+	// statements in process. It writes the whole response into resp and returns
+	// true, or returns false to fall through to them. Set it via setPrepareHook.
+	prepareHook testPrepareHook
+}
+
+// testPrepareHook answers a PREPARE for query. writeResultMetadataID must be
+// called right after the prepared id, as the canned statements do; it is a no-op
+// unless the server advertised SCYLLA_USE_METADATA_ID.
+type testPrepareHook func(query string, stream int, resp *framer, writeResultMetadataID func(preparedID uint64)) bool
+
+func (srv *TestServer) setPrepareHook(hook testPrepareHook) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.prepareHook = hook
 }
 
 type testSupportedFactory func(conn net.Conn) map[string][]string
@@ -2237,6 +2253,12 @@ func (srv *TestServer) process(conn net.Conn, reqFrame *framer, exts map[string]
 		respFrame.buf = append(respFrame.buf, reqFrame.buf...)
 	case frm.OpPrepare:
 		query := strings.TrimSpace(reqFrame.readLongString())
+		srv.mu.Lock()
+		hook := srv.prepareHook
+		srv.mu.Unlock()
+		if hook != nil && hook(query, head.Stream, respFrame, writeResultMetadataID) {
+			break
+		}
 		lower := strings.ToLower(query)
 		name := ""
 		if strings.HasPrefix(lower, "select ") {
