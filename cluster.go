@@ -630,7 +630,7 @@ func (cfg *ClusterConfig) Validate() error {
 		return errors.New("ReconnectionPolicy is nil")
 	}
 
-	if cfg.InitialReconnectionPolicy.GetMaxRetries() <= 0 {
+	if cfg.ReconnectionPolicy.GetMaxRetries() <= 0 {
 		return errors.New("ReconnectionPolicy.GetMaxRetries returns negative number")
 	}
 

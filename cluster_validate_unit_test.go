@@ -31,6 +31,11 @@ func TestValidateRejects(t *testing.T) {
 			c.InitialReconnectionPolicy = &ConstantReconnectionPolicy{MaxRetries: 0}
 		}, "InitialReconnectionPolicy.GetMaxRetries"},
 		{"NilReconnectionPolicy", func(c *ClusterConfig) { c.ReconnectionPolicy = nil }, "ReconnectionPolicy is nil"},
+		// hostConnPool.connect makes GetMaxRetries attempts; with none it carries
+		// on with a nil connection and crashes the process.
+		{"ReconnectionPolicyNoRetries", func(c *ClusterConfig) {
+			c.ReconnectionPolicy = &ConstantReconnectionPolicy{MaxRetries: 0}
+		}, "ReconnectionPolicy.GetMaxRetries"},
 		{"NegativePageSize", func(c *ClusterConfig) { c.PageSize = -1 }, "PageSize"},
 		{"NegativeMaxRoutingKeyInfo", func(c *ClusterConfig) { c.MaxRoutingKeyInfo = -1 }, "MaxRoutingKeyInfo"},
 		{"NegativeMaxPreparedStmts", func(c *ClusterConfig) { c.MaxPreparedStmts = -1 }, "MaxPreparedStmts"},
