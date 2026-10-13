@@ -393,3 +393,79 @@ func TestUnmarshalUDTIntoUnmarshaler(t *testing.T) {
 		t.Fatalf("got %+v, want the raw value handed over and no field decoding", w)
 	}
 }
+
+// A length header that claims more bytes than remain must be an error, not a
+// slice-bounds panic in the caller's Scan.
+func TestUnmarshalTruncatedElement(t *testing.T) {
+	t.Parallel()
+
+	// field a claims 10 bytes but only 2 follow
+	truncated := []byte{0, 0, 0, 10, 1, 2}
+
+	tuple := TupleTypeInfo{
+		NativeType: NativeType{proto: protoVersion4, typ: TypeTuple},
+		Elems: []TypeInfo{
+			NativeType{proto: protoVersion4, typ: TypeInt},
+			NativeType{proto: protoVersion4, typ: TypeVarchar},
+		},
+	}
+
+	var (
+		a int
+		b string
+	)
+	tests := []struct {
+		name string
+		info TypeInfo
+		dest any
+	}{
+		{"UDTStruct", testUDTInfo(), &udtTagged{}},
+		{"UDTMap", testUDTInfo(), &map[string]any{}},
+		{"UDTInterface", testUDTInfo(), new(any)},
+		{"UDTUnmarshaler", testUDTInfo(), &recordingUDTUnmarshaler{}},
+		{"TupleValues", tuple, []any{&a, &b}},
+		{"TupleStruct", tuple, &struct {
+			A int
+			B string
+		}{}},
+		{"TupleSlice", tuple, &[]any{}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := Unmarshal(tc.info, truncated, tc.dest)
+			if err == nil || !strings.Contains(err.Error(), "unexpected eof") {
+				t.Fatalf("err = %v, want unexpected eof", err)
+			}
+		})
+	}
+}
+
+func TestReadBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		in        []byte
+		wantValue []byte
+		wantRest  []byte
+		wantOK    bool
+	}{
+		{"Value", []byte{0, 0, 0, 2, 'h', 'i', 9}, []byte("hi"), []byte{9}, true},
+		{"Empty", []byte{0, 0, 0, 0, 9}, []byte{}, []byte{9}, true},
+		{"Null", []byte{0xff, 0xff, 0xff, 0xff, 9}, nil, []byte{9}, true},
+		{"ShortHeader", []byte{0, 0, 0}, nil, []byte{0, 0, 0}, false},
+		{"ShortValue", []byte{0, 0, 0, 3, 'h', 'i'}, nil, []byte("hi"), false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			value, rest, ok := readBytes(tc.in)
+			if ok != tc.wantOK || !reflect.DeepEqual(value, tc.wantValue) || !reflect.DeepEqual(rest, tc.wantRest) {
+				t.Fatalf("readBytes(%v) = %v, %v, %v; want %v, %v, %v",
+					tc.in, value, rest, ok, tc.wantValue, tc.wantRest, tc.wantOK)
+			}
+		})
+	}
+}

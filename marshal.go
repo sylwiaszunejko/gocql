@@ -1584,14 +1584,23 @@ func marshalTuple(info TypeInfo, value any) ([]byte, error) {
 	return nil, marshalErrorf("cannot marshal %T into %s", value, tuple)
 }
 
-func readBytes(p []byte) ([]byte, []byte) {
+// readBytes reads one [bytes] value off the front of p and returns it with the
+// rest of p. ok is false when p is too short for the 4-byte length, or for the
+// number of bytes that length declares.
+func readBytes(p []byte) (value, rest []byte, ok bool) {
 	// TODO: really should use a framer
-	size := readInt(p)
+	if len(p) < 4 {
+		return nil, p, false
+	}
+	size := int(readInt(p))
 	p = p[4:]
 	if size < 0 {
-		return nil, p
+		return nil, p, true
 	}
-	return p[:size], p[size:]
+	if size > len(p) {
+		return nil, p, false
+	}
+	return p[:size], p[size:], true
 }
 
 // currently only support unmarshal into a list of values, this makes it possible
@@ -1609,7 +1618,10 @@ func unmarshalTuple(info TypeInfo, data []byte, value any) error {
 			// each element inside data is a [bytes]
 			var p []byte
 			if len(data) >= 4 {
-				p, data = readBytes(data)
+				var ok bool
+				if p, data, ok = readBytes(data); !ok {
+					return unmarshalErrorf("can not unmarshal %s: element %d: unexpected eof", info, i)
+				}
 			}
 			err := Unmarshal(elem, p, v[i])
 			if err != nil {
@@ -1638,7 +1650,10 @@ func unmarshalTuple(info TypeInfo, data []byte, value any) error {
 		for i, elem := range tuple.Elems {
 			var p []byte
 			if len(data) >= 4 {
-				p, data = readBytes(data)
+				var ok bool
+				if p, data, ok = readBytes(data); !ok {
+					return unmarshalErrorf("can not unmarshal %s: element %d: unexpected eof", info, i)
+				}
 			}
 
 			v, err := elem.NewWithError()
@@ -1675,7 +1690,10 @@ func unmarshalTuple(info TypeInfo, data []byte, value any) error {
 		for i, elem := range tuple.Elems {
 			var p []byte
 			if len(data) >= 4 {
-				p, data = readBytes(data)
+				var ok bool
+				if p, data, ok = readBytes(data); !ok {
+					return unmarshalErrorf("can not unmarshal %s: element %d: unexpected eof", info, i)
+				}
 			}
 
 			v, err := elem.NewWithError()
@@ -1822,12 +1840,11 @@ func unmarshalUDT(info TypeInfo, data []byte, value any) error {
 			if len(data) == 0 {
 				return nil
 			}
-			if len(data) < 4 {
+			p, rest, ok := readBytes(data)
+			if !ok {
 				return unmarshalErrorf("can not unmarshal %s: field [%d]%s: unexpected eof", info, id, e.Name)
 			}
-
-			var p []byte
-			p, data = readBytes(data)
+			data = rest
 			if err := v.UnmarshalUDT(e.Name, e.Type, p); err != nil {
 				return err
 			}
@@ -1883,13 +1900,12 @@ func unmarshalUDT(info TypeInfo, data []byte, value any) error {
 		if len(data) == 0 {
 			return nil
 		}
-		if len(data) < 4 {
+		p, rest, ok := readBytes(data)
+		if !ok {
 			// UDT def does not match the column value
 			return unmarshalErrorf("can not unmarshal %s: field [%d]%s: unexpected eof", info, id, e.Name)
 		}
-
-		var p []byte
-		p, data = readBytes(data)
+		data = rest
 
 		f, ok := fields[e.Name]
 		if !ok {
@@ -1928,9 +1944,11 @@ func unmarshalUDTIntoMap(udt UDTTypeInfo, data []byte, dstMap *map[string]any) e
 		if len(data) == 0 {
 			return nil
 		}
-		if len(data) < 4 {
+		p, rest, ok := readBytes(data)
+		if !ok {
 			return unmarshalErrorf("can not unmarshal %s: field [%d]%s: unexpected eof", udt, id, e.Name)
 		}
+		data = rest
 
 		valType, err := goType(e.Type)
 		if err != nil {
@@ -1938,9 +1956,6 @@ func unmarshalUDTIntoMap(udt UDTTypeInfo, data []byte, dstMap *map[string]any) e
 		}
 
 		val := reflect.New(valType)
-
-		var p []byte
-		p, data = readBytes(data)
 
 		if err := Unmarshal(e.Type, p, val.Interface()); err != nil {
 			return err
