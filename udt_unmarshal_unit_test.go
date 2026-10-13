@@ -469,3 +469,60 @@ func TestReadBytes(t *testing.T) {
 		})
 	}
 }
+
+// Unexported fields are skipped, matched by tag or by name, as marshalUDT
+// skips them; reflection cannot set them and used to panic.
+func TestUnmarshalUDTSkipsUnexportedFields(t *testing.T) {
+	t.Parallel()
+
+	t.Run("ByTag", func(t *testing.T) {
+		t.Parallel()
+		var got struct {
+			a int    `cql:"a"`
+			B string `cql:"b"`
+		}
+		if err := Unmarshal(testUDTInfo(), udtFull, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.a != 0 || got.B != "hi" {
+			t.Fatalf("got %+v, want a untouched and B=hi", got)
+		}
+	})
+
+	// UDT field names are usually lower case, so an unexported Go field of the
+	// same name is matched by name.
+	t.Run("ByName", func(t *testing.T) {
+		t.Parallel()
+		var got struct {
+			a int
+			B string `cql:"b"`
+		}
+		if err := Unmarshal(testUDTInfo(), udtFull, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.a != 0 || got.B != "hi" {
+			t.Fatalf("got %+v, want a untouched and B=hi", got)
+		}
+	})
+
+	// Marshal skips the same fields, writing them as null, so a round trip
+	// leaves them at their zero value instead of failing either way.
+	t.Run("RoundTrip", func(t *testing.T) {
+		t.Parallel()
+		type withUnexported struct {
+			a int    `cql:"a"`
+			B string `cql:"b"`
+		}
+		data, err := Marshal(testUDTInfo(), withUnexported{a: 5, B: "hi"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got withUnexported
+		if err := Unmarshal(testUDTInfo(), data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got != (withUnexported{B: "hi"}) {
+			t.Fatalf("got %+v, want {a:0 B:hi}", got)
+		}
+	})
+}
