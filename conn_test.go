@@ -2032,12 +2032,23 @@ type TestServer struct {
 	// statements in process. It writes the whole response into resp and returns
 	// true, or returns false to fall through to them. Set it via setPrepareHook.
 	prepareHook testPrepareHook
+
+	// batchHook, when set, answers every BATCH: req is positioned at the start
+	// of the body and the hook writes the whole response into resp. Set it via
+	// setBatchHook. Without it BATCH gets the generic "not supported" error.
+	batchHook func(req *framer, stream int, resp *framer)
 }
 
 // testPrepareHook answers a PREPARE for query. writeResultMetadataID must be
 // called right after the prepared id, as the canned statements do; it is a no-op
 // unless the server advertised SCYLLA_USE_METADATA_ID.
 type testPrepareHook func(query string, stream int, resp *framer, writeResultMetadataID func(preparedID uint64)) bool
+
+func (srv *TestServer) setBatchHook(hook func(req *framer, stream int, resp *framer)) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.batchHook = hook
+}
 
 func (srv *TestServer) setPrepareHook(hook testPrepareHook) {
 	srv.mu.Lock()
@@ -2248,6 +2259,17 @@ func (srv *TestServer) process(conn net.Conn, reqFrame *framer, exts map[string]
 			respFrame.writeHeader(0, frm.OpResult, head.Stream)
 			respFrame.writeInt(frm.ResultKindVoid)
 		}
+	case frm.OpBatch:
+		srv.mu.Lock()
+		hook := srv.batchHook
+		srv.mu.Unlock()
+		if hook == nil {
+			respFrame.writeHeader(0, frm.OpError, head.Stream)
+			respFrame.writeInt(0)
+			respFrame.writeString("not supported")
+			break
+		}
+		hook(reqFrame, head.Stream, respFrame)
 	case frm.OpError:
 		respFrame.writeHeader(0, frm.OpError, head.Stream)
 		respFrame.buf = append(respFrame.buf, reqFrame.buf...)
