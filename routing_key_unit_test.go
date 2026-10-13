@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"net"
 	"slices"
 	"strings"
 	"sync"
@@ -179,8 +180,17 @@ type routingTestServer struct {
 
 func newRoutingTestServer(t *testing.T, proto uint8, prepared map[string]testPrepared) *routingTestServer {
 	t.Helper()
+	return newRoutingTestServerWithSupported(t, proto, prepared, nil)
+}
+
+func newRoutingTestServerWithSupported(t *testing.T, proto uint8, prepared map[string]testPrepared, supported map[string][]string) *routingTestServer {
+	t.Helper()
+	var factory testSupportedFactory
+	if supported != nil {
+		factory = func(net.Conn) map[string][]string { return supported }
+	}
 	srv := &routingTestServer{
-		TestServer: NewTestServer(t, proto, context.Background()),
+		TestServer: NewTestServerWithAddressAndSupportedFactory("127.0.0.1:0", t, proto, context.Background(), factory),
 		prepared:   prepared,
 		counts:     map[string]int{},
 	}
@@ -619,6 +629,33 @@ func TestQueryGetRoutingKey(t *testing.T) {
 	})
 }
 
+// Without the Scylla LWT_ADD_METADATA_MARK extension the server has no way to
+// mark a statement as LWT, so a plain INSERT must not be treated as one: that
+// would turn off replica shuffling and slow-replica avoidance in the token-aware
+// policy and stop DowngradingConsistencyRetryPolicy from downgrading.
+func TestRoutingKeyInfoNotLWTWithoutExtension(t *testing.T) {
+	t.Parallel()
+
+	srv := newRoutingTestServer(t, protoVersion4, routingPrepared)
+	s := srv.newSession(t)
+
+	info, err := s.routingKeyInfo(context.Background(), routingInsertGlobal, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.lwt {
+		t.Fatal("plain INSERT marked as LWT on a connection without the LWT extension")
+	}
+
+	q := s.Query(routingInsertGlobal, int32(1), "x", int32(3))
+	if _, err := q.GetRoutingKey(); err != nil {
+		t.Fatal(err)
+	}
+	if q.IsLWT() {
+		t.Fatal("Query.IsLWT() = true for a plain INSERT")
+	}
+}
+
 func TestBatchGetRoutingKey(t *testing.T) {
 	t.Parallel()
 
@@ -673,4 +710,42 @@ func TestBatchGetRoutingKey(t *testing.T) {
 			t.Fatal("expected the PREPARE error")
 		}
 	})
+}
+
+// With the extension negotiated, the bit it names marks exactly the LWT
+// statements.
+func TestRoutingKeyInfoLWTWithExtension(t *testing.T) {
+	t.Parallel()
+
+	const (
+		lwtBit = 1 << 31
+		stmt   = "INSERT INTO ks1.tbl1 (a, b, c) VALUES (?, ?, ?) IF NOT EXISTS"
+	)
+	prepared := map[string]testPrepared{
+		routingInsertGlobal: routingPrepared[routingInsertGlobal],
+	}
+	lwt := routingPrepared[routingInsertGlobal]
+	lwt.id, lwt.flags = 20, lwtBit
+	prepared[stmt] = lwt
+
+	srv := newRoutingTestServerWithSupported(t, protoVersion4, prepared, map[string][]string{
+		lwtAddMetadataMarkKey: {"LWT_OPTIMIZATION_META_BIT_MASK=2147483648"},
+	})
+	s := srv.newSession(t)
+
+	for _, tc := range []struct {
+		stmt string
+		want bool
+	}{
+		{routingInsertGlobal, false},
+		{stmt, true},
+	} {
+		info, err := s.routingKeyInfo(context.Background(), tc.stmt, "", 0)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.stmt, err)
+		}
+		if info.lwt != tc.want {
+			t.Fatalf("%s: lwt = %v, want %v", tc.stmt, info.lwt, tc.want)
+		}
+	}
 }
