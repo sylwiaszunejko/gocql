@@ -1917,6 +1917,12 @@ func unmarshalUDT(info TypeInfo, data []byte, value any) error {
 			}
 		}
 
+		// Unexported fields cannot be set through reflection; skip them as
+		// marshalUDT does rather than panicking in Addr().Interface().
+		if !f.CanInterface() {
+			continue
+		}
+
 		if !f.IsValid() || !f.CanAddr() {
 			return unmarshalErrorf("cannot unmarshal %s into %T: field %v is not valid", info, value, e.Name)
 		}
