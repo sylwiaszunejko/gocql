@@ -997,7 +997,9 @@ func (f *framer) parsePreparedMetadata() preparedMetadata {
 		meta.pkeyColumns = pkeys
 	}
 
-	meta.lwt = meta.flags&f.flagLWT == f.flagLWT
+	// flagLWT is 0 unless the server negotiated SCYLLA_LWT_ADD_METADATA_MARK, and
+	// flags&0 == 0 always holds, so without the guard every statement would be LWT.
+	meta.lwt = f.flagLWT != 0 && meta.flags&f.flagLWT == f.flagLWT
 
 	if meta.flags&frm.FlagHasMorePages == frm.FlagHasMorePages {
 		meta.pagingState = f.readBytesCopy()
